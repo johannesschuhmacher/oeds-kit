@@ -1,5 +1,5 @@
 name: oeds-deployment-compatibility
-version: "0.0.0-rc.0-local"
+version: "0.0.0-rc.0-gitlab"
 
 components:
   oeds-core:
@@ -16,16 +16,25 @@ components:
 
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
-    status: "local-release-candidate"
+    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-crawler-pack.git"
+    branch: "main"
+    commit: "24dda880d1ca0a58e592d0b31baa4fbeac7064bc"
+    status: "gitlab-initial"
     registry_priority: "before-oeds-core"
 
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
-    status: "local-release-candidate"
+    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-scheduler-ui.git"
+    branch: "main"
+    commit: "45c0b7a3524ce931c9e6421c10c84450c8a04217"
+    status: "gitlab-initial"
 
   oeds-post-scripts:
     path: "../oeds-post-scripts"
-    status: "local-release-candidate"
+    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-post-scripts.git"
+    branch: "main"
+    commit: "af40b678af67b784e17ed68f8e07f9243519006e"
+    status: "gitlab-initial"
     commands:
       - "oeds-post gapfill smard"
       - "oeds-post gapfill entsoe-fms"
@@ -38,7 +47,9 @@ components:
 
   oeds-deployment:
     path: "."
-    status: "local-release-candidate"
+    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git"
+    branch: "main"
+    status: "gitlab-initial"
     compose:
       baseline: "compose.yml"
       modular_overlay: "compose.modular.yml"
