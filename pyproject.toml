@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oeds-post-scripts"
+version = "0.0.0"
+description = "Post-run processing CLI for Open Energy Data Server."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "AGPL-3.0-or-later"
+dependencies = [
+    "pyyaml",
+]
+
+[project.scripts]
+oeds-post = "oeds_post_scripts.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
