@@ -1,0 +1,469 @@
+- name: OEDS database migration
+  hosts: oeds
+  become: true
+  vars:
+    oeds_root: /open_energy_data_server
+    oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_data_dir: "{{ oeds_root }}/docker_data"
+    oeds_live_pgdata_dir: "{{ oeds_data_dir }}/postgres-home"
+    oeds_source_container_name: open-data
+    oeds_source_db_name: opendata
+    oeds_source_db_user: opendata
+    oeds_target_image: timescale/timescaledb-ha:pg18.3-ts2.26.3-oss
+    oeds_target_container_name: open-data-migrate
+    oeds_target_db_port: 6543
+    oeds_target_admin_user: migrationadmin
+    oeds_target_admin_password: migrationadmin
+    oeds_backup_before_migration: true
+    oeds_apply_cutover: false
+    oeds_enable_crawlers_after_cutover: false
+    oeds_migration_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_backup_run_dir: "{{ oeds_root }}/backups/{{ oeds_migration_run_id }}"
+    oeds_migration_run_dir: "{{ oeds_root }}/migration/{{ oeds_migration_run_id }}"
+    oeds_migration_pgdata_dir: "{{ oeds_migration_run_dir }}/pgdata"
+    oeds_target_postgres_command:
+      - postgres
+      - -c
+      - max_connections=6000
+      - -c
+      - timescaledb.max_background_workers=32
+      - -c
+      - timescaledb.telemetry_level=off
+  tasks:
+    - name: Ensure migration directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ oeds_root }}/migration"
+        - "{{ oeds_migration_run_dir }}"
+        - "{{ oeds_migration_pgdata_dir }}"
+        - "{{ oeds_backup_run_dir }}"
+        - "{{ oeds_backup_run_dir }}/db"
+        - "{{ oeds_backup_run_dir }}/metadata"
+
+    - name: Check whether the source database container is running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - ps
+          - --filter
+          - "name=^/{{ oeds_source_container_name }}$"
+          - --filter
+          - status=running
+          - -q
+      register: oeds_migration_source_container
+      changed_when: false
+
+    - name: Fail when the source database container is not running
+      ansible.builtin.fail:
+        msg: "Container {{ oeds_source_container_name }} is not running."
+      when: (oeds_migration_source_container.stdout | trim) == ""
+
+    - name: Capture the current PostgreSQL major version
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT current_setting('server_version_num')::int / 10000;
+      register: oeds_migration_source_pg_major
+      changed_when: false
+
+    - name: Capture installed source database extensions
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT extname FROM pg_extension WHERE extname <> 'plpgsql' ORDER BY 1;
+      register: oeds_migration_source_extensions_raw
+      changed_when: false
+
+    - name: Build the list of extensions to recreate on the target
+      ansible.builtin.set_fact:
+        oeds_migration_source_extensions: >-
+          {{
+            oeds_migration_source_extensions_raw.stdout_lines
+            | map('trim')
+            | reject('equalto', '')
+            | list
+          }}
+
+    - name: Capture the source PostgreSQL version string
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT version();
+      register: oeds_migration_source_pg_version
+      changed_when: false
+
+    - name: Write migration source metadata
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/metadata/source_postgres_version.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ oeds_migration_source_pg_version.stdout | trim }}\n"
+
+    - name: Write migration source extension metadata
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/metadata/source_extensions.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ oeds_migration_source_extensions | join('\n') }}\n"
+
+    - name: Create the globals SQL backup for the migration run
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_source_container_name }}
+        pg_dumpall -U {{ oeds_source_db_user }} --globals-only
+        > {{ oeds_backup_run_dir }}/db/globals.sql
+      args:
+        executable: /bin/bash
+      when: oeds_backup_before_migration
+      changed_when: true
+
+    - name: Create the logical custom-format backup for the migration run
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_source_container_name }}
+        pg_dump -U {{ oeds_source_db_user }} -d {{ oeds_source_db_name }} -Fc
+        > {{ oeds_backup_run_dir }}/db/{{ oeds_source_db_name }}.bak
+      args:
+        executable: /bin/bash
+      when: oeds_backup_before_migration
+      changed_when: true
+
+    - name: Check whether the globals SQL backup exists
+      ansible.builtin.stat:
+        path: "{{ oeds_backup_run_dir }}/db/globals.sql"
+      register: oeds_migration_globals_backup
+
+    - name: Check whether the logical database backup exists
+      ansible.builtin.stat:
+        path: "{{ oeds_backup_run_dir }}/db/{{ oeds_source_db_name }}.bak"
+      register: oeds_migration_database_backup
+
+    - name: Fail when the migration backups are missing
+      ansible.builtin.fail:
+        msg: >-
+          Missing required migration backup artifacts in
+          {{ oeds_backup_run_dir }}/db. Run oeds-db-backup.yml first or set
+          oeds_backup_before_migration=true.
+      when:
+        - not oeds_migration_globals_backup.stat.exists or not oeds_migration_database_backup.stat.exists
+
+    - name: Remove any existing staging container
+      community.docker.docker_container:
+        name: "{{ oeds_target_container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: Start the staging PostgreSQL 18 container
+      community.docker.docker_container:
+        name: "{{ oeds_target_container_name }}"
+        image: "{{ oeds_target_image }}"
+        state: started
+        env:
+          POSTGRES_USER: "{{ oeds_target_admin_user }}"
+          POSTGRES_PASSWORD: "{{ oeds_target_admin_password }}"
+          POSTGRES_DB: postgres
+        command: "{{ oeds_target_postgres_command }}"
+        volumes:
+          - "{{ oeds_migration_pgdata_dir }}:/home/postgres/pgdata/data"
+          - "{{ oeds_backup_run_dir }}/db:/migration-backup:ro"
+        published_ports:
+          - "{{ oeds_target_db_port }}:5432"
+
+    - name: Wait until the staging PostgreSQL port is reachable
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ oeds_target_db_port }}"
+        timeout: 180
+
+    - name: Wait until the staging PostgreSQL server is ready
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - pg_isready
+          - -h
+          - 127.0.0.1
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - postgres
+      register: oeds_migration_target_ready
+      changed_when: false
+      retries: 20
+      delay: 10
+      until: oeds_migration_target_ready.rc == 0
+
+    - name: Restore global roles into the staging cluster
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -v
+          - ON_ERROR_STOP=1
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - postgres
+          - -f
+          - /migration-backup/globals.sql
+      changed_when: true
+
+    - name: Check whether the target application database already exists
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - postgres
+          - -tAc
+          - SELECT 1 FROM pg_database WHERE datname = '{{ oeds_source_db_name }}';
+      register: oeds_migration_target_db_exists
+      changed_when: false
+
+    - name: Create the target application database
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - createdb
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -O
+          - "{{ oeds_source_db_user }}"
+          - "{{ oeds_source_db_name }}"
+      when: (oeds_migration_target_db_exists.stdout | trim) != "1"
+      changed_when: true
+
+    - name: Create required extensions on the target database
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -v
+          - ON_ERROR_STOP=1
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -c
+          - "CREATE EXTENSION IF NOT EXISTS \"{{ item }}\";"
+      loop: "{{ oeds_migration_source_extensions }}"
+      changed_when: true
+
+    - name: Put TimescaleDB into pre-restore mode
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -v
+          - ON_ERROR_STOP=1
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -c
+          - SELECT timescaledb_pre_restore();
+      when: "'timescaledb' in oeds_migration_source_extensions"
+      changed_when: true
+
+    - name: Restore the logical custom-format backup into the target database
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - pg_restore
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - --no-owner
+          - "--role={{ oeds_source_db_user }}"
+          - /migration-backup/{{ oeds_source_db_name }}.bak
+      changed_when: true
+
+    - name: Put TimescaleDB into post-restore mode
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -v
+          - ON_ERROR_STOP=1
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -c
+          - SELECT timescaledb_post_restore();
+      when: "'timescaledb' in oeds_migration_source_extensions"
+      changed_when: true
+
+    - name: Analyze the restored target database
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -c
+          - ANALYZE;
+      changed_when: true
+
+    - name: Capture the target PostgreSQL version string
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT version();
+      register: oeds_migration_target_pg_version
+      changed_when: false
+
+    - name: Capture the target non-system table count
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_target_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_target_admin_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - >-
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema NOT IN ('pg_catalog', 'information_schema');
+      register: oeds_migration_target_table_count
+      changed_when: false
+
+    - name: Write the target migration metadata file
+      ansible.builtin.copy:
+        dest: "{{ oeds_migration_run_dir }}/migration_summary.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          source_pg_major={{ oeds_migration_source_pg_major.stdout | trim }}
+          target_version={{ oeds_migration_target_pg_version.stdout | trim }}
+          non_system_tables={{ oeds_migration_target_table_count.stdout | trim }}
+          staged_port={{ oeds_target_db_port }}
+          staged_container={{ oeds_target_container_name }}
+
+    - name: Stop the staging container before live cutover
+      community.docker.docker_container:
+        name: "{{ oeds_target_container_name }}"
+        state: absent
+        force_kill: true
+      when: oeds_apply_cutover
+
+    - name: Stop the live compose project before live cutover
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - down
+          - --remove-orphans
+      args:
+        chdir: "{{ oeds_repo_dir }}"
+      when: oeds_apply_cutover
+      changed_when: true
+
+    - name: Move the current live PostgreSQL data directory aside
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ oeds_live_pgdata_dir }}"
+          - "{{ oeds_backup_run_dir }}/postgres-home-pre-cutover"
+      when: oeds_apply_cutover
+      changed_when: true
+
+    - name: Move the staged PostgreSQL data directory into the live path
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ oeds_migration_pgdata_dir }}"
+          - "{{ oeds_live_pgdata_dir }}"
+      when: oeds_apply_cutover
+      changed_when: true
+
+    - name: Start the live compose project after cutover
+      ansible.builtin.command:
+        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_cutover | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
+      args:
+        chdir: "{{ oeds_repo_dir }}"
+      when: oeds_apply_cutover
+      changed_when: true
+
+    - name: Wait until the live PostgreSQL server is ready after cutover
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - open-data
+          - pg_isready
+          - -h
+          - 127.0.0.1
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+      register: oeds_migration_live_ready
+      changed_when: false
+      retries: 20
+      delay: 10
+      until: oeds_migration_live_ready.rc == 0
+      when: oeds_apply_cutover

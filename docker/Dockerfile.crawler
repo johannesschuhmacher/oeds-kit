@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+FROM python:3.14.4-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0 \
+    OEDS_POST_REPO_ROOT=/app \
+    PYTHONPATH=/app \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        libeccodes-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml uv.lock .python-version ./
+
+RUN uv sync --locked --no-dev --no-install-project --group price-forecast
+
+COPY crawler ./crawler
+COPY crawler_core ./crawler_core
+COPY crawler_admin ./crawler_admin
+COPY config ./config
+COPY modular_repos/docs ./modular_repos/docs
+COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
+COPY modular_repos/modules/oeds-post-scripts/src/oeds_post_scripts ./oeds_post_scripts
+COPY modular_repos/modules/oeds-scheduler-ui/src/oeds_scheduler_ui ./oeds_scheduler_ui
+COPY oeds_gapfill ./oeds_gapfill
+COPY oeds_dispatch_layers ./oeds_dispatch_layers
+COPY oeds_price_forecast ./oeds_price_forecast
+COPY scripts ./scripts
+COPY crawler_scheduler.py ./crawler_scheduler.py
+COPY crawler_admin_server.py ./crawler_admin_server.py
+COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
+
+RUN printf '%s\n' '#!/usr/bin/env sh' 'exec python -m oeds_post_scripts.cli "$@"' > /usr/local/bin/oeds-post && \
+    printf '%s\n' '#!/usr/bin/env sh' 'exec python -m oeds_scheduler_ui.cli "$@"' > /usr/local/bin/oeds-scheduler && \
+    printf '%s\n' '#!/usr/bin/env sh' 'exec python crawler_admin_server.py "$@"' > /usr/local/bin/oeds-crawler-admin && \
+    chmod +x /usr/local/bin/oeds-post /usr/local/bin/oeds-scheduler /usr/local/bin/oeds-crawler-admin
+
+RUN useradd --create-home --shell /bin/bash oeds && \
+    mkdir -p /app/logs /var/lib/oeds-admin && \
+    chown -R oeds:oeds /app /var/lib/oeds-admin
+
+USER oeds
+
+CMD ["python", "crawler_scheduler.py"]

@@ -1,0 +1,92 @@
+- name: OEDS database rollback
+  hosts: oeds
+  become: true
+  vars:
+    oeds_root: /open_energy_data_server
+    oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_data_dir: "{{ oeds_root }}/docker_data"
+    oeds_live_pgdata_dir: "{{ oeds_data_dir }}/postgres-home"
+    oeds_db_user: opendata
+    oeds_db_name: opendata
+    oeds_enable_crawlers_after_rollback: false
+    oeds_rollback_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_rollback_backup_dir: "{{ oeds_root }}/backups/rollback-{{ oeds_rollback_run_id }}"
+    oeds_rollback_source_dir: ""
+  tasks:
+    - name: Fail when no rollback source directory was provided
+      ansible.builtin.fail:
+        msg: >-
+          Set oeds_rollback_source_dir to the PostgreSQL data directory that
+          should become live again.
+      when: (oeds_rollback_source_dir | trim) == ""
+
+    - name: Check whether the rollback source directory exists
+      ansible.builtin.stat:
+        path: "{{ oeds_rollback_source_dir }}"
+      register: oeds_rollback_source
+
+    - name: Fail when the rollback source directory does not exist
+      ansible.builtin.fail:
+        msg: "Rollback source directory {{ oeds_rollback_source_dir }} does not exist."
+      when: not oeds_rollback_source.stat.exists
+
+    - name: Ensure the rollback backup directory exists
+      ansible.builtin.file:
+        path: "{{ oeds_rollback_backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Stop the live compose project before rollback
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - down
+          - --remove-orphans
+      args:
+        chdir: "{{ oeds_repo_dir }}"
+      changed_when: true
+
+    - name: Move the current live PostgreSQL data directory aside
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ oeds_live_pgdata_dir }}"
+          - "{{ oeds_rollback_backup_dir }}/postgres-home-pre-rollback"
+      changed_when: true
+
+    - name: Move the requested rollback source into the live path
+      ansible.builtin.command:
+        argv:
+          - mv
+          - "{{ oeds_rollback_source_dir }}"
+          - "{{ oeds_live_pgdata_dir }}"
+      changed_when: true
+
+    - name: Start the live compose project after rollback
+      ansible.builtin.command:
+        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_rollback | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
+      args:
+        chdir: "{{ oeds_repo_dir }}"
+      changed_when: true
+
+    - name: Wait until the live PostgreSQL server is ready after rollback
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - open-data
+          - pg_isready
+          - -h
+          - 127.0.0.1
+          - -U
+          - "{{ oeds_db_user }}"
+          - -d
+          - "{{ oeds_db_name }}"
+      register: oeds_rollback_live_ready
+      changed_when: false
+      retries: 20
+      delay: 10
+      until: oeds_rollback_live_ready.rc == 0

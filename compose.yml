@@ -1,0 +1,182 @@
+networks:
+  netlocalhost:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+
+# Warning: the fallback credentials in this public Compose file are intentionally
+# insecure. They only exist for isolated local, internal, or disposable test
+# systems. Do not expose an OEDS host that still uses these defaults on a
+# shared or public network.
+
+x-oeds-python-environment: &oeds-python-environment
+  OEDS_DB_HOST: open-data
+  OEDS_DB_PORT: "5432"
+  OEDS_DB_PASSWORD: ${OEDS_DB_PASSWORD:-opendata}
+  OEDS_PRICE_FORECAST_BACKEND: ${OEDS_PRICE_FORECAST_BACKEND:-auto}
+  OEDS_PRICE_FORECAST_MARKET_AREA: ${OEDS_PRICE_FORECAST_MARKET_AREA:-DE_LU}
+  OEDS_PRICE_FORECAST_TRAIN_DAYS: ${OEDS_PRICE_FORECAST_TRAIN_DAYS:-56}
+  OEDS_PRICE_FORECAST_BACKTEST_DAYS: ${OEDS_PRICE_FORECAST_BACKTEST_DAYS:-2}
+  OEDS_PRICE_FORECAST_RETENTION_DAYS: ${OEDS_PRICE_FORECAST_RETENTION_DAYS:-180}
+
+x-oeds-python-service: &oeds-python-service
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.crawler
+  restart: unless-stopped
+  working_dir: /app
+  environment:
+    <<: *oeds-python-environment
+  env_file:
+    - ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+  volumes:
+    - type: bind
+      source: ${OEDS_RUNTIME_DIR:-.}/CRAWLER_CONFIG.yml
+      target: /app/CRAWLER_CONFIG.yml
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OEDS_RUNTIME_DIR:-.}/crawler/data
+      target: /app/crawler/data
+      bind:
+        create_host_path: false
+    - ${OEDS_RUNTIME_DIR:-.}/logs:/app/logs
+  networks:
+    - netlocalhost
+  depends_on:
+    open-data:
+      condition: service_healthy
+
+volumes:
+  postgres-home:
+    name: postgres-home
+  pgadmin-varlib:
+    name: pgadmin-varlib
+  grafana-varlib:
+    name: grafana-varlib
+
+services:
+  open-data:
+    image: timescale/timescaledb-ha:pg18.3-ts2.26.3-oss
+    container_name: open-data
+    restart: always
+    shm_size: 32g
+    command: postgres -c 'max_connections=6000' -c 'timescaledb.max_background_workers=32' -c 'timescaledb.telemetry_level=off'
+    environment:
+      POSTGRES_USER: opendata
+      POSTGRES_PASSWORD: ${OEDS_DB_PASSWORD:-opendata}
+      POSTGRES_DB: opendata
+    volumes:
+      - postgres-home:/home/postgres/pgdata/data
+      - ./docker/initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
+      - ./docker/initdb/10-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - ./scripts/lib/postgres_functions.sql:/docker-entrypoint-initdb.d/postgres_functions.sql:ro
+    networks:
+      - netlocalhost
+    ports:
+      - "${OEDS_POSTGRES_PORT:-6432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U opendata -d opendata || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  pgadmin:
+    image: dpage/pgadmin4:9.14
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.admin
+      PGADMIN_DEFAULT_PASSWORD: ${OEDS_PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_LISTEN_PORT: 80
+      PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin-etc/servers.json
+    volumes:
+      - pgadmin-varlib:/var/lib/pgadmin
+      - ./data/provisioning/pgadmin/servers.json:/pgadmin-etc/servers.json:ro
+    networks:
+      - netlocalhost
+    ports:
+      - "${OEDS_PGADMIN_HTTP_PORT:-8080}:80"
+      - "${OEDS_PGADMIN_HTTPS_PORT:-8443}:443"
+    depends_on:
+      open-data:
+        condition: service_healthy
+
+  open-postgrest:
+    image: postgrest/postgrest:v14.10
+    container_name: postgrest
+    restart: always
+    environment:
+      PGRST_DB_URI: "host=open-data port=5432 dbname=opendata user=readonly password=${OEDS_READONLY_PASSWORD:-readonly}"
+      PGRST_DB_ANON_ROLE: readonly
+      PGRST_DB_AGGREGATES_ENABLED: "true"
+    networks:
+      - netlocalhost
+    ports:
+      - "${OEDS_POSTGREST_PORT:-3001}:3000"
+    depends_on:
+      open-data:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana-oss:13.0.1
+    container_name: grafana
+    restart: always
+    depends_on:
+      open-data:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_GEOMAP_DEFAULT_BASELAYER_CONFIG: '{"type":"carto","config":{"theme":"auto","showLabels":true}}'
+      GF_PLUGINS_PREINSTALL: "marcusolsson-dynamictext-panel,orchestracities-map-panel"
+      GF_SECURITY_ADMIN_USER: opendata
+      GF_SECURITY_ADMIN_PASSWORD: ${OEDS_GRAFANA_ADMIN_PASSWORD:-opendata}
+      OEDS_READONLY_PASSWORD: ${OEDS_READONLY_PASSWORD:-readonly}
+    volumes:
+      - grafana-varlib:/var/lib/grafana
+      - ./data/provisioning/grafana/dashboardproviders:/etc/grafana/provisioning/dashboards:ro
+      - ./data/provisioning/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./data/provisioning/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - netlocalhost
+    ports:
+      - "${OEDS_GRAFANA_PORT:-3006}:3000"
+
+  scheduler:
+    <<: *oeds-python-service
+    container_name: oeds-scheduler
+    profiles:
+      - crawlers
+    command: ["python", "crawler_scheduler.py"]
+
+  crawler-admin:
+    <<: *oeds-python-service
+    container_name: oeds-crawler-admin
+    profiles:
+      - crawlers
+    # The admin UI must update the bind-mounted runtime config on the host.
+    user: "0:0"
+    command: ["python", "crawler_admin_server.py"]
+    environment:
+      <<: *oeds-python-environment
+      OEDS_ADMIN_HOST: 0.0.0.0
+      OEDS_ADMIN_PORT: "3010"
+      OEDS_ADMIN_STATE_DIR: /var/lib/oeds-admin
+    volumes:
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-.}/CRAWLER_CONFIG.yml
+        target: /app/CRAWLER_CONFIG.yml
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-.}/crawler/data
+        target: /app/crawler/data
+        bind:
+          create_host_path: false
+      - ${OEDS_RUNTIME_DIR:-.}/logs:/app/logs
+      - ${OEDS_RUNTIME_DIR:-.}/crawler_admin_state:/var/lib/oeds-admin
+    ports:
+      - "${OEDS_CRAWLER_ADMIN_PORT:-3010}:3010"

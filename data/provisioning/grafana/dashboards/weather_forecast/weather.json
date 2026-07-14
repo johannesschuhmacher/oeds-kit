@@ -1,0 +1,565 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "11.3.1"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "11.3.1"
+    },
+    {
+      "type": "panel",
+      "id": "geomap",
+      "name": "Geomap",
+      "version": "11.3.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "11.3.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Current Temperature",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH nearest AS (SELECT forecast_time, temperature_2m_c FROM weather.latest_hourly_forecast WHERE location_id = '$Location' ORDER BY ABS(EXTRACT(EPOCH FROM (forecast_time - now()))) LIMIT 1) SELECT forecast_time AS time, temperature_2m_c AS value FROM nearest"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "orange", "value": 25 },
+              { "color": "red", "value": 32 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Peak Wind Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, MAX(wind_speed_80m_ms) AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocityms",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "red", "value": 18 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Peak Solar Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, MAX(shortwave_radiation_wm2) AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Wm2",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "dark-blue", "value": null },
+              { "color": "yellow", "value": 250 },
+              { "color": "orange", "value": 500 },
+              { "color": "red", "value": 750 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Rain Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, SUM(precipitation_mm) AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mm",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "orange", "value": 10 },
+              { "color": "red", "value": 25 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "geomap",
+      "title": "Country Snapshot",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH snapshot AS (SELECT COALESCE(MIN(CASE WHEN forecast_time >= now() - interval '1 hour' THEN forecast_time END), MAX(forecast_time)) AS forecast_time FROM weather.latest_hourly_forecast WHERE country_code = '$Country_Code') SELECT 0 AS time, latitude, longitude, location_name AS name, temperature_2m_c, wind_speed_10m_ms, wind_speed_80m_ms, shortwave_radiation_wm2, weather_label FROM weather.latest_hourly_forecast WHERE country_code = '$Country_Code' AND forecast_time = (SELECT forecast_time FROM snapshot) ORDER BY location_name"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "continuous-BlYlRd" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "wind_speed_10m_ms" },
+            "properties": [
+              { "id": "unit", "value": "velocityms" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "wind_speed_80m_ms" },
+            "properties": [
+              { "id": "unit", "value": "velocityms" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "shortwave_radiation_wm2" },
+            "properties": [
+              { "id": "unit", "value": "Wm2" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "temperature_2m_c" },
+            "properties": [
+              { "id": "unit", "value": "celsius" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "basemap": { "type": "default", "name": "Layer 0" },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Weather",
+            "filterData": { "id": "byRefId", "options": "A" },
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "tooltip": true,
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": { "field": "temperature_2m_c" },
+                "opacity": 0.7,
+                "size": { "fixed": 9, "min": 4, "max": 14 },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "text": { "field": "name", "fixed": "", "mode": "fixed" },
+                "textConfig": {
+                  "fontSize": 11,
+                  "offsetX": 0,
+                  "offsetY": -12,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": { "mode": "details" },
+        "view": { "id": "europe", "lat": 51, "lon": 10, "zoom": 4 }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Temperature Track",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT forecast_time AS time, 'Temperature' AS metric, temperature_2m_c AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT forecast_time AS time, 'Apparent' AS metric, apparent_temperature_c AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Wind Layers",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT forecast_time AS time, 'Wind 10m' AS metric, wind_speed_10m_ms AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT forecast_time AS time, 'Wind 80m' AS metric, wind_speed_80m_ms AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT forecast_time AS time, 'Gusts 10m' AS metric, wind_gusts_10m_ms AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "velocityms",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Radiation And Cloud Cover",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT forecast_time AS time, 'Shortwave Radiation' AS metric, shortwave_radiation_wm2 AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT forecast_time AS time, 'Cloud Cover' AS metric, cloud_cover_pct AS value FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Wm2",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 16,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Cloud Cover" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "percent" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Next 24h Detail",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT forecast_time, weather_label, ROUND(temperature_2m_c::numeric, 1) AS temperature_c, ROUND(precipitation_mm::numeric, 2) AS precipitation_mm, ROUND(wind_speed_80m_ms::numeric, 1) AS wind_80m_ms, ROUND(shortwave_radiation_wm2::numeric, 0) AS shortwave_radiation_wm2 FROM weather.latest_hourly_forecast WHERE location_id = '$Location' AND forecast_time BETWEEN now() AND now() + interval '24 hours' ORDER BY forecast_time"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": ["sum"]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["weather", "forecast", "dwd"],
+  "templating": {
+    "list": [
+      {
+        "name": "Country_Code",
+        "label": "Country",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "SELECT DISTINCT country_code FROM weather.locations WHERE enabled = TRUE ORDER BY 1",
+        "definition": "SELECT DISTINCT country_code FROM weather.locations WHERE enabled = TRUE ORDER BY 1",
+        "current": {
+          "text": "DE",
+          "value": "DE"
+        }
+      },
+      {
+        "name": "Location",
+        "label": "Location",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "SELECT name AS __text, location_id AS __value FROM weather.locations WHERE enabled = TRUE AND country_code = '$Country_Code' ORDER BY aggregation_weight DESC, name",
+        "definition": "SELECT name AS __text, location_id AS __value FROM weather.locations WHERE enabled = TRUE AND country_code = '$Country_Code' ORDER BY aggregation_weight DESC, name",
+        "current": {
+          "text": "Berlin",
+          "value": "berlin"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-12h",
+    "to": "now+72h"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Weather Dashboard",
+  "uid": "weather-dashboard",
+  "version": 1,
+  "weekStart": ""
+}

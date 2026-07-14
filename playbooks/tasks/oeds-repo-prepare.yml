@@ -1,0 +1,179 @@
+- name: Validate repo source mode
+  ansible.builtin.assert:
+    that:
+      - oeds_repo_source_mode_effective in ["git", "local_archive", "local_worktree"]
+    fail_msg: >-
+      Unsupported oeds_repo_source_mode '{{ oeds_repo_source_mode_effective }}'.
+      Use 'git', 'local_archive', or 'local_worktree'.
+
+- name: Validate local archive source path
+  ansible.builtin.assert:
+    that:
+      - oeds_repo_local_src_effective | length > 0
+    fail_msg: >-
+      oeds_repo_local_src must point to a local OEDS checkout when using
+      local archive or worktree deployment modes.
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Verify local worktree source exists
+  ansible.builtin.stat:
+    path: "{{ oeds_repo_local_src_effective }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: oeds_repo_local_src_stat
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Validate local worktree source directory
+  ansible.builtin.assert:
+    that:
+      - oeds_repo_local_src_stat.stat.exists
+      - oeds_repo_local_src_stat.stat.isdir
+    fail_msg: "oeds_repo_local_src must be an existing directory on the control node."
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Verify local archive source is a git checkout
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ oeds_repo_local_src_effective }}"
+      - rev-parse
+      - --is-inside-work-tree
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  when: oeds_repo_source_mode_effective == "local_archive"
+
+- name: Verify requested ref exists in local archive source
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ oeds_repo_local_src_effective }}"
+      - rev-parse
+      - --verify
+      - "{{ oeds_repo_version_effective }}^{commit}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  when: oeds_repo_source_mode_effective == "local_archive"
+
+- name: Create temporary archive path on control node
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .tar
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: oeds_repo_archive
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Build repo archive on control node
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ oeds_repo_local_src_effective }}"
+      - archive
+      - --format=tar
+      - --prefix=repo/
+      - --output
+      - "{{ oeds_repo_archive.path }}"
+      - "{{ oeds_repo_version_effective }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: oeds_repo_source_mode_effective == "local_archive"
+
+- name: Build current worktree archive on control node
+  ansible.builtin.command:
+    argv:
+      - tar
+      - --exclude-vcs
+      - --exclude=__pycache__
+      - --exclude=*.pyc
+      - --exclude=.venv
+      - --exclude=venv
+      - --exclude=.mypy_cache
+      - --exclude=.ruff_cache
+      - --exclude=logs
+      - --exclude=runtime
+      - --exclude=docker_data
+      - --exclude=crawler_admin_state
+      - --exclude=.tmp
+      - --transform=s,^,repo/,
+      - -cf
+      - "{{ oeds_repo_archive.path }}"
+      - .
+    chdir: "{{ oeds_repo_local_src_effective }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: oeds_repo_source_mode_effective == "local_worktree"
+
+- name: Make repo archive readable by the unarchive action
+  ansible.builtin.file:
+    path: "{{ oeds_repo_archive.path }}"
+    mode: "0644"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when:
+    - oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+    - oeds_repo_archive is defined
+
+- name: Verify target host can access git source without prompting
+  ansible.builtin.command:
+    argv:
+      - git
+      - ls-remote
+      - --exit-code
+      - "{{ oeds_repo_url_effective }}"
+      - "{{ oeds_repo_version_effective }}"
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GIT_ASKPASS: /bin/false
+  changed_when: false
+  when: oeds_repo_source_mode_effective == "git"
+
+- name: Check whether the repo path contains git metadata
+  ansible.builtin.stat:
+    path: "{{ oeds_repo_dir_effective }}/.git"
+  register: oeds_repo_git_metadata
+  when:
+    - oeds_repo_source_mode_effective == "git"
+    - oeds_repo_stat.stat.exists
+    - oeds_repo_stat.stat.isdir
+
+- name: Check repo working tree before git update
+  ansible.builtin.command:
+    argv:
+      - git
+      - status
+      - --porcelain
+  args:
+    chdir: "{{ oeds_repo_dir_effective }}"
+  register: oeds_repo_dirty_state
+  changed_when: false
+  when:
+    - oeds_repo_source_mode_effective == "git"
+    - oeds_repo_stat.stat.exists
+    - oeds_repo_stat.stat.isdir
+    - oeds_repo_git_metadata.stat.exists | default(false)
+
+- name: Block updates from a dirty repo checkout
+  ansible.builtin.fail:
+    msg: >-
+      Local modifications exist in {{ oeds_repo_dir_effective }}. Clean or back up
+      the checkout before running the update, or use
+      oeds_repo_source_mode=local_archive/local_worktree to deploy directly from
+      the control node.
+  when:
+    - oeds_repo_source_mode_effective == "git"
+    - oeds_repo_stat.stat.exists
+    - oeds_repo_stat.stat.isdir
+    - oeds_repo_git_metadata.stat.exists | default(false)
+    - (oeds_repo_dirty_state.stdout | trim) != ""

@@ -1,0 +1,191 @@
+- name: OEDS database backup
+  hosts: oeds
+  become: true
+  vars:
+    oeds_root: /open_energy_data_server
+    oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_runtime_dir: "{{ oeds_root }}/runtime"
+    oeds_source_container_name: open-data
+    oeds_source_db_name: opendata
+    oeds_source_db_user: opendata
+    oeds_backup_include_runtime: true
+    oeds_backup_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_backup_run_dir: "{{ oeds_root }}/backups/{{ oeds_backup_run_id }}"
+  tasks:
+    - name: Ensure backup directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ oeds_backup_run_dir }}"
+        - "{{ oeds_backup_run_dir }}/db"
+        - "{{ oeds_backup_run_dir }}/metadata"
+        - "{{ oeds_backup_run_dir }}/runtime"
+        - "{{ oeds_backup_run_dir }}/runtime/crawler"
+
+    - name: Check whether the source database container is running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - ps
+          - --filter
+          - "name=^/{{ oeds_source_container_name }}$"
+          - --filter
+          - status=running
+          - -q
+      register: oeds_backup_source_container
+      changed_when: false
+
+    - name: Fail when the source database container is not running
+      ansible.builtin.fail:
+        msg: "Container {{ oeds_source_container_name }} is not running."
+      when: (oeds_backup_source_container.stdout | trim) == ""
+
+    - name: Capture the current repository revision
+      ansible.builtin.command:
+        argv:
+          - git
+          - -C
+          - "{{ oeds_repo_dir }}"
+          - rev-parse
+          - HEAD
+      register: oeds_backup_repo_revision
+      changed_when: false
+      failed_when: false
+
+    - name: Write the repository revision metadata file
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/metadata/repo_revision.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ (oeds_backup_repo_revision.rc == 0) | ternary(oeds_backup_repo_revision.stdout ~ '\n', 'unknown\n') }}"
+
+    - name: Capture the PostgreSQL version string
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT version();
+      register: oeds_backup_pg_version
+      changed_when: false
+
+    - name: Write the PostgreSQL version metadata file
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/metadata/postgres_version.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ oeds_backup_pg_version.stdout | trim }}\n"
+
+    - name: Capture installed database extensions
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT extname || ':' || extversion FROM pg_extension ORDER BY 1;
+      register: oeds_backup_extensions
+      changed_when: false
+
+    - name: Write the extension metadata file
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/metadata/extensions.txt"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ oeds_backup_extensions.stdout | trim }}\n"
+
+    - name: Capture the current compose environment file when it exists
+      ansible.builtin.stat:
+        path: "{{ oeds_repo_dir }}/.env"
+      register: oeds_backup_compose_env
+
+    - name: Copy the compose environment file into the backup
+      ansible.builtin.copy:
+        src: "{{ oeds_repo_dir }}/.env"
+        dest: "{{ oeds_backup_run_dir }}/metadata/compose.env"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      when: oeds_backup_compose_env.stat.exists
+
+    - name: Copy the active compose file into the backup
+      ansible.builtin.copy:
+        src: "{{ oeds_repo_dir }}/compose.yml"
+        dest: "{{ oeds_backup_run_dir }}/metadata/compose.yml"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Check whether the runtime crawler config exists
+      ansible.builtin.stat:
+        path: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
+      register: oeds_backup_runtime_config
+      when: oeds_backup_include_runtime
+
+    - name: Copy the runtime crawler config into the backup
+      ansible.builtin.copy:
+        src: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
+        dest: "{{ oeds_backup_run_dir }}/runtime/CRAWLER_CONFIG.yml"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      when:
+        - oeds_backup_include_runtime
+        - oeds_backup_runtime_config.stat.exists
+
+    - name: Check whether the runtime crawler environment file exists
+      ansible.builtin.stat:
+        path: "{{ oeds_runtime_dir }}/crawler/.env"
+      register: oeds_backup_runtime_env
+      when: oeds_backup_include_runtime
+
+    - name: Copy the runtime crawler environment file into the backup
+      ansible.builtin.copy:
+        src: "{{ oeds_runtime_dir }}/crawler/.env"
+        dest: "{{ oeds_backup_run_dir }}/runtime/crawler/.env"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when:
+        - oeds_backup_include_runtime
+        - oeds_backup_runtime_env.stat.exists
+
+    - name: Create the globals SQL backup
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_source_container_name }}
+        pg_dumpall -U {{ oeds_source_db_user }} --globals-only
+        > {{ oeds_backup_run_dir }}/db/globals.sql
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Create the logical custom-format database backup
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_source_container_name }}
+        pg_dump -U {{ oeds_source_db_user }} -d {{ oeds_source_db_name }} -Fc
+        > {{ oeds_backup_run_dir }}/db/{{ oeds_source_db_name }}.bak
+      args:
+        executable: /bin/bash
+      changed_when: true

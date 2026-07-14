@@ -1,0 +1,598 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": 69,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 36,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "megwatt"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "Pumpspeicher"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "hideTimeOverride": false,
+      "id": 2,
+      "interval": "15m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "country",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(\"timestamp\",$__interval),\n  \"commodity_name\" AS metric,\n  avg(\"mwh\"*4) AS \"mwh\"\nFROM\n  smard.smard\nWHERE\n  $__timeFilter(\"timestamp\")\nGROUP BY 1,2\nORDER BY 1,2",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "biomass"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_hard_coal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "geothermal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "nuclear"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_brown_coal/lignite\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_coal-derived_gas\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"hydro_run-of-river_and_poundage\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "waste"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "solar"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_offshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_onshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "other_renewable"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "hydro_water_reservoir"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_gas"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "query_generation",
+          "timeColumn": "index",
+          "timeColumnType": "timestamp",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            },
+            {
+              "datatype": "text",
+              "name": "",
+              "params": [
+                "country",
+                "=",
+                "'$country'"
+              ],
+              "type": "expression"
+            }
+          ]
+        }
+      ],
+      "title": "Stromerzeugung SMARD (average over ${__interval})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 36,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "megwatt"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "storage"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "hideTimeOverride": false,
+      "id": 3,
+      "interval": "15m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "country",
+          "rawQuery": true,
+          "rawSql": "WITH generation AS (\n  SELECT\n    \"DateTime(UTC)\" AS ts,\n    sum(CASE WHEN \"ProductionType\" = 'Biomass' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS biomass,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Hard coal' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_hard_coal,\n    sum(CASE WHEN \"ProductionType\" = 'Geothermal' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS geothermal,\n    sum(CASE WHEN \"ProductionType\" = 'Nuclear' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS nuclear,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Brown coal/Lignite' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_brown_coal/lignite\",\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Coal-derived gas' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_coal-derived_gas\",\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Run-of-river and poundage' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"hydro_run-of-river_and_poundage\",\n    sum(CASE WHEN \"ProductionType\" = 'Waste' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS waste,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Pumped Storage' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_pumped_storage,\n    sum(CASE WHEN \"ProductionType\" = 'Solar' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS solar,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Offshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_offshore,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Onshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_onshore,\n    sum(CASE WHEN \"ProductionType\" = 'Other renewable' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS other_renewable,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Water Reservoir' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_water_reservoir,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Gas' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_gas\n  FROM entsoe_fms.\"AggregatedGenerationPerType\"\n  WHERE\n    $__timeFilter(\"DateTime(UTC)\") AND\n    \"AreaDisplayName\" = 'DE-LU'\n  GROUP BY 1\n)\nSELECT\n  $__timeGroupAlias(ts,$__interval),\n  avg(biomass) as biomass,\n  avg(fossil_hard_coal) as fossil_hard_coal,\n  avg(geothermal) as geothermal,\n  avg(nuclear) as nuclear,\n  avg(\"fossil_brown_coal/lignite\") as \"fossil_brown_coal/lignite\",\n  avg(\"fossil_coal-derived_gas\") as \"fossil_coal-derived_gas\",\n  avg(\"hydro_run-of-river_and_poundage\") as \"hydro_run-of-river_and_poundage\",\n  avg(waste) as waste,\n  avg(hydro_pumped_storage) as storage,\n  avg(solar) as solar,\n  avg(wind_offshore) as wind_offshore,\n  avg(wind_onshore) as wind_onshore,\n  avg(other_renewable) as other_renewable,\n  avg(hydro_water_reservoir) as hydro_water_reservoir,\n  avg(fossil_gas) as fossil_gas\nFROM generation\ngroup by 1\nORDER BY 1,2\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "biomass"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_hard_coal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "geothermal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "nuclear"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_brown_coal/lignite\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_coal-derived_gas\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"hydro_run-of-river_and_poundage\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "waste"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "solar"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_offshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_onshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "other_renewable"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "hydro_water_reservoir"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_gas"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "query_generation",
+          "timeColumn": "index",
+          "timeColumnType": "timestamp",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            },
+            {
+              "datatype": "text",
+              "name": "",
+              "params": [
+                "country",
+                "=",
+                "'$country'"
+              ],
+              "type": "expression"
+            }
+          ]
+        }
+      ],
+      "title": "Stromerzeugung ENTSO-E DE-LU (average over ${__interval})",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 39,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "smard",
+  "uid": "d7e44e51-6f7f-4316-b9fb-1bb32c03fa18",
+  "version": 1,
+  "weekStart": ""
+}

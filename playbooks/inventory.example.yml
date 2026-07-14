@@ -1,0 +1,18 @@
+---
+all:
+  children:
+    oeds:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_become: true
+          ansible_become_method: sudo
+          ansible_python_interpreter: /usr/bin/python3
+          # For a remote host, replace the localhost defaults above with:
+          # ansible_host: your-server.example.org
+          # ansible_user: your-ssh-user
+          # ansible_become: true
+          # ansible_become_method: sudo
+          # Optional per-host rotation labels:
+          # oeds_rotation_deployment_name: intern-test
+          # oeds_rotation_access_host: iip-vm-oeds-intern-test.iip.kit.edu

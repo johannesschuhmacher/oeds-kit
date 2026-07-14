@@ -1,0 +1,11 @@
+---
+- import_playbook: oeds-packages.yml
+
+- import_playbook: oeds-docker-config.yml
+  vars:
+    oeds_enable_crawlers: false
+
+- import_playbook: oeds-smoke-test.yml
+  vars:
+    oeds_expect_crawler_admin: false
+

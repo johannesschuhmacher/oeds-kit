@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: OEDS Contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+FROM python:3.14.4-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0 \
+    OEDS_POST_REPO_ROOT=/app \
+    PYTHONPATH=/app \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        libeccodes-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml uv.lock .python-version ./
+
+RUN uv sync --locked --no-dev --no-install-project --group price-forecast
+
+COPY crawler ./crawler
+COPY crawler_core ./crawler_core
+COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
+
+COPY modular_repos/docs ./modular_repos/docs
+COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
+COPY modular_repos/modules/oeds-crawler-pack /opt/oeds/modules/oeds-crawler-pack
+COPY modular_repos/modules/oeds-scheduler-ui /opt/oeds/modules/oeds-scheduler-ui
+COPY modular_repos/modules/oeds-post-scripts /opt/oeds/modules/oeds-post-scripts
+
+COPY modular_repos/modules/oeds-post-scripts/scripts ./scripts
+COPY modular_repos/modules/oeds-post-scripts/oeds_gapfill ./oeds_gapfill
+COPY modular_repos/modules/oeds-post-scripts/oeds_price_forecast ./oeds_price_forecast
+
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
+        -e /opt/oeds/modules/oeds-crawler-pack \
+        -e /opt/oeds/modules/oeds-scheduler-ui \
+        -e /opt/oeds/modules/oeds-post-scripts
+
+RUN useradd --create-home --shell /bin/bash oeds && \
+    mkdir -p /app/logs /var/lib/oeds-admin && \
+    chown -R oeds:oeds /app /var/lib/oeds-admin /opt/oeds
+
+USER oeds
+
+CMD ["oeds-scheduler", "--config", "/app/CRAWLER_CONFIG.yml", "--inventory", "/app/modular_repos/docs/crawler-inventory.json", "--workspace-root", "/app/modular_repos", "--daemon"]

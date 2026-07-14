@@ -1,0 +1,43 @@
+---
+# Optional overrides for public installs.
+# The playbooks already default to the public GitHub repository and `main`.
+# Copy this file only if you want to pin a different ref or adjust host paths.
+# Do not store secrets here.
+
+oeds_root: /open_energy_data_server
+# The target host must be able to clone this URL. For unpublished branches,
+# use a reachable mirror or a local bare repository on the target host.
+oeds_repo_url: https://github.com/johannesschuhmacher/open-energy-data-server-KIT.git
+oeds_repo_version: main
+oeds_repo_source_mode: git
+# For private or not-yet-published committed refs, use local_archive.
+# For uncommitted internal test state, use local_worktree. In both modes, point
+# this to a local checkout on the control node, for example:
+# oeds_repo_local_src: /home/user/src/oeds
+# or in WSL:
+# oeds_repo_local_src: /mnt/c/Users/<user>/PycharmProjects/oeds
+# oeds_repo_local_src: ""
+oeds_compose_project_name: oeds
+
+# Set true for the crawler scheduler and crawler admin UI containers.
+oeds_enable_crawlers: false
+
+# Runtime files are kept outside the Git checkout.
+oeds_runtime_dir: "{{ oeds_root }}/runtime"
+oeds_data_dir: "{{ oeds_root }}/docker_data"
+oeds_repo_dir: "{{ oeds_root }}/repo"
+
+# Uninstall defaults are intentionally non-destructive.
+oeds_uninstall_destroy_data: false
+oeds_uninstall_remove_repo: false
+oeds_uninstall_remove_runtime: false
+oeds_uninstall_remove_backups: false
+oeds_uninstall_remove_images: false
+
+# Optional host-specific labels for password rotation. Keep Bitwarden secrets in
+# environment variables on the control node, not in this file.
+# oeds_rotation_deployment_name: intern-test
+# oeds_rotation_access_host: iip-vm-oeds-intern-test.iip.kit.edu
+# oeds_rotation_bitwarden_folder: OEDS/intern-test
+# oeds_rotation_password_length: 32
+# oeds_rotation_dry_run: false

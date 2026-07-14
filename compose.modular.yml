@@ -1,0 +1,73 @@
+# Modular overlay for the local OEDS repository split.
+#
+# Use together with the copied KIT baseline:
+#
+#   docker compose --profile crawlers -f compose.yml -f compose.modular.yml config
+#   docker compose -f compose.yml -f compose.modular.yml --profile crawlers up -d --build
+#
+# Paths are resolved from this deployment module directory.
+
+x-oeds-modular-build: &oeds-modular-build
+  context: ../../..
+  dockerfile: modular_repos/modules/oeds-deployment/docker/Dockerfile.crawler-modular
+
+services:
+  open-data:
+    volumes:
+      - postgres-home:/home/postgres/pgdata/data
+      - ./modular_initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
+      - ./docker/initdb/10-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - ../oeds-post-scripts/scripts/lib/postgres_functions.sql:/docker-entrypoint-initdb.d/postgres_functions.sql:ro
+
+  scheduler:
+    build: *oeds-modular-build
+    env_file:
+      - path: ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+        required: false
+    command:
+      - oeds-scheduler
+      - --config
+      - /app/CRAWLER_CONFIG.yml
+      - --inventory
+      - /app/modular_repos/docs/crawler-inventory.json
+      - --workspace-root
+      - /app/modular_repos
+      - --daemon
+    environment:
+      OEDS_POST_REPO_ROOT: /app
+      OEDS_ADMIN_REPO_ROOT: /app
+    volumes:
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
+        target: /app/CRAWLER_CONFIG.yml
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
+        target: /app/crawler/data
+        bind:
+          create_host_path: false
+      - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
+
+  crawler-admin:
+    build: *oeds-modular-build
+    env_file:
+      - path: ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+        required: false
+    command:
+      - oeds-crawler-admin
+    environment:
+      OEDS_POST_REPO_ROOT: /app
+    volumes:
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
+        target: /app/CRAWLER_CONFIG.yml
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
+        target: /app/crawler/data
+        bind:
+          create_host_path: false
+      - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
+      - ${OEDS_RUNTIME_DIR:-../../..}/crawler_admin_state:/var/lib/oeds-admin

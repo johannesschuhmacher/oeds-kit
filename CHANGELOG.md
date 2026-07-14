@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.0.0-local
+
+- Initial local split repository for KIT deployment assets.
+- Copied current Compose, Docker, Ansible, provisioning, and ops files.
+- Added `compose.modular.yml`, `Dockerfile.crawler-modular`, and a local
+  deployment smoke verifier for the repository split.
+- Added isolated DB, real SMARD crawler, SMARD post-run, and stack smoke tests.
+- Added active configured crawler smoke coverage for ENTSO-E API, ENTSO-E FMS
+  EnergyPrices, power-system data, and weather forecast.
+- Set modular image `PYTHONPATH=/app` and passed `OEDS_ADMIN_REPO_ROOT=/app`
+  for runtime-mounted Admin UI operation.
+- Added starter GitHub Actions CI and a `--local-only` deployment repository
+  verification mode.

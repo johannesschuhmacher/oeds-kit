@@ -1,0 +1,48 @@
+# Isolated local integration-test overlay.
+#
+# Use only for disposable local tests:
+#
+#   docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml up -d open-data
+#   docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml down -v
+#
+# Requires a Docker Compose version that supports the `!override` merge tag.
+
+name: oeds-modular-test
+
+services:
+  open-data:
+    container_name: oeds-modular-test-open-data
+    ports: !override
+      - "${OEDS_TEST_POSTGRES_PORT:-16432}:5432"
+
+  pgadmin:
+    container_name: oeds-modular-test-pgadmin
+    ports: !override
+      - "${OEDS_TEST_PGADMIN_HTTP_PORT:-18080}:80"
+      - "${OEDS_TEST_PGADMIN_HTTPS_PORT:-18443}:443"
+
+  open-postgrest:
+    container_name: oeds-modular-test-postgrest
+    ports: !override
+      - "${OEDS_TEST_POSTGREST_PORT:-13001}:3000"
+
+  grafana:
+    container_name: oeds-modular-test-grafana
+    ports: !override
+      - "${OEDS_TEST_GRAFANA_PORT:-13006}:3000"
+
+  scheduler:
+    container_name: oeds-modular-test-scheduler
+
+  crawler-admin:
+    container_name: oeds-modular-test-crawler-admin
+    ports: !override
+      - "${OEDS_TEST_CRAWLER_ADMIN_PORT:-13010}:3010"
+
+volumes:
+  postgres-home:
+    name: oeds-modular-test-postgres-home
+  pgadmin-varlib:
+    name: oeds-modular-test-pgadmin-varlib
+  grafana-varlib:
+    name: oeds-modular-test-grafana-varlib

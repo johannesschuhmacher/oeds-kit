@@ -1,0 +1,199 @@
+- name: OEDS version update
+  hosts: oeds
+  become: true
+  vars:
+    oeds_default_root: /open_energy_data_server
+    oeds_default_repo_url: https://github.com/johannesschuhmacher/open-energy-data-server-KIT.git
+    oeds_default_repo_version: main
+    oeds_default_compose_project_name: oeds
+    oeds_default_repo_source_mode: git
+    oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
+    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
+    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_root_effective ~ '/docker_data') }}"
+    oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
+    oeds_repo_url_effective: "{{ oeds_repo_url | default(oeds_default_repo_url) }}"
+    oeds_repo_version_effective: "{{ oeds_repo_version | default(oeds_default_repo_version) }}"
+    oeds_compose_project_name_effective: "{{ oeds_compose_project_name | default(oeds_default_compose_project_name) }}"
+    oeds_repo_source_mode_effective: "{{ oeds_repo_source_mode | default(oeds_default_repo_source_mode) }}"
+    oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
+    oeds_default_enable_crawlers: false
+    oeds_enable_crawlers_effective: "{{ oeds_enable_crawlers | default(oeds_default_enable_crawlers) }}"
+    oeds_runtime_crawler_data_files:
+      - crawler/data/mapping_eic_to_location.py
+      - crawler/data/mapping_p_to_g.json
+      - crawler/data/mapping_g_to_p.json
+    oeds_update_docker_packages: false
+    oeds_backup_database: true
+    oeds_allow_pg_major_upgrade: false
+    oeds_target_pg_major: 18
+    oeds_backup_run_dir: "{{ oeds_root_effective }}/backups/{{ ansible_date_time.iso8601_basic_short }}"
+  tasks:
+  - name: Update Docker packages when explicitly requested
+    ansible.builtin.dnf:
+      name:
+        - containerd.io
+        - docker-ce
+        - docker-ce-cli
+        - docker-ce-rootless-extras
+        - docker-buildx-plugin
+        - docker-compose-plugin
+      state: latest
+    when: oeds_update_docker_packages
+  - name: Create update directories
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "u=rwx,g=rwx,o=rwx"
+    loop:
+      - "{{ oeds_root_effective }}"
+      - "{{ oeds_data_dir_effective }}"
+      - "{{ oeds_runtime_dir_effective }}"
+      - "{{ oeds_runtime_dir_effective }}/crawler"
+      - "{{ oeds_runtime_dir_effective }}/crawler/data"
+      - "{{ oeds_runtime_dir_effective }}/logs"
+      - "{{ oeds_runtime_dir_effective }}/crawler_admin_state"
+      - "{{ oeds_root_effective }}/backups"
+  - name: Check whether the open-data container is running
+    ansible.builtin.shell: docker ps --filter name=^/open-data$ --filter status=running -q
+    register: oeds_open_data_running
+    changed_when: false
+    failed_when: false
+  - name: Capture current PostgreSQL major version
+    ansible.builtin.shell: docker exec open-data psql -U opendata -d opendata -tAc "SELECT current_setting('server_version_num')::int / 10000;"
+    register: oeds_current_pg_major
+    changed_when: false
+    when: (oeds_open_data_running.stdout | trim) != ""
+  - name: Block accidental PostgreSQL major upgrades during normal updates
+    ansible.builtin.fail:
+      msg: >-
+        The running database is PostgreSQL {{ oeds_current_pg_major.stdout | trim }},
+        but this release expects PostgreSQL {{ oeds_target_pg_major }}.
+        Run a dedicated database migration first, or set
+        oeds_allow_pg_major_upgrade=true only if you have already prepared the
+        migration path.
+    when:
+      - (oeds_open_data_running.stdout | trim) != ""
+      - (oeds_current_pg_major.stdout | trim) != (oeds_target_pg_major | string)
+      - not oeds_allow_pg_major_upgrade
+  - name: Create a dedicated backup directory for this update run
+    ansible.builtin.file:
+      path: "{{ oeds_backup_run_dir }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "u=rwx,g=rx,o=rx"
+    when:
+      - oeds_backup_database | bool
+      - (oeds_open_data_running.stdout | trim) != ""
+  - name: Capture extension versions before the update
+    ansible.builtin.shell: >-
+      docker exec open-data psql -U opendata -d opendata -tAc
+      "SELECT extname || ':' || extversion FROM pg_extension ORDER BY 1;"
+      > {{ oeds_backup_run_dir }}/extensions.txt
+    when:
+      - oeds_backup_database | bool
+      - (oeds_open_data_running.stdout | trim) != ""
+  - name: Create globals backup before the update
+    ansible.builtin.shell: >-
+      docker exec open-data pg_dumpall -U opendata --globals-only
+      > {{ oeds_backup_run_dir }}/globals.sql
+    when:
+      - oeds_backup_database | bool
+      - (oeds_open_data_running.stdout | trim) != ""
+  - name: Create logical OEDS database backup before the update
+    ansible.builtin.shell: >-
+      docker exec open-data pg_dump -U opendata -d opendata -Fc
+      > {{ oeds_backup_run_dir }}/opendata.bak
+    when:
+      - oeds_backup_database | bool
+      - (oeds_open_data_running.stdout | trim) != ""
+  - name: Check whether a legacy compose project exists
+    ansible.builtin.stat:
+      path: "{{ oeds_root_effective }}/compose.yml"
+    register: oeds_legacy_compose
+  - name: Check whether the repo exists
+    ansible.builtin.stat:
+      path: "{{ oeds_repo_dir_effective }}"
+    register: oeds_repo_stat
+  - name: Prepare repo source before any downtime
+    ansible.builtin.import_tasks: tasks/oeds-repo-prepare.yml
+  - name: Stop legacy compose project before update
+    ansible.builtin.shell: docker compose down --remove-orphans
+    args:
+      chdir: "{{ oeds_root_effective }}"
+    when: oeds_legacy_compose.stat.exists
+  - name: Stop repo-root compose project before update
+    ansible.builtin.shell: docker compose down --remove-orphans
+    args:
+      chdir: "{{ oeds_repo_dir_effective }}"
+    when: oeds_repo_stat.stat.exists and oeds_repo_stat.stat.isdir
+  - name: Deploy repo content
+    ansible.builtin.import_tasks: tasks/oeds-repo-deploy.yml
+  - name: Seed static crawler data files into runtime mount
+    ansible.builtin.copy:
+      src: "{{ oeds_repo_dir_effective }}/{{ item }}"
+      dest: "{{ oeds_runtime_dir_effective }}/crawler/data/{{ item | basename }}"
+      remote_src: true
+      owner: root
+      group: root
+      mode: "u=rw,g=rw,o=r"
+    loop: "{{ oeds_runtime_crawler_data_files }}"
+  - name: Seed runtime crawler config if it does not exist yet
+    ansible.builtin.stat:
+      path: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
+    register: oeds_runtime_config
+  - name: Copy initial runtime crawler config from repo
+    ansible.builtin.copy:
+      src: "{{ oeds_repo_dir_effective }}/CRAWLER_CONFIG.yml"
+      dest: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
+      remote_src: true
+      owner: root
+      group: root
+      mode: "u=rw,g=rw,o=r"
+    when: not oeds_runtime_config.stat.exists
+  - name: Check whether the runtime crawler env file exists
+    ansible.builtin.stat:
+      path: "{{ oeds_runtime_dir_effective }}/crawler/.env"
+    register: oeds_runtime_env
+  - name: Seed runtime crawler env file if it does not exist yet
+    ansible.builtin.file:
+      path: "{{ oeds_runtime_dir_effective }}/crawler/.env"
+      state: touch
+      owner: root
+      group: root
+      mode: "0600"
+    when: not oeds_runtime_env.stat.exists
+  - name: Create compose environment file with runtime path
+    ansible.builtin.copy:
+      dest: "{{ oeds_repo_dir_effective }}/.env"
+      owner: root
+      group: root
+      mode: "0600"
+      content: |
+        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
+        OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
+  - name: Run docker compose pull
+    ansible.builtin.shell: docker compose pull
+    args:
+      chdir: "{{ oeds_repo_dir_effective }}"
+  - name: Run docker compose up
+    ansible.builtin.shell: >-
+      docker compose
+      {% if oeds_enable_crawlers_effective | bool %} --profile crawlers{% endif %}
+      up -d
+      {% if oeds_enable_crawlers_effective | bool %} --build{% endif %}
+    args:
+      chdir: "{{ oeds_repo_dir_effective }}"
+  - name: Wait for PostgreSQL to become ready after the update
+    ansible.builtin.shell: docker exec open-data pg_isready -h 127.0.0.1 -U opendata -d opendata
+    register: oeds_pg_ready
+    changed_when: false
+    retries: 20
+    delay: 15
+    until: oeds_pg_ready.rc == 0
+  - name: Capture PostgreSQL version after the update
+    ansible.builtin.shell: docker exec open-data psql -U opendata -d opendata -tAc "SELECT version();"
+    register: oeds_post_update_pg_version
+    changed_when: false

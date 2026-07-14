@@ -1,0 +1,70 @@
+name: oeds-deployment-compatibility
+version: "0.0.0-rc.0-local"
+
+components:
+  oeds-core:
+    path: "../../sources/oeds-core"
+    repository: "https://github.com/open-energy-data-server/open-energy-data-server.git"
+    branch: "main"
+    commit: "6d6d228f00798be3652406620959ee99080c2768"
+
+  oeds-kit-source:
+    path: "../../.."
+    repository: "https://github.com/johannesschuhmacher/open-energy-data-server-KIT.git"
+    branch: "main"
+    commit: "0e3ee0b8223750d9ebda3bac0793c0cbeaeb06ea"
+
+  oeds-crawler-pack:
+    path: "../oeds-crawler-pack"
+    status: "local-release-candidate"
+    registry_priority: "before-oeds-core"
+
+  oeds-scheduler-ui:
+    path: "../oeds-scheduler-ui"
+    status: "local-release-candidate"
+
+  oeds-post-scripts:
+    path: "../oeds-post-scripts"
+    status: "local-release-candidate"
+    commands:
+      - "oeds-post gapfill smard"
+      - "oeds-post gapfill entsoe-fms"
+      - "oeds-post refresh entsoe-availability-map"
+      - "oeds-post forecast day-ahead-price"
+      - "oeds-post backfill entsoe-unavailability"
+    migration:
+      config_check: "oeds-post --migrate-config CRAWLER_CONFIG.yml --check"
+      config_write_example: "oeds-post --migrate-config CRAWLER_CONFIG.yml --output CRAWLER_CONFIG.post.yml"
+
+  oeds-deployment:
+    path: "."
+    status: "local-release-candidate"
+    compose:
+      baseline: "compose.yml"
+      modular_overlay: "compose.modular.yml"
+      test_overlay: "compose.test.yml"
+    smoke_checks:
+      - "python tools/verify_deployment.py"
+      - "docker compose --profile crawlers -f compose.yml -f compose.modular.yml config"
+      - "docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml config"
+      - "pwsh ./tools/test_db_smoke.ps1"
+      - "pwsh ./tools/test_real_crawler_smoke.ps1 -RunPostScripts"
+      - "pwsh ./tools/test_active_crawlers_smoke.ps1 -IncludeEntsoeFms"
+      - "pwsh ./tools/test_stack_smoke.ps1"
+
+compatibility:
+  python: ">=3.12,<3.15"
+  uv: ">=0.11.7,<0.12"
+  postgres: ">=16,<19"
+
+release_readiness:
+  local_full_function_test: "../../docs/full-function-test-2026-06-02.md"
+  publication_checklist: "../../docs/publication-readiness.md"
+  publish_exclusions:
+    - ".env"
+    - ".env.*"
+    - ".tmp/"
+    - "runtime/"
+    - "logs/"
+    - "crawler_admin_state/"
+    - "docker_data/"

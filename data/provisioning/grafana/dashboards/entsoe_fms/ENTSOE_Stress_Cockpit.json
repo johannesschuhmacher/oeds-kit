@@ -1,0 +1,1293 @@
+{
+    "__inputs": [],
+    "__requires": [
+        {
+            "type": "datasource",
+            "id": "grafana-postgresql-datasource",
+            "name": "OPENDATA",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "stat",
+            "name": "Stat",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "geomap",
+            "name": "Geomap",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "table",
+            "name": "Table",
+            "version": "11.3.1"
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \"DateTime(UTC)\" AS \"time\", \"TotalLoad[MW]\" AS \"value\" FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Current Load",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 100
+                            },
+                            {
+                                "color": "red",
+                                "value": 200
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \"DateTime(UTC)\" AS \"time\", \"Price[Currency/MWh]\" AS \"value\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND \"DateTime(UTC)\" >= now() - interval '3 days' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') ORDER BY \"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Latest Day-Ahead Price",
+            "type": "stat",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH latest_load AS (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS load_mw FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1), latest_vres AS (SELECT \"DateTime(UTC)\" AS ts, SUM(\"ActualGenerationOutput[MW]\") AS vres_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore') AND \"DateTime(UTC)\" >= now() - interval '2 days' GROUP BY 1) SELECT l.ts AS \"time\", l.load_mw - COALESCE(v.vres_mw, 0) AS \"value\" FROM latest_load l LEFT JOIN latest_vres v ON v.ts = l.ts",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Residual Load",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH imports AS (SELECT \"DateTime(UTC)\" AS ts, SUM(\"ForecastTransferCapacity[MW]\") AS import_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1), exports AS (SELECT \"DateTime(UTC)\" AS ts, SUM(\"ForecastTransferCapacity[MW]\") AS export_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1) SELECT now() AS \"time\", AVG(COALESCE(i.import_mw, 0) - COALESCE(e.export_mw, 0)) AS \"value\" FROM imports i FULL OUTER JOIN exports e ON e.ts = i.ts",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Avg Net Import Headroom (Next 24h)",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 4
+            },
+            "id": 5,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH vres AS (SELECT \"DateTime(UTC)\" AS ts, SUM(\"ActualGenerationOutput[MW]\") AS vres_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore') GROUP BY 1) SELECT l.\"DateTime(UTC)\" AS \"time\", 'Total Load' AS \"metric\", l.\"TotalLoad[MW]\" AS \"value\" FROM entsoe_fms.\"ActualTotalLoad\" l WHERE l.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND l.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND l.\"AreaDisplayName\" = '$Country' AND l.\"AreaTypeCode\" = '$Area_Type' UNION ALL SELECT d.\"DateTime(UTC)\" AS \"time\", 'Day-ahead Generation' AS \"metric\", d.\"GenerationForecast[MW]\" AS \"value\" FROM entsoe_fms.\"DayAheadAggregatedGeneration\" d WHERE d.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND d.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND d.\"AreaDisplayName\" = '$Country' AND d.\"AreaTypeCode\" = '$Area_Type' UNION ALL SELECT l.\"DateTime(UTC)\" AS \"time\", 'Residual Load' AS \"metric\", l.\"TotalLoad[MW]\" - COALESCE(v.vres_mw, 0) AS \"value\" FROM entsoe_fms.\"ActualTotalLoad\" l LEFT JOIN vres v ON v.ts = l.\"DateTime(UTC)\" WHERE l.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND l.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND l.\"AreaDisplayName\" = '$Country' AND l.\"AreaTypeCode\" = '$Area_Type' ORDER BY 1, 2",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Load vs Residual Load vs Day-Ahead Generation",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            },
+            "id": 6,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT $__timeGroupAlias(my_time, $__interval), metric, AVG(value) AS \"value\" FROM (SELECT \"DateTime(UTC)\" AS my_time, 'Day-ahead Hourly' AS metric, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') UNION ALL SELECT \"DateTime(UTC)\" AS my_time, 'Day-ahead 15m' AS metric, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND \"Sequence\" = '2' UNION ALL SELECT \"DateTime(UTC)\" AS my_time, 'Intraday 15m' AS metric, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND \"Sequence\" = '3') s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Price Structure",
+            "type": "timeseries",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 12
+            },
+            "id": 7,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT $__timeGroupAlias(my_time, $__interval), metric, AVG(value) AS \"value\" FROM (SELECT \"DateTime(UTC)\" AS my_time, 'Actual' AS metric, \"ActualGenerationOutput[MW]\" AS value FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = '$RES_Type' UNION ALL SELECT \"DateTime(UTC)\" AS my_time, 'Day-ahead Forecast' AS metric, \"DayAheadGenerationForecast[MW]\" AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = '$RES_Type' UNION ALL SELECT \"DateTime(UTC)\" AS my_time, 'Current Forecast' AS metric, \"CurrentGenerationForecast[MW]\" AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = '$RES_Type') s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Forecast vs Actual ($RES_Type)",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 4,
+                        "showPoints": "never",
+                        "stacking": {
+                            "group": "A",
+                            "mode": "normal"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Biomass"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#36B24A",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Energy storage"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#29A8FF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Brown coal/Lignite"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#B6A48F",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Coal-derived gas"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#D4B45D",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Gas"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#FFB171",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Hard coal"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#57575D",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Oil"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#8F7A61",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Oil shale"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#8F7A61",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Fossil Peat"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#9A8568",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Geothermal"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#5B4FC9",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Hydro Pumped Storage"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#29A8FF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Hydro Run-of-river and poundage"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#2F39D0",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Hydro Water Reservoir"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#B5CBFF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Marine"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#4AB8E8",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Nuclear"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#C85AA5",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Other"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#8A75B3",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Other renewable"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#8A75B3",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Solar"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#FFD676",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Waste"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#6E4513",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Wind Offshore"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#97AA96",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Wind Onshore"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#C9DBBE",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 12
+            },
+            "id": 8,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT $__timeGroupAlias(my_time, $__interval), metric, AVG(value) AS \"value\" FROM (SELECT \"DateTime(UTC)\" AS my_time, \"ProductionType\" AS metric, \"ActualGenerationOutput[MW]\" AS value FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type') s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Generation Mix",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-YlRd"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 14,
+                "x": 0,
+                "y": 20
+            },
+            "id": 9,
+            "options": {
+                "basemap": {
+                    "config": {
+                        "showLabels": true,
+                        "theme": "auto"
+                    },
+                    "name": "Layer 0",
+                    "type": "carto"
+                },
+                "controls": {
+                    "mouseWheelZoom": true,
+                    "showAttribution": true,
+                    "showDebug": false,
+                    "showMeasure": false,
+                    "showScale": false,
+                    "showZoom": true
+                },
+                "layers": [
+                    {
+                        "config": {
+                            "showLegend": true,
+                            "style": {
+                                "color": {
+                                    "field": "price_mwh"
+                                },
+                                "opacity": 0.82,
+                                "rotation": {
+                                    "fixed": 0,
+                                    "max": 360,
+                                    "min": -360,
+                                    "mode": "mod"
+                                },
+                                "size": {
+                                    "fixed": 10,
+                                    "max": 22,
+                                    "min": 6
+                                },
+                                "symbol": {
+                                    "field": "",
+                                    "fixed": "img/icons/marker/circle.svg",
+                                    "mode": "fixed"
+                                },
+                                "symbolAlign": {
+                                    "horizontal": "center",
+                                    "vertical": "center"
+                                },
+                                "textConfig": {
+                                    "fontSize": 12,
+                                    "offsetX": 0,
+                                    "offsetY": 0,
+                                    "textAlign": "center",
+                                    "textBaseline": "middle"
+                                }
+                            }
+                        },
+                        "location": {
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "mode": "coords"
+                        },
+                        "name": "Layer 1",
+                        "tooltip": true,
+                        "type": "markers"
+                    }
+                ],
+                "tooltip": {
+                    "mode": "details"
+                },
+                "view": {
+                    "allLayers": true,
+                    "id": "europe",
+                    "lat": 50,
+                    "lon": 10,
+                    "zoom": 3
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH val_map (grafana_label, db_name) AS (VALUES ('Albania (AL)', 'Albania'), ('Austria (AT)', 'Austria'), ('Belgium (BE)', 'Belgium'), ('Bosnia and Herz. (BA)', 'Bosnia and Herzegovina'), ('Bulgaria (BG)', 'Bulgaria'), ('Croatia (HR)', 'Croatia'), ('Cyprus (CY)', 'Cyprus'), ('Czech Republic (CZ)', 'Czechia'), ('Denmark (DK)', 'Denmark'), ('DK', 'Denmark'), ('DK1', 'Denmark'), ('DK2', 'Denmark'), ('Estonia (EE)', 'Estonia'), ('Finland (FI)', 'Finland'), ('France (FR)', 'France'), ('Germany (DE)', 'Germany'), ('DE(50Hertz)', 'Germany'), ('DE(Amprion)', 'Germany'), ('DE(TenneT GER)', 'Germany'), ('DE(TransnetBW)', 'Germany'), ('DE-LU', 'Germany'), ('Greece (GR)', 'Greece'), ('Hungary (HU)', 'Hungary'), ('Ireland (IE)', 'Ireland'), ('IE(SEM)', 'Ireland'), ('Italy (IT)', 'Italy'), ('IT-Calabria', 'Italy'), ('IT-Centre-North', 'Italy'), ('IT-Centre-South', 'Italy'), ('IT-North', 'Italy'), ('IT-Sardinia', 'Italy'), ('IT-Sicily', 'Italy'), ('IT-South', 'Italy'), ('Kosovo (XK)', 'Kosovo'), ('Latvia (LV)', 'Latvia'), ('Lithuania (LT)', 'Lithuania'), ('Luxembourg (LU)', 'Luxembourg'), ('Moldova (MD)', 'Moldova'), ('Montenegro (ME)', 'Montenegro'), ('Netherlands (NL)', 'Netherlands'), ('North Macedonia (MK)', 'North Macedonia'), ('Norway (NO)', 'Norway'), ('NO1', 'Norway'), ('NO2', 'Norway'), ('NO3', 'Norway'), ('NO4', 'Norway'), ('NO5', 'Norway'), ('Poland (PL)', 'Poland'), ('Portugal (PT)', 'Portugal'), ('Romania (RO)', 'Romania'), ('Serbia (RS)', 'Serbia'), ('Slovakia (SK)', 'Slovakia'), ('Slovenia (SI)', 'Slovenia'), ('Spain (ES)', 'Spain'), ('Sweden (SE)', 'Sweden'), ('SE1', 'Sweden'), ('SE2', 'Sweden'), ('SE3', 'Sweden'), ('SE4', 'Sweden'), ('Switzerland (CH)', 'Switzerland'), ('United Kingdom (UK)', 'United Kingdom'), ('GB', 'United Kingdom'), ('Ukraine (UA)', 'Ukraine')), latest_prices AS (SELECT DISTINCT ON (\"AreaDisplayName\") \"AreaDisplayName\" AS area_name, \"Price[Currency/MWh]\" AS price_mwh, \"DateTime(UTC)\" AS price_time FROM entsoe_fms.\"EnergyPrices\" WHERE \"DateTime(UTC)\" >= now() - interval '3 days' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') ORDER BY \"AreaDisplayName\", \"DateTime(UTC)\" DESC), country_centroids AS (SELECT country AS db_name, AVG(lat) AS lat, AVG(lon) AS lon FROM power_system_data.powersystemdata WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY country), country_prices AS (SELECT m.db_name, AVG(lp.price_mwh) AS price_mwh, MAX(lp.price_time) AS price_time, COUNT(*) AS bidding_zones FROM latest_prices lp JOIN val_map m ON m.grafana_label = lp.area_name GROUP BY m.db_name) SELECT 0 AS \"time\", cc.lat, cc.lon, cp.db_name AS name, cp.db_name AS country, cp.price_mwh, cp.bidding_zones, cp.price_time FROM country_prices cp JOIN country_centroids cc ON cc.db_name = cp.db_name ORDER BY cp.price_mwh DESC",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Europe Day-Ahead Price Map",
+            "type": "geomap",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 10,
+                "x": 14,
+                "y": 20
+            },
+            "id": 10,
+            "options": {
+                "cellHeight": "sm",
+                "footer": {
+                    "countRows": false,
+                    "fields": "",
+                    "reducer": [
+                        "sum"
+                    ],
+                    "show": false
+                },
+                "showHeader": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH next_24h AS (SELECT 'Import' AS direction, \"OutAreaDisplayName\" AS neighbour, AVG(\"ForecastTransferCapacity[MW]\") AS avg_capacity_mw, MIN(\"ForecastTransferCapacity[MW]\") AS min_capacity_mw, MAX(\"ForecastTransferCapacity[MW]\") AS max_capacity_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1, 2 UNION ALL SELECT 'Export' AS direction, \"InAreaDisplayName\" AS neighbour, AVG(\"ForecastTransferCapacity[MW]\") AS avg_capacity_mw, MIN(\"ForecastTransferCapacity[MW]\") AS min_capacity_mw, MAX(\"ForecastTransferCapacity[MW]\") AS max_capacity_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1, 2) SELECT direction, neighbour, ROUND(avg_capacity_mw::numeric, 1) AS avg_capacity_mw, ROUND(min_capacity_mw::numeric, 1) AS min_capacity_mw, ROUND(max_capacity_mw::numeric, 1) AS max_capacity_mw FROM next_24h ORDER BY avg_capacity_mw DESC",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Cross-Border Headroom (Next 24h)",
+            "type": "table"
+        }
+    ],
+    "refresh": "5m",
+    "schemaVersion": 40,
+    "style": "dark",
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": "DE-LU",
+                    "value": "DE-LU"
+                },
+                "definition": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\nload_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN load_areas l ON l.area_name = p.area_name\nORDER BY 1",
+                "label": "Country / Zone",
+                "name": "Country",
+                "options": [],
+                "query": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\nload_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN load_areas l ON l.area_name = p.area_name\nORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "type": "query",
+                "sort": 1
+            },
+            {
+                "current": {
+                    "text": "BZN",
+                    "value": "BZN"
+                },
+                "definition": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "label": "Area Type",
+                "name": "Area_Type",
+                "options": [],
+                "query": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "refresh": 1,
+                "regex": "",
+                "type": "query",
+                "sort": 0
+            },
+            {
+                "current": {
+                    "text": "Wind Onshore",
+                    "value": "Wind Onshore"
+                },
+                "definition": "Solar,Wind Onshore,Wind Offshore",
+                "label": "RES Type",
+                "name": "RES_Type",
+                "options": [],
+                "query": "Solar,Wind Onshore,Wind Offshore",
+                "refresh": 1,
+                "regex": "",
+                "type": "custom"
+            },
+            {
+                "current": {
+                    "text": "Day-ahead",
+                    "value": "Day-ahead"
+                },
+                "definition": "Day-ahead,Week-ahead,Month-ahead,Year-ahead",
+                "label": "Transfer Contract",
+                "name": "Transfer_Contract",
+                "options": [],
+                "query": "Day-ahead,Week-ahead,Month-ahead,Year-ahead",
+                "refresh": 1,
+                "regex": "",
+                "type": "custom"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-7d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "uid": "entsoe-stress",
+    "version": 1,
+    "weekStart": "",
+    "title": "ENTSOE Stress Cockpit (Internal)",
+    "description": "Variant: Internal. Sources: ENTSO-E.",
+    "tags": [
+        "entsoe",
+        "oeds",
+        "stress",
+        "market",
+        "internal"
+    ]
+}

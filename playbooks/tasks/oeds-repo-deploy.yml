@@ -1,0 +1,53 @@
+- name: Remove existing repo checkout before local archive/worktree deploy
+  ansible.builtin.file:
+    path: "{{ oeds_repo_dir_effective }}"
+    state: absent
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Remove existing repo path before git deploy when it is not a checkout
+  ansible.builtin.file:
+    path: "{{ oeds_repo_dir_effective }}"
+    state: absent
+  when:
+    - oeds_repo_source_mode_effective == "git"
+    - oeds_repo_stat.stat.exists | default(false)
+    - oeds_repo_stat.stat.isdir | default(false)
+    - not (oeds_repo_git_metadata.stat.exists | default(false))
+
+- name: Unpack repo archive from control node
+  ansible.builtin.unarchive:
+    src: "{{ oeds_repo_archive.path }}"
+    dest: "{{ oeds_root_effective }}"
+    remote_src: false
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+
+- name: Remove non-git repo path before git deploy
+  ansible.builtin.file:
+    path: "{{ oeds_repo_dir_effective }}"
+    state: absent
+  when:
+    - oeds_repo_source_mode_effective == "git"
+    - oeds_repo_stat.stat.exists
+    - not (oeds_repo_git_metadata.stat.exists | default(false))
+
+- name: Git checkout requested release
+  ansible.builtin.git:
+    repo: "{{ oeds_repo_url_effective }}"
+    dest: "{{ oeds_repo_dir_effective }}"
+    version: "{{ oeds_repo_version_effective }}"
+    update: true
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GIT_ASKPASS: /bin/false
+  when: oeds_repo_source_mode_effective == "git"
+
+- name: Remove temporary repo archive on control node
+  ansible.builtin.file:
+    path: "{{ oeds_repo_archive.path }}"
+    state: absent
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when:
+    - oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
+    - oeds_repo_archive is defined
