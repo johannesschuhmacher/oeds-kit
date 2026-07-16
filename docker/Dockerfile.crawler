@@ -31,13 +31,11 @@ RUN uv sync --locked --no-dev --no-install-project --group price-forecast
 COPY crawler ./crawler
 COPY crawler_core ./crawler_core
 COPY crawler_admin ./crawler_admin
-COPY config ./config
 COPY modular_repos/docs ./modular_repos/docs
 COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
 COPY modular_repos/modules/oeds-post-scripts/src/oeds_post_scripts ./oeds_post_scripts
 COPY modular_repos/modules/oeds-scheduler-ui/src/oeds_scheduler_ui ./oeds_scheduler_ui
 COPY oeds_gapfill ./oeds_gapfill
-COPY oeds_dispatch_layers ./oeds_dispatch_layers
 COPY oeds_price_forecast ./oeds_price_forecast
 COPY scripts ./scripts
 COPY crawler_scheduler.py ./crawler_scheduler.py
