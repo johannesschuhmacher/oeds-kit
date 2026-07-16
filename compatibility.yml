@@ -26,7 +26,7 @@ components:
     path: "../oeds-scheduler-ui"
     repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-scheduler-ui.git"
     branch: "main"
-    commit: "45c0b7a3524ce931c9e6421c10c84450c8a04217"
+    commit: "a43d031b13ef271fb6e495c62859c90f9a6975a6"
     status: "gitlab-initial"
 
   oeds-post-scripts:
@@ -49,6 +49,7 @@ components:
     path: "."
     repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git"
     branch: "main"
+    commit: "cc4f03750fb51358ca3a8579a7243db17b95993f"
     status: "gitlab-initial"
     compose:
       baseline: "compose.yml"
