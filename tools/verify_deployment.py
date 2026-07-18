@@ -130,6 +130,19 @@ def main(local_only: bool = False) -> None:
             "../oeds-post-scripts/scripts/lib/postgres_functions.sql",
         ],
     )
+    for playbook_name in (
+        "oeds-docker-config.yml",
+        "oeds-update.yml",
+        "oeds-uninstall.yml",
+    ):
+        _assert_contains(
+            DEPLOYMENT_ROOT / "playbooks" / playbook_name,
+            [
+                "oeds_compose_dir_effective",
+                "oeds_compose_files_effective",
+                "{% for compose_file in oeds_compose_files_effective %}",
+            ],
+        )
     _assert_contains(
         DEPLOYMENT_ROOT / "compose.test.yml",
         [

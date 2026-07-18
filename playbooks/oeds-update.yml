@@ -18,6 +18,8 @@
     oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
     oeds_default_enable_crawlers: false
     oeds_enable_crawlers_effective: "{{ oeds_enable_crawlers | default(oeds_default_enable_crawlers) }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective) }}"
+    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
     oeds_runtime_crawler_data_files:
       - crawler/data/mapping_eic_to_location.py
       - crawler/data/mapping_p_to_g.json
@@ -117,6 +119,10 @@
     ansible.builtin.stat:
       path: "{{ oeds_repo_dir_effective }}"
     register: oeds_repo_stat
+  - name: Check whether the selected compose project exists
+    ansible.builtin.stat:
+      path: "{{ oeds_compose_dir_effective }}/{{ oeds_compose_files_effective[0] }}"
+    register: oeds_selected_compose
   - name: Prepare repo source before any downtime
     ansible.builtin.import_tasks: tasks/oeds-repo-prepare.yml
   - name: Stop legacy compose project before update
@@ -125,10 +131,13 @@
       chdir: "{{ oeds_root_effective }}"
     when: oeds_legacy_compose.stat.exists
   - name: Stop repo-root compose project before update
-    ansible.builtin.shell: docker compose down --remove-orphans
+    ansible.builtin.shell: >-
+      docker compose
+      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+      down --remove-orphans
     args:
-      chdir: "{{ oeds_repo_dir_effective }}"
-    when: oeds_repo_stat.stat.exists and oeds_repo_stat.stat.isdir
+      chdir: "{{ oeds_compose_dir_effective }}"
+    when: oeds_selected_compose.stat.exists
   - name: Deploy repo content
     ansible.builtin.import_tasks: tasks/oeds-repo-deploy.yml
   - name: Seed static crawler data files into runtime mount
@@ -174,18 +183,32 @@
       content: |
         COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
         OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
+  - name: Create selected compose environment file with runtime path
+    ansible.builtin.copy:
+      dest: "{{ oeds_compose_dir_effective }}/.env"
+      owner: root
+      group: root
+      mode: "0600"
+      content: |
+        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
+        OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
+    when: oeds_compose_dir_effective != oeds_repo_dir_effective
   - name: Run docker compose pull
-    ansible.builtin.shell: docker compose pull
+    ansible.builtin.shell: >-
+      docker compose
+      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+      pull
     args:
-      chdir: "{{ oeds_repo_dir_effective }}"
+      chdir: "{{ oeds_compose_dir_effective }}"
   - name: Run docker compose up
     ansible.builtin.shell: >-
       docker compose
+      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
       {% if oeds_enable_crawlers_effective | bool %} --profile crawlers{% endif %}
       up -d
       {% if oeds_enable_crawlers_effective | bool %} --build{% endif %}
     args:
-      chdir: "{{ oeds_repo_dir_effective }}"
+      chdir: "{{ oeds_compose_dir_effective }}"
   - name: Wait for PostgreSQL to become ready after the update
     ansible.builtin.shell: docker exec open-data pg_isready -h 127.0.0.1 -U opendata -d opendata
     register: oeds_pg_ready

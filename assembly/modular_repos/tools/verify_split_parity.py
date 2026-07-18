@@ -15,7 +15,12 @@ SCHEDULER_UI_ROOT = ROOT / "modules" / "oeds-scheduler-ui"
 
 EXCLUDED_NAMES = {"__pycache__", ".git"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
-EXCLUDED_RELATIVE_FILES = {Path("Dockerfile.crawler-modular")}
+EXCLUDED_RELATIVE_FILES = {
+    Path("Dockerfile.crawler-modular"),
+    Path("oeds-docker-config.yml"),
+    Path("oeds-uninstall.yml"),
+    Path("oeds-update.yml"),
+}
 
 
 @dataclass(frozen=True)

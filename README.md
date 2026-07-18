@@ -121,6 +121,28 @@ On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
 run the documented Ansible install/update/smoke-test path from the assembled
 deployment checkout.
 
+For a modular Ansible rollout from that assembled workspace, run the playbooks
+from `modular_repos/modules/oeds-deployment/playbooks` and point Compose at the
+deployment module:
+
+```bash
+cd /path/to/oeds-assembled/modular_repos/modules/oeds-deployment/playbooks
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-uninstall.yml \
+  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
+  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-install-crawlers.yml \
+  -e oeds_repo_source_mode=local_worktree \
+  -e oeds_repo_local_src=/path/to/oeds-assembled \
+  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
+  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-update.yml \
+  -e oeds_repo_source_mode=local_worktree \
+  -e oeds_repo_local_src=/path/to/oeds-assembled \
+  -e oeds_enable_crawlers=true \
+  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
+  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
+```
+
 Recommended checks from the parent workspace:
 
 ```powershell
