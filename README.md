@@ -85,6 +85,35 @@ secrets, images, and service versions.
 Use this repo for deployment changes only. Do not patch crawler or post-script
 source code here.
 
+## Assemble From Compatibility
+
+For a fresh test from the published repositories, start with this deployment
+repository only and assemble the full workspace from `compatibility.yml`:
+
+```powershell
+git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+cd oeds-deployment
+python .\tools\assemble_workspace.py --output C:\tmp\oeds-assembled --clean
+```
+
+The output directory becomes a normal modular OEDS workspace. The tool clones
+the pinned OEDS/KIT/core/module repositories, copies the current deployment
+checkout to `modular_repos/modules/oeds-deployment`, installs the deployment
+inventory under `modular_repos/docs`, and writes
+`modular_repos/assembly.json` with the resolved component revisions.
+
+After assembly, run deployment checks from the assembled workspace:
+
+```powershell
+cd C:\tmp\oeds-assembled
+python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
+docker compose --profile crawlers -f .\modular_repos\modules\oeds-deployment\compose.yml -f .\modular_repos\modules\oeds-deployment\compose.modular.yml config
+```
+
+On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
+run the documented Ansible install/update/smoke-test path from the assembled
+deployment checkout.
+
 Recommended checks from the parent workspace:
 
 ```powershell

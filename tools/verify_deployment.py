@@ -26,7 +26,9 @@ def main(local_only: bool = False) -> None:
             "modular_initdb/09-bootstrap-roles.sh",
             "playbooks/oeds-smoke-test.yml",
             "data/provisioning/grafana/README.md",
+            "assembly/crawler-inventory.json",
             "oeds_ops/password_rotation.py",
+            "tools/assemble_workspace.py",
             "tools/test_db_smoke.ps1",
             "tools/test_real_crawler_smoke.ps1",
             "tools/test_active_crawlers_smoke.ps1",
@@ -78,6 +80,32 @@ def main(local_only: bool = False) -> None:
                 "CRAWLER_CONFIG.yml",
             ],
         )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "assemble_workspace.py",
+        [
+            "compatibility.yml",
+            "oeds-kit-source",
+            "crawler-inventory.json",
+            "assembled modular OEDS workspace",
+        ],
+    )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "assembly" / "crawler-inventory.json",
+        [
+            "oeds-crawler-pack",
+            "oeds-core",
+            "registry_priority",
+        ],
+    )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "compatibility.yml",
+        [
+            "self: true",
+            "oeds-scheduler-ui.git",
+            "oeds-post-scripts.git",
+            "oeds-crawler-pack.git",
+        ],
+    )
     _assert_contains(
         DEPLOYMENT_ROOT / "compose.modular.yml",
         [

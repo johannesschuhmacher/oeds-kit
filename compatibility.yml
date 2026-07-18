@@ -49,7 +49,7 @@ components:
     path: "."
     repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git"
     branch: "main"
-    commit: "cc4f03750fb51358ca3a8579a7243db17b95993f"
+    self: true
     status: "gitlab-initial"
     compose:
       baseline: "compose.yml"
