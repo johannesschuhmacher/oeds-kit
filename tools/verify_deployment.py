@@ -27,6 +27,11 @@ def main(local_only: bool = False) -> None:
             "playbooks/oeds-smoke-test.yml",
             "data/provisioning/grafana/README.md",
             "assembly/crawler-inventory.json",
+            "assembly/modular_repos/README.md",
+            "assembly/modular_repos/docs/publication-readiness.md",
+            "assembly/modular_repos/generated/CRAWLER_CONFIG.post.yml",
+            "assembly/modular_repos/tools/verify_modules.py",
+            "assembly/modular_repos/tools/verify_split_parity.py",
             "oeds_ops/password_rotation.py",
             "tools/assemble_workspace.py",
             "tools/test_db_smoke.ps1",
@@ -78,6 +83,9 @@ def main(local_only: bool = False) -> None:
                 "crawler/common/base_crawler.py",
                 "crawler_core/__init__.py",
                 "CRAWLER_CONFIG.yml",
+                "modular_repos/tools/verify_modules.py",
+                "modular_repos/tools/verify_split_parity.py",
+                "modular_repos/generated/CRAWLER_CONFIG.post.yml",
             ],
         )
     _assert_contains(
@@ -86,6 +94,8 @@ def main(local_only: bool = False) -> None:
             "compatibility.yml",
             "oeds-kit-source",
             "crawler-inventory.json",
+            "modular_repos",
+            "verify_modules.py",
             "assembled modular OEDS workspace",
         ],
     )

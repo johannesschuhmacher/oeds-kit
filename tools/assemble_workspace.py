@@ -93,7 +93,7 @@ def main() -> int:
         else:
             _clone_component(component, target)
 
-    _install_modular_docs(workspace)
+    _install_modular_support(workspace)
     _write_assembly_metadata(workspace, components)
     _verify_workspace(workspace)
     print(f"assembled modular OEDS workspace at {workspace}")
@@ -265,13 +265,33 @@ def _copy_self_checkout(target: Path) -> None:
     )
 
 
-def _install_modular_docs(workspace: Path) -> None:
-    docs_target = workspace / "modular_repos" / "docs"
+def _install_modular_support(workspace: Path) -> None:
+    modular_target = workspace / "modular_repos"
+    support_source = DEFAULT_MODULAR_DOCS / "modular_repos"
+    if support_source.is_dir():
+        _copy_tree_contents(support_source, modular_target)
+
+    docs_target = modular_target / "docs"
     docs_target.mkdir(parents=True, exist_ok=True)
     inventory_source = DEFAULT_MODULAR_DOCS / "crawler-inventory.json"
     if not inventory_source.is_file():
         raise FileNotFoundError(inventory_source)
     shutil.copy2(inventory_source, docs_target / "crawler-inventory.json")
+
+
+def _copy_tree_contents(source: Path, target: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for child in source.iterdir():
+        destination = target / child.name
+        if child.is_dir():
+            shutil.copytree(
+                child,
+                destination,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(*IGNORED_COPY_NAMES),
+            )
+        else:
+            shutil.copy2(child, destination)
 
 
 def _write_assembly_metadata(workspace: Path, components: list[Component]) -> None:
@@ -309,6 +329,11 @@ def _verify_workspace(workspace: Path) -> None:
         "crawler_core/__init__.py",
         "CRAWLER_CONFIG.yml",
         "modular_repos/docs/crawler-inventory.json",
+        "modular_repos/docs/publication-readiness.md",
+        "modular_repos/generated/CRAWLER_CONFIG.post.yml",
+        "modular_repos/tools/verify_modules.py",
+        "modular_repos/tools/verify_split_parity.py",
+        "modular_repos/tools/check_publication_readiness.py",
         "modular_repos/sources/oeds-core/oeds/base_crawler.py",
         "modular_repos/modules/oeds-deployment/compose.modular.yml",
         "modular_repos/modules/oeds-crawler-pack/pyproject.toml",

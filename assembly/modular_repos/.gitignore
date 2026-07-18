@@ -1,0 +1,14 @@
+.tmp/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+runtime/
+logs/
+crawler_admin_state/
+docker_data/

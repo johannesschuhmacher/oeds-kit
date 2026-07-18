@@ -98,8 +98,8 @@ python .\tools\assemble_workspace.py --output C:\tmp\oeds-assembled --clean
 
 The output directory becomes a normal modular OEDS workspace. The tool clones
 the pinned OEDS/KIT/core/module repositories, copies the current deployment
-checkout to `modular_repos/modules/oeds-deployment`, installs the deployment
-inventory under `modular_repos/docs`, and writes
+checkout to `modular_repos/modules/oeds-deployment`, installs the modular
+support docs/tools/generated examples under `modular_repos/`, and writes
 `modular_repos/assembly.json` with the resolved component revisions.
 
 After assembly, run deployment checks from the assembled workspace:
@@ -107,8 +107,15 @@ After assembly, run deployment checks from the assembled workspace:
 ```powershell
 cd C:\tmp\oeds-assembled
 python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
+python .\modular_repos\tools\verify_modules.py --skip-split-parity
 docker compose --profile crawlers -f .\modular_repos\modules\oeds-deployment\compose.yml -f .\modular_repos\modules\oeds-deployment\compose.modular.yml config
 ```
+
+`verify_split_parity.py` is intentionally not part of the default fresh
+assembly check while `oeds-kit-source` points to a published KIT commit that can
+lag behind the split module pins. Use it in the split-preparation workspace, or
+after the KIT source pin and module pins have been published from the same
+source revision.
 
 On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
 run the documented Ansible install/update/smoke-test path from the assembled

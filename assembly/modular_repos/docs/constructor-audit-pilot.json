@@ -1,0 +1,83 @@
+{
+  "chargepoint": {
+    "attribute": "ChargepointDownloader",
+    "bases": [
+      "DownloadOnceCrawler"
+    ],
+    "class_name": "ChargepointDownloader",
+    "constructor_style": "schema_name_config",
+    "error": null,
+    "init_parameters": [],
+    "methods": [
+      "structure_exists",
+      "crawl_structural"
+    ],
+    "module": "oeds.crawler.chargepoint",
+    "run_methods": [
+      "crawl_structural"
+    ],
+    "source": "oeds-core",
+    "supported": true
+  },
+  "eurostat_crawler": {
+    "attribute": "EurostatCrawler",
+    "bases": [
+      "BaseCrawler"
+    ],
+    "class_name": "EurostatCrawler",
+    "constructor_style": "crawler_name_config",
+    "error": null,
+    "init_parameters": [
+      "crawler_name",
+      "config"
+    ],
+    "methods": [
+      "__init__",
+      "_sanitize_identifier",
+      "_truncate_identifier",
+      "_resolve_table_name",
+      "_build_unique_constraint_name",
+      "_init_table_object",
+      "_create_table",
+      "_download_data_df",
+      "_write_to_db",
+      "run"
+    ],
+    "module": "crawler.eurostat_crawler",
+    "run_methods": [
+      "run"
+    ],
+    "source": "oeds-crawler-pack",
+    "supported": true
+  },
+  "smard": {
+    "attribute": "SmardCrawler",
+    "bases": [
+      "BaseCrawler"
+    ],
+    "class_name": "SmardCrawler",
+    "constructor_style": "crawler_name_config",
+    "error": null,
+    "init_parameters": [
+      "crawler_name",
+      "config"
+    ],
+    "methods": [
+      "__init__",
+      "create_table",
+      "_get_table",
+      "_build_upsert_statement",
+      "_write_rows",
+      "get_data_per_commodity",
+      "select_latest",
+      "feed",
+      "run"
+    ],
+    "module": "crawler.smard",
+    "run_methods": [
+      "run"
+    ],
+    "source": "oeds-crawler-pack",
+    "supported": true
+  }
+}
