@@ -172,6 +172,12 @@ For an isolated disposable DB smoke test, add the test overlay:
 .\tools\test_db_smoke.ps1
 ```
 
+On Linux:
+
+```bash
+sudo bash ./tools/test_db_smoke.sh
+```
+
 The smoke script starts only `open-data`, waits for health, asserts the
 `readonly` role, `postgis` extension, and `public.linear_interpolate` function,
 then removes the disposable test volumes.
@@ -180,6 +186,12 @@ For a real crawler run against the disposable DB, use:
 
 ```powershell
 .\tools\test_real_crawler_smoke.ps1 -RunPostScripts
+```
+
+On Linux:
+
+```bash
+sudo bash ./tools/test_real_crawler_smoke.sh --run-post-scripts
 ```
 
 This builds the modular crawler image, runs the SMARD crawler, executes the
@@ -192,6 +204,12 @@ For a local setup smoke covering the service stack, use:
 .\tools\test_stack_smoke.ps1
 ```
 
+On Linux:
+
+```bash
+sudo bash ./tools/test_stack_smoke.sh
+```
+
 This starts `open-data`, PostGREST, Grafana, and the crawler admin UI on the
 isolated test ports, verifies HTTP readiness, and removes the disposable
 containers and volumes.
@@ -200,6 +218,12 @@ For the active configured crawler set, use:
 
 ```powershell
 .\tools\test_active_crawlers_smoke.ps1 -IncludeEntsoeFms
+```
+
+On Linux:
+
+```bash
+sudo bash ./tools/test_active_crawlers_smoke.sh --include-entsoe-fms
 ```
 
 This runs ENTSO-E API, ENTSO-E FMS EnergyPrices, power-system data, and weather

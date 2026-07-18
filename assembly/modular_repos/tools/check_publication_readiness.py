@@ -40,6 +40,11 @@ MODULES = {
         "docker/Dockerfile.crawler",
         "docker/Dockerfile.crawler-modular",
         "tools/verify_deployment.py",
+        "tools/smoke_lib.sh",
+        "tools/test_db_smoke.sh",
+        "tools/test_real_crawler_smoke.sh",
+        "tools/test_active_crawlers_smoke.sh",
+        "tools/test_stack_smoke.sh",
     },
 }
 

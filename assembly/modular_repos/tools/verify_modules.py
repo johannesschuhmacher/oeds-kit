@@ -663,9 +663,14 @@ def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
         "data/provisioning/grafana/README.md",
         "tools/verify_deployment.py",
         "tools/test_db_smoke.ps1",
+        "tools/test_db_smoke.sh",
         "tools/test_real_crawler_smoke.ps1",
+        "tools/test_real_crawler_smoke.sh",
         "tools/test_active_crawlers_smoke.ps1",
+        "tools/test_active_crawlers_smoke.sh",
         "tools/test_stack_smoke.ps1",
+        "tools/test_stack_smoke.sh",
+        "tools/smoke_lib.sh",
     ]
     for relative_path in deployment_files:
         assert (DEPLOYMENT_ROOT / relative_path).is_file(), relative_path

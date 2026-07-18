@@ -35,9 +35,14 @@ def main(local_only: bool = False) -> None:
             "oeds_ops/password_rotation.py",
             "tools/assemble_workspace.py",
             "tools/test_db_smoke.ps1",
+            "tools/test_db_smoke.sh",
             "tools/test_real_crawler_smoke.ps1",
+            "tools/test_real_crawler_smoke.sh",
             "tools/test_active_crawlers_smoke.ps1",
+            "tools/test_active_crawlers_smoke.sh",
             "tools/test_stack_smoke.ps1",
+            "tools/test_stack_smoke.sh",
+            "tools/smoke_lib.sh",
         ],
     )
     if not local_only:
@@ -177,6 +182,16 @@ def main(local_only: bool = False) -> None:
         ],
     )
     _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "test_db_smoke.sh",
+        [
+            "compose.test.yml",
+            "missing readonly role",
+            "missing postgis extension",
+            "missing public.linear_interpolate",
+            "isolated DB smoke passed",
+        ],
+    )
+    _assert_contains(
         DEPLOYMENT_ROOT / "tools" / "test_stack_smoke.ps1",
         [
             "runtime-stack",
@@ -192,6 +207,19 @@ def main(local_only: bool = False) -> None:
         ],
     )
     _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "test_stack_smoke.sh",
+        [
+            "runtime-stack",
+            "open-postgrest",
+            "grafana",
+            "crawler-admin",
+            "13001",
+            "13006",
+            "13010",
+            "modular stack smoke passed",
+        ],
+    )
+    _assert_contains(
         DEPLOYMENT_ROOT / "tools" / "test_active_crawlers_smoke.ps1",
         [
             "runtime-active-crawlers",
@@ -204,6 +232,17 @@ def main(local_only: bool = False) -> None:
         ],
     )
     _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "test_active_crawlers_smoke.sh",
+        [
+            "runtime-active-crawlers",
+            "entsoe_api",
+            "power_system_data",
+            "weather_forecast",
+            "--include-entsoe-fms",
+            "active crawler smoke passed",
+        ],
+    )
+    _assert_contains(
         DEPLOYMENT_ROOT / "tools" / "test_real_crawler_smoke.ps1",
         [
             "runtime-real-crawler",
@@ -212,6 +251,16 @@ def main(local_only: bool = False) -> None:
             "missing smard.smard table",
             "real crawler smoke passed",
             "down -v --remove-orphans",
+        ],
+    )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "test_real_crawler_smoke.sh",
+        [
+            "runtime-real-crawler",
+            "CrawlerJobRunner",
+            "gapfill_smard.py",
+            "missing smard.smard table",
+            "real crawler smoke passed",
         ],
     )
     if local_only:
