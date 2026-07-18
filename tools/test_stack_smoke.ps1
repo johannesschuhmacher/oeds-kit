@@ -15,6 +15,7 @@ $runtimeDir = ".tmp/runtime-stack"
 $runtimeRoot = Join-Path $deploymentRoot $runtimeDir
 $configPath = Join-Path $runtimeRoot "CRAWLER_CONFIG.yml"
 $started = $false
+$previousComposeProjectName = $env:COMPOSE_PROJECT_NAME
 $previousRuntimeDir = $env:OEDS_RUNTIME_DIR
 
 function Assert-LastExitCode {
@@ -102,6 +103,8 @@ smard:
 
 Push-Location $deploymentRoot
 try {
+    $env:COMPOSE_PROJECT_NAME = "oeds-modular-test"
+
     New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot "crawler/data") | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot "logs") | Out-Null
@@ -128,6 +131,7 @@ finally {
     if ($started) {
         docker compose @profiledComposeArgs down -v --remove-orphans
     }
+    $env:COMPOSE_PROJECT_NAME = $previousComposeProjectName
     $env:OEDS_RUNTIME_DIR = $previousRuntimeDir
     Pop-Location
 }

@@ -17,6 +17,7 @@ $runtimeDir = ".tmp/runtime-active-crawlers"
 $runtimeRoot = Join-Path $deploymentRoot $runtimeDir
 $configPath = Join-Path $runtimeRoot "CRAWLER_CONFIG.yml"
 $started = $false
+$previousComposeProjectName = $env:COMPOSE_PROJECT_NAME
 $previousRuntimeDir = $env:OEDS_RUNTIME_DIR
 $previousSmokeCode = $env:OEDS_ACTIVE_CRAWLER_SMOKE_CODE
 
@@ -168,6 +169,8 @@ raise SystemExit(0 if all(item["success"] for item in payload) else 1)
 
 Push-Location $deploymentRoot
 try {
+    $env:COMPOSE_PROJECT_NAME = "oeds-modular-test"
+
     New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
     $runtimeCrawlerData = Join-Path $runtimeRoot "crawler/data"
     New-Item -ItemType Directory -Force -Path $runtimeCrawlerData | Out-Null
@@ -264,6 +267,7 @@ finally {
     if ($started) {
         docker compose @composeArgs down -v --remove-orphans
     }
+    $env:COMPOSE_PROJECT_NAME = $previousComposeProjectName
     $env:OEDS_RUNTIME_DIR = $previousRuntimeDir
     $env:OEDS_ACTIVE_CRAWLER_SMOKE_CODE = $previousSmokeCode
     if (Test-Path $runtimeRoot) {

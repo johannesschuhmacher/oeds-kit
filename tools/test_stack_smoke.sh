@@ -7,6 +7,7 @@ DEPLOYMENT_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 source "$SCRIPT_DIR/smoke_lib.sh"
 
 cd "$DEPLOYMENT_ROOT"
+export COMPOSE_PROJECT_NAME=oeds-modular-test
 COMPOSE=(docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml)
 PROFILED_COMPOSE=(docker compose --profile crawlers -f compose.yml -f compose.modular.yml -f compose.test.yml)
 RUNTIME_DIR=.tmp/runtime-stack

@@ -178,6 +178,7 @@ def main(local_only: bool = False) -> None:
             "missing readonly role",
             "missing postgis extension",
             "missing public.linear_interpolate",
+            "COMPOSE_PROJECT_NAME",
             "down -v --remove-orphans",
         ],
     )
@@ -188,6 +189,7 @@ def main(local_only: bool = False) -> None:
             "missing readonly role",
             "missing postgis extension",
             "missing public.linear_interpolate",
+            "COMPOSE_PROJECT_NAME",
             "isolated DB smoke passed",
         ],
     )
@@ -202,6 +204,7 @@ def main(local_only: bool = False) -> None:
             "13001",
             "13006",
             "13010",
+            "COMPOSE_PROJECT_NAME",
             "modular stack smoke passed",
             "down -v --remove-orphans",
         ],
@@ -216,6 +219,7 @@ def main(local_only: bool = False) -> None:
             "13001",
             "13006",
             "13010",
+            "COMPOSE_PROJECT_NAME",
             "modular stack smoke passed",
         ],
     )
@@ -227,6 +231,7 @@ def main(local_only: bool = False) -> None:
             "power_system_data",
             "weather_forecast",
             "IncludeEntsoeFms",
+            "COMPOSE_PROJECT_NAME",
             "active crawler smoke passed",
             "down -v --remove-orphans",
         ],
@@ -239,6 +244,7 @@ def main(local_only: bool = False) -> None:
             "power_system_data",
             "weather_forecast",
             "--include-entsoe-fms",
+            "COMPOSE_PROJECT_NAME",
             "active crawler smoke passed",
         ],
     )
@@ -249,6 +255,7 @@ def main(local_only: bool = False) -> None:
             "CrawlerJobRunner",
             "gapfill_smard.py",
             "missing smard.smard table",
+            "COMPOSE_PROJECT_NAME",
             "real crawler smoke passed",
             "down -v --remove-orphans",
         ],
@@ -260,6 +267,7 @@ def main(local_only: bool = False) -> None:
             "CrawlerJobRunner",
             "gapfill_smard.py",
             "missing smard.smard table",
+            "COMPOSE_PROJECT_NAME",
             "real crawler smoke passed",
         ],
     )

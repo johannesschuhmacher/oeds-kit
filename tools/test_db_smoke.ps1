@@ -12,9 +12,12 @@ $composeArgs = @(
 )
 $container = "oeds-modular-test-open-data"
 $started = $false
+$previousComposeProjectName = $env:COMPOSE_PROJECT_NAME
 
 Push-Location $deploymentRoot
 try {
+    $env:COMPOSE_PROJECT_NAME = "oeds-modular-test"
+
     docker compose @composeArgs up -d open-data
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose up failed with exit code $LASTEXITCODE"
@@ -70,5 +73,6 @@ finally {
     if ($started) {
         docker compose @composeArgs down -v --remove-orphans
     }
+    $env:COMPOSE_PROJECT_NAME = $previousComposeProjectName
     Pop-Location
 }

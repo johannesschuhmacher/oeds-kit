@@ -17,6 +17,7 @@ REPO_ROOT=$(cd -- "$DEPLOYMENT_ROOT/../../.." && pwd)
 source "$SCRIPT_DIR/smoke_lib.sh"
 
 cd "$DEPLOYMENT_ROOT"
+export COMPOSE_PROJECT_NAME=oeds-modular-test
 COMPOSE=(docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml)
 RUNTIME_DIR=.tmp/runtime-active-crawlers
 RUNTIME_ROOT=$DEPLOYMENT_ROOT/$RUNTIME_DIR
