@@ -14,12 +14,16 @@ content, copied to the VM, and installed from that workspace with
 
 ## Tested Revisions
 
-- `oeds-deployment`: `b2a52f3` (`Add Linux smoke test scripts`)
+- `oeds-deployment`: `c77d74b` (`Isolate disposable smoke compose project`)
 - `oeds-crawler-pack`: `24dda880d1ca0a58e592d0b31baa4fbeac7064bc`
 - `oeds-scheduler-ui`: `a43d031b13ef271fb6e495c62859c90f9a6975a6`
 - `oeds-post-scripts`: `af40b678af67b784e17ed68f8e07f9243519006e`
 - `oeds-core`: `6d6d228f00798be3652406620959ee99080c2768`
 - `oeds-kit-source`: `0e3ee0b8223750d9ebda3bac0793c0cbeaeb06ea`
+
+The VM install was created from the assembled workspace based on the GitLab
+state before `c77d74b`; the smoke-script isolation fix was copied into the
+installed deployment module and then retested on the same VM installation.
 
 ## VM Workspace
 
@@ -77,6 +81,12 @@ Passed:
 - `sudo bash ./tools/test_real_crawler_smoke.sh --run-post-scripts`
 - `sudo bash ./tools/test_active_crawlers_smoke.sh --include-entsoe-fms`
 
+The four Bash smoke tests were repeated after `c77d74b` while the normal
+modular stack was running. After the disposable tests completed, the normal
+containers `open-data`, `postgrest`, `grafana`, `pgadmin`, `oeds-scheduler`,
+and `oeds-crawler-admin` were still running; no `oeds-modular-test-*`
+containers remained.
+
 Observed row counts from disposable DB tests:
 
 | Test | Result |
@@ -103,6 +113,14 @@ Observed row counts from disposable DB tests:
   `.env`, not only a local repo-root `crawler/.env`. The script now checks
   `OEDS_CRAWLER_ENV_FILE`, repo-root `.env`, the modular compose `.env`, and
   `/open_energy_data_server/runtime/crawler/.env`.
+- Disposable smoke tests must force `COMPOSE_PROJECT_NAME=oeds-modular-test`.
+  The installed deployment `.env` sets `COMPOSE_PROJECT_NAME=oeds`; without the
+  explicit override, `docker compose down` can target the normal stack instead
+  of the disposable test stack. This is fixed in the Bash and PowerShell smoke
+  scripts.
+- The normal modular stack was restored and verified after the retest:
+  PostgREST returned `200`, Grafana returned `200`, and Crawler Admin returned
+  `307`.
 - Python 3.14 still emits non-blocking `SyntaxWarning`s from the existing
   `crawler/nrw_kwp_waermedichte.py` Windows path strings.
 - Direct private GitLab checkout on the VM remains blocked until a deploy key,
@@ -111,5 +129,6 @@ Observed row counts from disposable DB tests:
 ## Status
 
 The modular deployment is functionally validated on the Intern-Test VM via a
-freshly assembled GitLab source bundle. Direct VM-side GitLab cloning is the
-remaining infrastructure gap, not an application/runtime failure.
+freshly assembled GitLab source bundle plus the `c77d74b` smoke-script fix.
+Direct VM-side GitLab cloning is the remaining infrastructure gap, not an
+application/runtime failure.
