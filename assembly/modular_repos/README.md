@@ -33,6 +33,14 @@ Run the faster standard verification:
 python .\modular_repos\tools\verify_modules.py
 ```
 
+For a freshly assembled compatibility workspace where the published KIT source
+pin can lag behind the split module pins, run the same interface checks without
+the byte-for-byte split parity assertion:
+
+```powershell
+python .\modular_repos\tools\verify_modules.py --skip-split-parity
+```
+
 Run byte-for-byte parity checks for mechanically copied modules:
 
 ```powershell
