@@ -37,6 +37,8 @@ tools/test_db_smoke.ps1
 tools/test_real_crawler_smoke.ps1
 tools/test_active_crawlers_smoke.ps1
 tools/test_stack_smoke.ps1
+tools/oeds_clean_install_from_git.sh
+tools/load_sample_data.sh
 ```
 
 These files are intentionally copied first and refactored later. That gives the
@@ -120,6 +122,38 @@ source revision.
 On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
 run the documented Ansible install/update/smoke-test path from the assembled
 deployment checkout.
+
+For a clean Linux VM that should clone directly from GitLab, the shortest path
+is the install wrapper. Create a GitLab PAT or deploy token with read access to
+the private `josc` module repositories and pass it only through the shell
+environment:
+
+```bash
+export OEDS_GIT_USERNAME=oauth2
+export OEDS_GIT_TOKEN='<gitlab-token>'
+
+git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+cd oeds-deployment
+bash ./tools/oeds_clean_install_from_git.sh \
+  --reset \
+  --load-sample-data \
+  --include-entsoe-fms
+```
+
+For a GitLab deploy token, set `OEDS_GIT_USERNAME` to the deploy-token
+username instead of `oauth2`. The wrapper uses a temporary `GIT_ASKPASS` helper
+for all Git clones, assembles the workspace from `compatibility.yml`, writes a
+local Ansible inventory, installs the modular stack, runs the Ansible smoke
+test, and can call `tools/load_sample_data.sh` to write bounded real crawler
+data into the installed database.
+
+For non-interactive sudo, set:
+
+```bash
+export OEDS_BECOME_PASSWORD_FILE=/path/to/local/sudo-password-file
+```
+
+Do not commit token files, password files, or generated runtime directories.
 
 For a modular Ansible rollout from that assembled workspace, run the playbooks
 from `modular_repos/modules/oeds-deployment/playbooks` and point Compose at the
@@ -230,6 +264,18 @@ This runs ENTSO-E API, ENTSO-E FMS EnergyPrices, power-system data, and weather
 forecast with reduced windows against the disposable DB. It copies only the
 required static mapping files and `.env` into an ignored temporary runtime
 directory, then removes that directory after the test.
+
+To load the same bounded sample into the installed normal database instead of a
+disposable DB, run from the installed deployment module:
+
+```bash
+cd /open_energy_data_server/repo/modular_repos/modules/oeds-deployment
+sudo bash ./tools/load_sample_data.sh --include-entsoe-fms
+```
+
+This keeps the normal stack running, starts only a one-off scheduler container
+with a temporary runtime config, and verifies the resulting source and derived
+tables in `open-data`.
 
 ## Publication Boundary
 

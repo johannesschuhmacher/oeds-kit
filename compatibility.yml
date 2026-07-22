@@ -63,6 +63,8 @@ components:
       - "pwsh ./tools/test_real_crawler_smoke.ps1 -RunPostScripts"
       - "pwsh ./tools/test_active_crawlers_smoke.ps1 -IncludeEntsoeFms"
       - "pwsh ./tools/test_stack_smoke.ps1"
+      - "bash ./tools/oeds_clean_install_from_git.sh --help"
+      - "bash ./tools/load_sample_data.sh --help"
 
 compatibility:
   python: ">=3.12,<3.15"

@@ -43,6 +43,8 @@ def main(local_only: bool = False) -> None:
             "tools/test_stack_smoke.ps1",
             "tools/test_stack_smoke.sh",
             "tools/smoke_lib.sh",
+            "tools/oeds_clean_install_from_git.sh",
+            "tools/load_sample_data.sh",
         ],
     )
     if not local_only:
@@ -269,6 +271,30 @@ def main(local_only: bool = False) -> None:
             "missing smard.smard table",
             "COMPOSE_PROJECT_NAME",
             "real crawler smoke passed",
+        ],
+    )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "oeds_clean_install_from_git.sh",
+        [
+            "OEDS_GIT_TOKEN",
+            "GIT_ASKPASS",
+            "assemble_workspace.py",
+            "oeds_repo_source_mode=local_worktree",
+            "oeds_compose_dir=",
+            "oeds-smoke-test.yml",
+            "load_sample_data.sh",
+        ],
+    )
+    _assert_contains(
+        DEPLOYMENT_ROOT / "tools" / "load_sample_data.sh",
+        [
+            "runtime-load-sample-data",
+            "smard",
+            "entsoe_api",
+            "power_system_data",
+            "weather_forecast",
+            "--include-entsoe-fms",
+            "sample data load passed",
         ],
     )
     if local_only:

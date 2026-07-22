@@ -46,6 +46,38 @@ For a remote host, edit `inventory.yml`: replace `localhost` with the host's
 `ansible_host` and set `ansible_user` if needed. Keep `group_vars/oeds.yml`
 absent unless you really need local overrides.
 
+## Simplified GitLab VM install
+
+For the modular private GitLab split, use the wrapper from the deployment
+repository when a fresh Linux VM should clone everything directly from GitLab:
+
+```bash
+export OEDS_GIT_USERNAME=oauth2
+export OEDS_GIT_TOKEN='<gitlab-token>'
+
+git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+cd oeds-deployment
+bash ./tools/oeds_clean_install_from_git.sh \
+  --reset \
+  --load-sample-data \
+  --include-entsoe-fms
+```
+
+Use `OEDS_GIT_USERNAME=oauth2` for a personal access token. For a GitLab deploy
+token, use the deploy-token username. The wrapper clones `oeds-deployment`,
+assembles all compatible component repositories from `compatibility.yml`, runs
+host prep unless `--skip-host-prep` is passed, optionally performs a destructive
+reset, installs the modular stack, runs the Ansible smoke test, and can load a
+bounded real-data sample into the installed database.
+
+For unattended sudo, pass a local password file:
+
+```bash
+export OEDS_BECOME_PASSWORD_FILE=/path/to/sudo-password-file
+```
+
+Keep GitLab tokens and sudo password files outside the repository.
+
 Use the default `git` source mode when the target host can clone the selected
 branch, tag, or commit itself. Use `local_archive` when you need to deploy a
 committed local checkout that the target host cannot clone:
