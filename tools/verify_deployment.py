@@ -278,6 +278,8 @@ def main(local_only: bool = False) -> None:
         [
             "OEDS_GIT_TOKEN",
             "GIT_ASKPASS",
+            "OEDS_CRAWLER_ENV_FILE",
+            "--crawler-env-file",
             "assemble_workspace.py",
             "oeds_repo_source_mode=local_worktree",
             "oeds_compose_dir=",

@@ -59,6 +59,7 @@ git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deplo
 cd oeds-deployment
 bash ./tools/oeds_clean_install_from_git.sh \
   --reset \
+  --crawler-env-file /path/to/crawler.env \
   --load-sample-data \
   --include-entsoe-fms
 ```
@@ -69,6 +70,11 @@ assembles all compatible component repositories from `compatibility.yml`, runs
 host prep unless `--skip-host-prep` is passed, optionally performs a destructive
 reset, installs the modular stack, runs the Ansible smoke test, and can load a
 bounded real-data sample into the installed database.
+
+Pass `--crawler-env-file` or set `OEDS_CRAWLER_ENV_FILE` when live crawlers
+need API tokens. The wrapper installs that file as
+`/open_energy_data_server/runtime/crawler/.env` with `0600` permissions after
+the clean reset and installation.
 
 For unattended sudo, pass a local password file:
 

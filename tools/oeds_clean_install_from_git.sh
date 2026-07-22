@@ -11,6 +11,7 @@ RESET=false
 SKIP_HOST_PREP=false
 LOAD_SAMPLE_DATA=false
 INCLUDE_ENTSOE_FMS=false
+CRAWLER_ENV_FILE=${OEDS_CRAWLER_ENV_FILE:-}
 
 usage() {
   cat <<'USAGE'
@@ -22,6 +23,7 @@ Options:
   --skip-host-prep        Skip OS/Docker host preparation.
   --load-sample-data      Load and verify a small real-data sample after install.
   --include-entsoe-fms    Include ENTSO-E FMS in the sample-data load.
+  --crawler-env-file FILE Copy crawler secrets from FILE into the installed runtime.
   --repo-url URL          Deployment repository URL.
   --ref REF               Deployment repository branch, tag, or commit.
   --work-dir DIR          Working directory for clone and assembled workspace.
@@ -31,6 +33,7 @@ Options:
 Environment:
   OEDS_GIT_TOKEN              GitLab PAT or deploy token password for private HTTPS clones.
   OEDS_GIT_USERNAME           GitLab username for the token. Use "oauth2" for PATs.
+  OEDS_CRAWLER_ENV_FILE       Optional crawler .env copied after install for live crawlers.
   OEDS_BECOME_PASSWORD_FILE   Optional sudo password file for non-interactive Ansible runs.
 
 The token is passed to git through a temporary GIT_ASKPASS helper and is removed
@@ -44,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --skip-host-prep) SKIP_HOST_PREP=true; shift ;;
     --load-sample-data) LOAD_SAMPLE_DATA=true; shift ;;
     --include-entsoe-fms) INCLUDE_ENTSOE_FMS=true; shift ;;
+    --crawler-env-file) CRAWLER_ENV_FILE=$2; shift 2 ;;
     --repo-url) DEPLOYMENT_REPO_URL=$2; shift 2 ;;
     --ref) DEPLOYMENT_REF=$2; shift 2 ;;
     --work-dir) WORK_DIR=$2; CHECKOUT_DIR=$2/oeds-deployment; ASSEMBLED_DIR=$2/assembled; shift 2 ;;
@@ -198,7 +202,23 @@ ansible-playbook "${COMMON_ARGS[@]}" oeds-smoke-test.yml \
   -e "oeds_root=$OEDS_ROOT" \
   -e oeds_expect_crawler_admin=true
 
+if [[ -n "$CRAWLER_ENV_FILE" ]]; then
+  if [[ ! -f "$CRAWLER_ENV_FILE" ]]; then
+    echo "crawler env file does not exist: $CRAWLER_ENV_FILE" >&2
+    exit 1
+  fi
+  log "Installing crawler runtime environment file"
+  if [[ -n "${OEDS_BECOME_PASSWORD_FILE:-}" ]]; then
+    sudo -S install -o root -g root -m 0600 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env" < "$OEDS_BECOME_PASSWORD_FILE"
+  else
+    sudo install -o root -g root -m 0600 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env"
+  fi
+fi
+
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
+  if [[ -z "$CRAWLER_ENV_FILE" ]]; then
+    log "No crawler env file supplied; live token-backed crawlers may fail if runtime secrets are absent"
+  fi
   log "Loading sample data into the installed OEDS database"
   SAMPLE_ARGS=()
   if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
