@@ -59,7 +59,7 @@ ROOT_FILES = {
     "README.md",
     ".gitignore",
     "docs/publication-readiness.md",
-    "docs/full-function-test-2026-06-02.md",
+    "docs/intern-test-vm-modular-github-test-2026-09-04.md",
     "generated/CRAWLER_CONFIG.post.yml",
     "tools/check_publication_readiness.py",
     "tools/run_full_function_test.ps1",
@@ -96,15 +96,15 @@ FORBIDDEN_FILE_PATTERNS = (
 )
 
 COMPATIBILITY_TOKENS = (
-    'version: "0.0.0-rc.0-github"',
-    'status: "github-initial"',
+    'version: "0.1.0-rc.2-github"',
+    'status: "github-modular"',
     "https://github.com/johannesschuhmacher/oeds-crawler-pack.git",
     "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git",
     "https://github.com/johannesschuhmacher/oeds-post-scripts.git",
     "https://github.com/johannesschuhmacher/oeds-deployment.git",
     "release_readiness:",
     "publication-readiness.md",
-    "full-function-test-2026-06-02.md",
+    "intern-test-vm-modular-github-test-2026-09-04.md",
     "test_active_crawlers_smoke.ps1 -IncludeEntsoeFms",
 )
 
@@ -138,6 +138,8 @@ def _check_required_files(errors: list[str]) -> None:
 
 
 def _is_forbidden_file(name: str) -> bool:
+    if name == ".env.example":
+        return False
     if name in FORBIDDEN_FILE_NAMES:
         return True
     return any(fnmatch.fnmatch(name, pattern) for pattern in FORBIDDEN_FILE_PATTERNS)

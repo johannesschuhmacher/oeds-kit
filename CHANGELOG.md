@@ -21,3 +21,4 @@
   required parameters in legacy crawler modules.
 - Keep the generated Ansible inventory inside a custom `--work-dir` unless an
   explicit `OEDS_ANSIBLE_INVENTORY_FILE` is configured.
+- Exclude deployment `.tmp` contents when assembling from a local checkout.

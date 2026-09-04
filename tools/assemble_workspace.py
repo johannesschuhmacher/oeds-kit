@@ -42,6 +42,7 @@ DEFAULT_MODULAR_DOCS = DEPLOYMENT_ROOT / "assembly"
 
 IGNORED_COPY_NAMES = {
     ".git",
+    ".tmp",
     ".venv",
     "__pycache__",
     ".pytest_cache",
