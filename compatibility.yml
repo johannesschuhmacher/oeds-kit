@@ -20,7 +20,7 @@ components:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
     branch: "main"
-    commit: "26c1ed540d6b3a0ee44356455823986469cd0f09"
+    commit: "3e8d129fc46cfc03f8944c6d8fb2e5e00ff42936"
     status: "github-modular"
 
   oeds-post-scripts:
@@ -66,7 +66,7 @@ compatibility:
   postgres: ">=16,<19"
 
 release_readiness:
-  local_full_function_test: "../../docs/full-function-test-2026-06-02.md"
+  latest_vm_function_test: "../../docs/intern-test-vm-modular-github-test-2026-09-04.md"
   publication_checklist: "../../docs/publication-readiness.md"
   publish_exclusions:
     - ".env"

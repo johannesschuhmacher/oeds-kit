@@ -46,20 +46,22 @@ overridden by KIT versions from `oeds-crawler-pack`.
 
 | Constructor style | Count | Meaning |
 | --- | ---: | --- |
-| `schema_name_config` | 28 | upstream-style `CrawlerClass(schema_name, config)` |
+| `schema_name_config` | 27 | upstream-style `CrawlerClass(schema_name, config)` |
 | `crawler_name_config` | 18 | KIT-style `CrawlerClass(crawler_name, config)` |
 | `schema_name_only` | 1 | legacy upstream-style `CrawlerClass(schema_name)` |
-| `unknown` | 0 | no active crawler currently needs constructor research |
+| `unknown` | 1 | visible but not schedulable through the shared interface |
 
-The only current execution special case in the merged registry is:
+The current upstream execution special cases in the merged registry are:
 
 | Crawler | Source | Reason |
 | --- | --- | --- |
+| `dwd` | `oeds-core` | requires a third constructor argument (`nuts_matrix`) and imports a missing 2021 NUTS shape file; it is not in the official registry |
 | `eex` | `oeds-core` | constructor is represented as `schema_name_only`, but no supported run method is detected. |
 
 This is not a blocker for the architecture. It means the scheduler can keep the
-crawler visible in the registry, but must not schedule it until a small adapter
-or upstream-compatible refactor defines a supported run entrypoint.
+crawlers visible in the static inventory, but must not schedule them until an
+adapter or upstream-compatible refactor defines the shared contract. The
+separate `dwd_cdc` implementation remains available from `oeds-crawler-pack`.
 
 ## Important Active Overrides
 

@@ -62,20 +62,25 @@ but that path is expected to be used only when a job is about to run.
 ## Full Inventory Status
 
 The full merged registry currently contains 47 crawler names. Constructor
-compatibility is now detectable for every active crawler:
+compatibility is statically classified for all of them:
 
 | Constructor style | Count | Meaning |
 | --- | ---: | --- |
-| `schema_name_config` | 28 | upstream-style `CrawlerClass(schema_name, config)` |
+| `schema_name_config` | 27 | upstream-style `CrawlerClass(schema_name, config)` |
 | `crawler_name_config` | 18 | KIT-style `CrawlerClass(crawler_name, config)` |
 | `schema_name_only` | 1 | legacy upstream-style `CrawlerClass(schema_name)` |
-| `unknown` | 0 | no active crawler currently needs constructor research |
+| `unknown` | 1 | visible but not schedulable through the shared interface |
 
-The remaining special case is `eex`. Its constructor is now represented as
-`schema_name_only`, but the current source does not expose a scheduler-compatible
-run method (`run`, `crawl_temporal`, or `crawl_structural`). The scheduler
-planner therefore reports it as not executable until an adapter or upstream
-refactor defines the run entrypoint.
+Two upstream legacy cases remain visible:
+
+| Crawler | Limitation |
+| --- | --- |
+| `dwd` | Requires the additional constructor argument `nuts_matrix` and imports a missing 2021 NUTS shape file. It is not part of the official core registry and is not schedulable through the shared interface. |
+| `eex` | Uses `schema_name_only`, but exposes no supported run method (`run`, `crawl_temporal`, or `crawl_structural`). |
+
+The scheduler keeps both entries visible for compatibility analysis without
+claiming that they can be dispatched. The supported DWD runtime path in the
+modular stack is `dwd_cdc` from `oeds-crawler-pack`.
 
 ## Next Step
 

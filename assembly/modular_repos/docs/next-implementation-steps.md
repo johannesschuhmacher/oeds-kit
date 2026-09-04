@@ -109,7 +109,9 @@ Tasks:
 Current result:
 
 - 47 active crawler names are visible after priority merge.
-- 47 active crawler names have a supported constructor shape.
+- 46 of 47 discovered crawler names have a supported constructor shape.
+- The unregistered upstream legacy `dwd` module remains visible but is correctly
+  rejected because it requires an additional `nuts_matrix` argument.
 - `eex` is still marked as not schedulable because no standard run method is
   detected.
 

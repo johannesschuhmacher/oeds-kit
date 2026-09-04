@@ -7,16 +7,15 @@ public versions.
 
 ## Current State
 
-- The split contains four repositories under `modules/`, including the
-  transition module `oeds-crawler-pack`.
+- The split contains four add-on module repositories under `modules/`.
 - The original OEDS repository remains the central crawler and database base.
 - KIT-specific scheduler, UI, post-processing, and deployment work is
   separated into add-on repositories. Compatibility metadata lives in
   `oeds-deployment/compatibility.yml`.
 - The four add-on repositories are currently private on GitHub. GitHub is the
   primary remote; the previous GitLab remotes are not mirrored automatically.
-- The latest complete local function test is documented in
-  `docs/full-function-test-2026-06-02.md`.
+- The latest complete GitHub/VM function test is documented in
+  `docs/intern-test-vm-modular-github-test-2026-09-04.md`.
 - The full local verification command is:
 
 ```powershell
@@ -84,7 +83,7 @@ python -B .\modular_repos\tools\check_publication_readiness.py
 The full function test should cover:
 
 - module contract verification
-- package and component-boundary checks
+- module source and interface verification
 - Python compile checks
 - module unit tests
 - post-script CLI smoke tests
@@ -114,20 +113,23 @@ Start with lightweight CI per repository:
 
 ## Known Boundaries
 
-The local full function test covers the enabled crawler set from the current KIT
-configuration plus SMARD post-processing. Some disabled or optional crawlers
-still need targeted real runs before making broad public coverage claims:
+The merged inventory contains 47 crawler names. Forty-six have a supported
+constructor interface; the unregistered upstream legacy `dwd` module remains a
+documented unsupported static entry. The VM function test covers the active
+operational set plus SMARD and major post-processing paths. Disabled or optional
+crawlers still need targeted runs before making broad live-coverage claims,
+especially crawlers requiring SFTP, subscriptions, accepted terms, or large
+downloads.
 
-- `chargepoint`
-- `energycharts`
-- `entsoe_generation`
-- `entsoe_load`
-- `entsoe_transparency`
-- `federal_grid_agency`
-- `market_location`
+- `epex_spot` (SFTP account)
+- `prisma_capacity` (subscribed API package)
+- `gie_agsi_alsi` and `netztransparenz` (API credentials)
+- `copernicus_cds` (account and accepted terms)
+- `mastr` (large full-data export)
 
-Remote-host deployment should also be smoke-tested once with Ansible before the
-deployment repository is tagged for external operators.
+Remote-host installation and update have been smoke-tested with Ansible. A final
+tagged-release repetition remains appropriate after the repositories become
+public.
 
 ## Git Preparation
 
@@ -152,5 +154,5 @@ add-on modules. Each module should have its own history, tag, and release notes.
 5. Tag module repositories with matching release-candidate tags.
 6. Update `oeds-deployment/compatibility.yml` from commit pins to tagged
    repository references.
-7. Run a remote-host deployment smoke test.
+7. Repeat the remote-host deployment smoke with the coordinated release tags.
 8. Publish the final deployment-compatible release tag.

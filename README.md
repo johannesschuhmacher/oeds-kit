@@ -50,6 +50,10 @@ Remove `--load-sample-data` for a normal installation without immediate live
 crawler runs. The token is passed to Git through a temporary `GIT_ASKPASS`
 helper and is not written into the assembled workspace.
 
+Use `--work-dir /absolute/path` to place the temporary deployment checkout,
+assembled workspace, and generated `inventory.local.yml` below one directory.
+Set `OEDS_ANSIBLE_INVENTORY_FILE` only when the inventory should live elsewhere.
+
 When `sudo` cannot prompt interactively, point the installer at a local file:
 
 ```bash

@@ -9,18 +9,19 @@ KIT-specific additions are split into local module repositories:
 
 | Module repo | Responsibility | Current state |
 | --- | --- | --- |
-| OEDS core | shared crawlers, `crawler_core`, database contract | central base, keep shared crawler runtime here |
-| `oeds-crawler-pack` | KIT crawler registry and preferred crawler specs | implemented as a static/dynamic crawler registry facade |
+| OEDS core | official crawlers and database contract | unchanged pinned central base |
+| `oeds-crawler-pack` | KIT crawler implementations, preferred registry, and temporary adapters | installable extension package without KIT-monorepo dependency |
 | `oeds-scheduler-ui` | scheduler runtime, registry planning, admin UI integration | implemented scheduler planning, runtime, daemon, CLI, and copied admin UI |
 | `oeds-post-scripts` | gapfill, forecast, refresh, derived-data commands | stable `oeds-post` CLI, copied current implementation, direct-call support where safe |
 | `oeds-deployment` | compose, Docker, Ansible, provisioning, ops tooling, compatibility manifest | copied current deployment baseline plus modular overlay and `compatibility.yml` |
 
 ## Preserved Center
 
-The split does not duplicate crawler maintenance as the default architecture.
-`crawler_core`, `BaseCrawler`, database URI handling, metadata helpers, and the
-shared crawler contract belong in OEDS core. The optional registry still
-resolves crawlers by source priority:
+The split does not modify or fork the official OEDS checkout. Generic
+`crawler_core`, BaseCrawler, database URI, metadata, and contract improvements
+are upstream candidates. Until they are merged, the required compatibility
+implementation lives in `oeds-crawler-pack`. The registry resolves crawlers by
+source priority:
 
 ```text
 oeds-crawler-pack before oeds-core
@@ -61,19 +62,17 @@ Latest GitHub experiments repository note:
 docs/github-experiments-repo-2026-07-16.md
 ```
 
-Latest VM reports:
+Latest VM report:
 
 ```text
-docs/intern-test-vm-doc-install-full-function-2026-06-12.md
-docs/intern-test-vm-full-function-test-2026-06-11.md
-docs/intern-test-vm-fresh-checkout-2026-06-11.md
+docs/intern-test-vm-modular-github-test-2026-09-04.md
 ```
 
-The 2026-06-12 VM test is the current release-readiness evidence. It covered
-the documented setup path step by step, destructive uninstall, local worktree
-install, update, smoke tests, runtime image modular CLI availability, Admin UI,
-Scheduler, Post-Scripts, database writes, and bounded crawler runs against a
-fresh database.
+The 2026-09-04 VM test is the current release-readiness evidence. It covered the
+documented private-GitHub setup path, prior destructive uninstall, clean exact-pin
+assembly, installation, update with backup, smoke tests, Admin UI writes,
+short-interval scheduling, Post-Scripts, preserved database data, and bounded
+real crawler runs.
 
 Run the complete local function test:
 
@@ -89,7 +88,7 @@ Full Function Test Summary: all steps passed
 
 The full runner covers:
 
-- module scaffold and split parity
+- module scaffold and interface verification
 - crawler registry audit
 - module unit tests
 - post-script CLI commands
@@ -117,10 +116,10 @@ The verifier checks:
 
 - crawler registry priority and constructor compatibility
 - scheduler planning/runtime/daemon path
-- copied admin UI artifacts
+- packaged admin UI artifacts
 - post-script command registry and config migration
-- copied post-script implementation files
-- copied deployment files and modular deployment artifacts
+- packaged post-script implementation files
+- deployment files and modular deployment artifacts
 - deployment compatibility manifest wiring
 - module license files, starter CI workflows, and publication checklist
 
@@ -145,21 +144,18 @@ The original `open-energy-data-server/open-energy-data-server` repository
 remains the central OEDS core. It is consumed by the modular deployment and is
 not duplicated into another add-on repository.
 
-The remaining publication work is a clean GitHub-only VM installation test,
-release hardening, and bounded tests for crawlers that need special external
-access.
+The GitHub-only VM installation and remote Ansible update tests are complete.
+Remaining publication work is release naming/tagging and source-specific tests
+for optional crawlers that need special external access.
 
 ## Remaining Work Before Public Release
 
-- Keep `crawler_core` in OEDS core and document the public crawler contract
-  there before upstream/public publication.
+- Prepare the generic parts of `crawler_core`, BaseCrawler, and dependency
+  metadata as upstream OEDS pull requests. Until merged, keep the compatibility
+  adapter in `oeds-crawler-pack`.
 - Confirm whether the current private GitHub repository names are final before
   making them public. See `docs/repository-naming-options.md`.
-- Decide whether generated config examples should be committed in every repo or
-  only in `oeds-deployment`.
 - Review and enable the prepared per-repo CI workflows after remotes exist.
-- Keep `oeds-crawler-pack` optional until crawler ownership is finalized.
-- Run one remote-host Ansible deployment smoke from the committed GitHub refs.
 - Add separate integration tests for optional disabled crawlers that require
   SFTP access, API subscriptions, or accepted external terms.
 - Add or document a bounded MaStR smoke mode equivalent to the new Ninja smoke
