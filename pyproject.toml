@@ -4,16 +4,54 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oeds-crawler-pack"
-version = "0.0.0"
-description = "KIT-derived crawler pack for Open Energy Data Server."
+version = "0.1.0"
+description = "Installable KIT crawler extensions for Open Energy Data Server."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = "AGPL-3.0-or-later"
-dependencies = []
+dependencies = [
+    "cdsapi",
+    "cfgrib",
+    "eccodes",
+    "entsoe-py",
+    "eurostat",
+    "lxml",
+    "openpyxl",
+    "pandas",
+    "paramiko",
+    "psycopg2-binary",
+    "python-dotenv",
+    "pyyaml",
+    "requests",
+    "sqlalchemy",
+    "xarray",
+]
 
 [project.entry-points."oeds.crawlers"]
 smard = "crawler.smard:SmardCrawler"
 eurostat_crawler = "crawler.eurostat_crawler:EurostatCrawler"
+copernicus_cds = "crawler.copernicus_cds:CopernicusCdsCrawler"
+dwd_cdc = "crawler.dwd_cdc:DwdCdcCrawler"
+eia = "crawler.eia:EiaCrawler"
+energy_forecast_crawler = "crawler.energy_forecast_crawler:EnergyForecastCrawler"
+entsoe_api = "crawler.entsoe_api:EntsoeApiCrawler"
+entsoe_fms = "crawler.entsoe_fms:EntsoeFMSCrawler"
+entsog = "crawler.entsog:EntsogCrawler"
+epex_spot = "crawler.epex_spot:EpexSpotCrawler"
+gie_agsi_alsi = "crawler.gie_agsi_alsi:GieAgsiAlsiCrawler"
+mastr = "crawler.mastr:MastrCrawler"
+netztransparenz = "crawler.netztransparenz:NetztransparenzCrawler"
+ninja = "crawler.ninja:NinjaCrawler"
+open_meteo = "crawler.open_meteo:OpenMeteoCrawler"
+osm_power = "crawler.osm_power:OsmPowerCrawler"
+power_system_data = "crawler.power_system_data:PowerSystemDataCrawler"
+prisma_capacity = "crawler.prisma_capacity:PrismaCapacityCrawler"
+regelleistung = "crawler.regelleistung:RegelleistungCrawler"
+tradinghub = "crawler.tradinghub:TradingHubCrawler"
+weather_forecast = "crawler.weather_forecast:WeatherForecastCrawler"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+crawler = [".env.example", "data/*.json"]

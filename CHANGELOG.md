@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+- Bundled all current KIT crawler implementations and required data mappings.
+- Bundled the temporary BaseCrawler and `crawler_core` compatibility layer.
+- Removed runtime discovery from the KIT monorepository.
+
 ## 0.0.0-local
 
 - Initial local split repository for KIT-preferred crawler registry metadata.

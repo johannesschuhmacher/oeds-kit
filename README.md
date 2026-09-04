@@ -1,7 +1,7 @@
 # oeds-crawler-pack
 
-Local staging repository for preserving KIT crawler selection behavior while
-upstream OEDS remains the base project.
+Installable repository for the KIT crawler extensions while upstream OEDS
+remains the base project.
 
 This repository is part of the modular OEDS stack. The shared crawler and
 database core remains in
@@ -13,21 +13,23 @@ and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts
 
 ## Responsibility
 
-This module provides the crawler registry layer for KIT-enhanced crawlers. It
-does not own the shared crawler base, scheduler, post-run scripts, or
-deployment.
+This module contains the KIT-enhanced crawler implementations, their registry,
+and the current compatibility implementation of `crawler.common.BaseCrawler`.
+It does not contain the scheduler, post-run scripts, or deployment.
 
-`crawler_core` belongs in OEDS core. Shared crawler runtime behavior such as
-`BaseCrawler`, database URI handling, metadata helpers, and the crawler contract
-must be fixed there so the same crawlers can be used by plain OEDS, a slim
-module setup, or the full deployment stack.
+The generic parts of `crawler_core`, `BaseCrawler`, database URI handling, and
+the crawler contract are intended for an upstream contribution to OEDS. Until
+that contribution is accepted, the compatibility code is kept here so the
+published modules work without the KIT monorepository.
 
 This package exists to prevent functionality loss while improved KIT crawlers
 are prepared for upstream OEDS or kept as extension crawlers.
 
 ## Current Behavior
 
-- discovers class-based KIT crawlers from the current KIT checkout
+- ships all current KIT crawler implementations as importable `crawler.*`
+- ships the temporary `crawler_core` and BaseCrawler compatibility API
+- discovers crawlers from its own installed package
 - exposes stable crawler specs such as `crawler.smard:SmardCrawler`
 - gives KIT crawler specs priority over upstream OEDS when the deployment stack
   merges registries
@@ -41,18 +43,15 @@ oeds-crawler-pack before oeds-core
 
 ## Local Development
 
-Run from the parent workspace:
+Install and test this repository directly:
 
 ```powershell
-python .\modular_repos\tools\verify_modules.py
+uv sync
+uv run pytest
+uv run python -c "from oeds_crawler_pack import get_crawler_specs; print(get_crawler_specs())"
 ```
 
-The verifier checks that important KIT crawlers such as `smard`, `entsoe_fms`,
-and `weather_forecast` are discovered and preferred where expected.
-
-Standalone CI runs fixture-based registry tests without requiring a checked-out
-KIT workspace. The real KIT crawler discovery assertion is covered by the
-parent workspace verifier.
+No checkout of `open-energy-data-server-KIT` is required.
 
 ## Policy
 
@@ -66,7 +65,6 @@ these documented outcomes:
 
 ## Out Of Scope
 
-- shared `BaseCrawler` or `crawler_core` implementation
 - scheduler UI
 - deployment playbooks
 - post-run gapfill or forecast pipelines
