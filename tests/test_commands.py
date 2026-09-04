@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 from oeds_post_scripts.commands import (
@@ -6,6 +8,20 @@ from oeds_post_scripts.commands import (
     script_to_post_command,
 )
 from oeds_post_scripts.migration import migrate_post_run_scripts
+
+
+def test_backfill_help_does_not_require_crawler_package():
+    script = Path(__file__).resolve().parents[1] / "scripts" / "backfill_entsoe_unavailability.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Backfill ENTSO-E unavailability" in result.stdout
 
 
 def test_resolve_entsoe_gapfill_command():

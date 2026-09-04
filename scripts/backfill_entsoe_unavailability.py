@@ -18,11 +18,9 @@ CONFIG_FILE = ROOT / "CRAWLER_CONFIG.yml"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from crawler.entsoe_fms import EntsoeFMSCrawler
-from scripts.refresh_entsoe_availability_map import main as refresh_availability_map
-
-
 def load_crawler_config() -> dict:
+    from crawler.entsoe_fms import EntsoeFMSCrawler
+
     with CONFIG_FILE.open(encoding="utf-8") as handle:
         raw_config = yaml.safe_load(handle)
 
@@ -58,6 +56,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    from crawler.entsoe_fms import EntsoeFMSCrawler
+
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s] %(levelname)s %(message)s",
@@ -85,6 +85,8 @@ def main() -> None:
     )
 
     if not args.skip_refresh:
+        from scripts.refresh_entsoe_availability_map import main as refresh_availability_map
+
         refresh_availability_map()
 
 
