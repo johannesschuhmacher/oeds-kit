@@ -31,6 +31,15 @@
     oeds_target_pg_major: 18
     oeds_backup_run_dir: "{{ oeds_root_effective }}/backups/{{ ansible_date_time.iso8601_basic_short }}"
   tasks:
+  - name: Add the deployment user to the Docker operator group
+    ansible.builtin.user:
+      name: "{{ ansible_user }}"
+      groups:
+        - docker
+      append: true
+    when:
+      - ansible_user is defined
+      - ansible_user != "root"
   - name: Update Docker packages when explicitly requested
     ansible.builtin.dnf:
       name:
