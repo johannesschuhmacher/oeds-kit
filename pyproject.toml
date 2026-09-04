@@ -4,17 +4,41 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oeds-post-scripts"
-version = "0.0.0"
+version = "0.1.0"
 description = "Post-run processing CLI for Open Energy Data Server."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 license = "AGPL-3.0-or-later"
 dependencies = [
+    "numpy",
+    "pandas",
+    "psycopg2-binary",
     "pyyaml",
+    "scikit-learn",
+    "scipy",
+    "sqlalchemy",
+]
+
+[project.optional-dependencies]
+price-forecast = [
+    "da-price-forecasting @ git+https://github.com/philipprisk/DA_Price_Forecasting_Pipeline_DE_LU.git@c3f8a270cbeff328a30609f9b66e96ced693b676",
+    "holidays",
+    "matplotlib",
 ]
 
 [project.scripts]
 oeds-post = "oeds_post_scripts.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = [
+    "oeds_post_scripts",
+    "oeds_gapfill",
+    "oeds_price_forecast",
+    "scripts",
+    "scripts.lib",
+    "scripts.lib.gapfiller",
+]
+package-dir = {oeds_post_scripts = "src/oeds_post_scripts", oeds_gapfill = "oeds_gapfill", oeds_price_forecast = "oeds_price_forecast", scripts = "scripts", "scripts.lib" = "scripts/lib", "scripts.lib.gapfiller" = "scripts/lib/gapfiller"}
+
+[tool.setuptools.package-data]
+"scripts.lib" = ["*.sql"]

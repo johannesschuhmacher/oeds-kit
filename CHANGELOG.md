@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+- Packaged post-processing scripts, helper packages, and SQL resources.
+- Declared runtime and optional price-forecast dependencies.
+- Removed the installed CLI's dependency on a KIT monorepository checkout.
+
 ## 0.0.0-local
 
 - Initial local split repository for stable `oeds-post` commands.

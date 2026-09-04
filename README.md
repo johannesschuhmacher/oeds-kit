@@ -36,16 +36,15 @@ oeds-post forecast day-ahead-price
 oeds-post backfill entsoe-unavailability
 ```
 
-These commands currently delegate to the existing legacy scripts instead of
-copying their internals. That preserves behavior while giving the scheduler a
-stable command vocabulary.
+These commands delegate to the included legacy-compatible modules. This
+preserves behavior while giving the scheduler a stable command vocabulary.
 
 Command execution resolves the legacy-compatible script root in this order:
 
 1. explicit `--repo-root`
 2. `OEDS_POST_REPO_ROOT`
 3. current working directory when it contains `scripts/`
-4. this module repository when it contains `scripts/`
+4. the installed module location
 
 The subprocess runs with the resolved root as its working directory. That keeps
 legacy relative imports and `scripts/lib` behavior stable even when `oeds-post`
@@ -80,19 +79,9 @@ For automated migration previews, use:
 from oeds_post_scripts.migration import migrate_post_run_scripts
 ```
 
-## Source Candidates
+## Included Implementation
 
-```text
-../../sources/oeds-kit-current/oeds_gapfill/
-../../sources/oeds-kit-current/oeds_price_forecast/
-../../sources/oeds-kit-current/scripts/
-../../sources/oeds-kit-current/scripts/lib/
-```
-
-## Current Copied Implementation
-
-This module repository now contains local copies of the current KIT
-post-processing implementation:
+This module repository contains the current post-processing implementation:
 
 ```text
 oeds_gapfill/
@@ -105,8 +94,10 @@ The stable `oeds-post` commands still keep the legacy-compatible paths as their
 behavioral source of truth. Scripts with a safe `main()` entry point can be
 called directly in-process; scripts with import-time side effects, such as the
 current `gapfill_smard.py`, continue to run through the subprocess fallback.
-This keeps current behavior intact while making the repository independently
-developable.
+These packages and their SQL files are included in both source distributions
+and wheels. The repository can therefore be installed independently of the KIT
+monorepository. The ENTSO-E backfill command additionally requires
+`oeds-crawler-pack`, which the deployment installs alongside this module.
 
 Current direct-call candidates:
 
@@ -118,40 +109,25 @@ Current direct-call candidates:
 | `oeds-post backfill entsoe-unavailability` | yes |
 | `oeds-post gapfill smard` | no, script has import-time execution |
 
-## Reproducibility Against KIT
-
-The copied implementation is checked byte-for-byte against the current KIT
-checkout:
-
-```powershell
-python .\modular_repos\tools\verify_split_parity.py
-```
-
-If this check passes, the copied post-processing files are identical to KIT.
-They should produce the same results under the same Python environment,
-database contents, credentials, and external source availability.
-
 ## Local Development
 
 List stable commands:
 
 ```powershell
-$env:PYTHONPATH=".\modular_repos\modules\oeds-post-scripts\src"
-python -m oeds_post_scripts.cli --list
+uv sync
+uv run oeds-post --list
 ```
 
 Preview config migration:
 
 ```powershell
-$env:PYTHONPATH=".\modular_repos\modules\oeds-post-scripts\src"
-python -m oeds_post_scripts.cli --migrate-config .\CRAWLER_CONFIG.yml
+uv run oeds-post --migrate-config .\CRAWLER_CONFIG.yml
 ```
 
 Preview the command that would run against the module-local implementation:
 
 ```powershell
-$env:PYTHONPATH=".\modular_repos\modules\oeds-post-scripts\src"
-python -m oeds_post_scripts.cli --repo-root .\modular_repos\modules\oeds-post-scripts --print-command gapfill entsoe-fms
+uv run oeds-post --print-command gapfill entsoe-fms
 ```
 
 ## Test Coverage
