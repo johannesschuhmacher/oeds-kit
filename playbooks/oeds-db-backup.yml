@@ -9,7 +9,7 @@
     oeds_source_db_name: opendata
     oeds_source_db_user: opendata
     oeds_backup_include_runtime: true
-    oeds_backup_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_backup_run_id: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
     oeds_backup_run_dir: "{{ oeds_root }}/backups/{{ oeds_backup_run_id }}"
   tasks:
     - name: Ensure backup directories exist

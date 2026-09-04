@@ -29,7 +29,7 @@
     oeds_backup_database: true
     oeds_allow_pg_major_upgrade: false
     oeds_target_pg_major: 18
-    oeds_backup_run_dir: "{{ oeds_root_effective }}/backups/{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_backup_run_dir: "{{ oeds_root_effective }}/backups/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
   tasks:
   - name: Add the deployment user to the Docker operator group
     ansible.builtin.user:

@@ -17,7 +17,7 @@
     oeds_backup_before_migration: true
     oeds_apply_cutover: false
     oeds_enable_crawlers_after_cutover: false
-    oeds_migration_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_migration_run_id: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
     oeds_backup_run_dir: "{{ oeds_root }}/backups/{{ oeds_migration_run_id }}"
     oeds_migration_run_dir: "{{ oeds_root }}/migration/{{ oeds_migration_run_id }}"
     oeds_migration_pgdata_dir: "{{ oeds_migration_run_dir }}/pgdata"

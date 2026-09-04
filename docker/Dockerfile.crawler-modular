@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-FROM python:3.14.4-slim
+FROM python:3.13-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
@@ -35,6 +35,7 @@ COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-s
 
 RUN uv venv /app/.venv --python /usr/local/bin/python && \
     uv pip install --python /app/.venv/bin/python \
+        -r /app/modular_repos/sources/oeds-core/requirements.txt \
         -e /app/modular_repos/sources/oeds-core \
         -e /app/modular_repos/modules/oeds-crawler-pack \
         -e /app/modular_repos/modules/oeds-scheduler-ui \

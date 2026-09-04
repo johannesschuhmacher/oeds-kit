@@ -157,6 +157,7 @@ def main(local_only: bool = False) -> None:
         [
             "uv venv",
             "uv pip install",
+            "sources/oeds-core/requirements.txt",
             "PYTHONPATH=/app",
             "oeds-crawler-pack",
             "oeds-scheduler-ui",

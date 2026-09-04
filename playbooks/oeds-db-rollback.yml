@@ -9,7 +9,7 @@
     oeds_db_user: opendata
     oeds_db_name: opendata
     oeds_enable_crawlers_after_rollback: false
-    oeds_rollback_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+    oeds_rollback_run_id: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
     oeds_rollback_backup_dir: "{{ oeds_root }}/backups/rollback-{{ oeds_rollback_run_id }}"
     oeds_rollback_source_dir: ""
   tasks:
