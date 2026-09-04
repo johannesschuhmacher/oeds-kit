@@ -197,6 +197,10 @@ fi
 log "Installing modular OEDS"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[@]}"
 
+log "Verifying installed modular workspace"
+python3 "$OEDS_ROOT/repo/modular_repos/tools/verify_modules.py"
+python3 "$OEDS_ROOT/repo/modular_repos/modules/oeds-deployment/tools/verify_deployment.py"
+
 log "Running final Ansible smoke test"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-smoke-test.yml \
   -e "oeds_root=$OEDS_ROOT" \

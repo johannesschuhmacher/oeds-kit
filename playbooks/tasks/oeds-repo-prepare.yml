@@ -92,7 +92,7 @@
   ansible.builtin.command:
     argv:
       - tar
-      - --exclude-vcs
+      - --exclude=.git
       - --exclude=__pycache__
       - --exclude=*.pyc
       - --exclude=.venv
