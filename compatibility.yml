@@ -12,7 +12,7 @@ components:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
     branch: "main"
-    commit: "1255c8c9067f6c46154f207e49159e80f51d59f7"
+    commit: "581f404398071b3a109a6097c63422cc9a291330"
     status: "github-modular"
     registry_priority: "before-oeds-core"
 

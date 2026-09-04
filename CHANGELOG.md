@@ -15,3 +15,5 @@
   verification mode.
 - Install the complete official OEDS crawler requirements on Python 3.13 and
   pass the runtime crawler-config path to post-processing commands.
+- Bound ENTSO-E FMS backfills to the requested file period and migrate the
+  consumption-unavailability table for current source columns.
