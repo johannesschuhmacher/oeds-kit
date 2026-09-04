@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from oeds_post_scripts.commands import (
     command_to_legacy_argv,
     resolve_post_command,
@@ -11,7 +13,7 @@ def test_resolve_entsoe_gapfill_command():
 
     assert command.spec.legacy_script == "scripts/gapfill_timeseries.py"
     assert command_to_legacy_argv(command) == (
-        "scripts\\gapfill_timeseries.py",
+        str(Path("scripts/gapfill_timeseries.py")),
         "--job",
         "entsoe_fms",
         "--self-test",
