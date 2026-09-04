@@ -49,7 +49,7 @@ Known replacements:
 
 ## Verification
 
-Latest GitLab publication note:
+Previous GitLab publication note:
 
 ```text
 docs/gitlab-publication-2026-07-15.md
@@ -135,26 +135,31 @@ setup work such as missing remotes or pending initial commits.
 
 ## Publication Status
 
-The local modular split has been pushed as private GitLab projects under the
-KIT JOSC namespace. The four add-on repositories have initial `main` commits,
-track `origin/main`, and were verified through fresh clones from GitLab.
+The four add-on repositories are published privately under the
+`johannesschuhmacher` GitHub account. Their local working trees track the
+GitHub `origin/main`; the previous GitLab remotes are retained as `gitlab`
+without automatic mirroring. `oeds-deployment/compatibility.yml` pins the
+GitHub module URLs and exact tested component commits.
 
-The remaining work is release hardening, compatibility pinning, full
-fresh-machine installation from GitLab URLs, and a few bounded crawler-test
-gaps, not basic functionality.
+The original `open-energy-data-server/open-energy-data-server` repository
+remains the central OEDS core. It is consumed by the modular deployment and is
+not duplicated into another add-on repository.
+
+The remaining publication work is a clean GitHub-only VM installation test,
+release hardening, and bounded tests for crawlers that need special external
+access.
 
 ## Remaining Work Before Public Release
 
 - Keep `crawler_core` in OEDS core and document the public crawler contract
   there before upstream/public publication.
-- Decide whether the current private GitLab project names are final for public
-  use. See `docs/repository-naming-options.md`.
+- Confirm whether the current private GitHub repository names are final before
+  making them public. See `docs/repository-naming-options.md`.
 - Decide whether generated config examples should be committed in every repo or
   only in `oeds-deployment`.
 - Review and enable the prepared per-repo CI workflows after remotes exist.
 - Keep `oeds-crawler-pack` optional until crawler ownership is finalized.
-- Run one remote-host Ansible deployment smoke from committed refs after the
-  first public remotes exist.
+- Run one remote-host Ansible deployment smoke from the committed GitHub refs.
 - Add separate integration tests for optional disabled crawlers that require
   SFTP access, API subscriptions, or accepted external terms.
 - Add or document a bounded MaStR smoke mode equivalent to the new Ninja smoke

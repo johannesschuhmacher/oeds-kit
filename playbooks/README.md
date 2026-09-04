@@ -46,17 +46,19 @@ For a remote host, edit `inventory.yml`: replace `localhost` with the host's
 `ansible_host` and set `ansible_user` if needed. Keep `group_vars/oeds.yml`
 absent unless you really need local overrides.
 
-## Simplified GitLab VM install
+## Simplified GitHub VM install
 
-For the modular private GitLab split, use the wrapper from the deployment
-repository when a fresh Linux VM should clone everything directly from GitLab:
+For the private modular GitHub split, use the wrapper from the deployment
+repository when a fresh Linux VM should clone all modules directly from GitHub:
 
 ```bash
-export OEDS_GIT_USERNAME=oauth2
-export OEDS_GIT_TOKEN='<gitlab-token>'
-
-git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+git clone https://github.com/johannesschuhmacher/oeds-deployment.git
 cd oeds-deployment
+
+export OEDS_GIT_USERNAME='<github-user>'
+read -rsp 'GitHub token: ' OEDS_GIT_TOKEN
+export OEDS_GIT_TOKEN
+
 bash ./tools/oeds_clean_install_from_git.sh \
   --reset \
   --crawler-env-file /path/to/crawler.env \
@@ -64,12 +66,17 @@ bash ./tools/oeds_clean_install_from_git.sh \
   --include-entsoe-fms
 ```
 
-Use `OEDS_GIT_USERNAME=oauth2` for a personal access token. For a GitLab deploy
-token, use the deploy-token username. The wrapper clones `oeds-deployment`,
-assembles all compatible component repositories from `compatibility.yml`, runs
-host prep unless `--skip-host-prep` is passed, optionally performs a destructive
-reset, installs the modular stack, runs the Ansible smoke test, and can load a
-bounded real-data sample into the installed database.
+Because the repository is private during the test phase, the initial
+`git clone` prompts for the GitHub username and the personal access token as
+the password. The exported token is then used by the wrapper for its clean
+deployment clone and the sibling module clones.
+
+If `OEDS_GIT_USERNAME` is omitted, the wrapper uses `x-access-token`. The
+wrapper clones `oeds-deployment`, assembles all compatible component
+repositories from `compatibility.yml`, runs host prep unless
+`--skip-host-prep` is passed, optionally performs a destructive reset, installs
+the modular stack, runs the Ansible smoke test, and can load a bounded real-data
+sample into the installed database.
 
 Pass `--crawler-env-file` or set `OEDS_CRAWLER_ENV_FILE` when live crawlers
 need API tokens. The wrapper installs that file as
@@ -82,7 +89,7 @@ For unattended sudo, pass a local password file:
 export OEDS_BECOME_PASSWORD_FILE=/path/to/sudo-password-file
 ```
 
-Keep GitLab tokens and sudo password files outside the repository.
+Keep GitHub tokens and sudo password files outside the repository.
 
 Use the default `git` source mode when the target host can clone the selected
 branch, tag, or commit itself. Use `local_archive` when you need to deploy a

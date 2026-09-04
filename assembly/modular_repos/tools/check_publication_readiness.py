@@ -98,12 +98,12 @@ FORBIDDEN_FILE_PATTERNS = (
 )
 
 COMPATIBILITY_TOKENS = (
-    'version: "0.0.0-rc.0-gitlab"',
-    'status: "gitlab-initial"',
-    "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-crawler-pack.git",
-    "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-scheduler-ui.git",
-    "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-post-scripts.git",
-    "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git",
+    'version: "0.0.0-rc.0-github"',
+    'status: "github-initial"',
+    "https://github.com/johannesschuhmacher/oeds-crawler-pack.git",
+    "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git",
+    "https://github.com/johannesschuhmacher/oeds-post-scripts.git",
+    "https://github.com/johannesschuhmacher/oeds-deployment.git",
     "release_readiness:",
     "publication-readiness.md",
     "full-function-test-2026-06-02.md",

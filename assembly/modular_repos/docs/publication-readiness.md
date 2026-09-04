@@ -13,6 +13,8 @@ public versions.
 - KIT-specific scheduler, UI, post-processing, and deployment work is
   separated into add-on repositories. Compatibility metadata lives in
   `oeds-deployment/compatibility.yml`.
+- The four add-on repositories are currently private on GitHub. GitHub is the
+  primary remote; the previous GitLab remotes are not mirrored automatically.
 - The latest complete local function test is documented in
   `docs/full-function-test-2026-06-02.md`.
 - The full local verification command is:
@@ -132,26 +134,26 @@ deployment repository is tagged for external operators.
 
 ## Git Preparation
 
-The module directories are local repository working trees. Before the first
-public push:
+The module directories are local repository working trees whose private GitHub
+remotes already exist. Before the first public release:
 
 - inspect each module with `git status`
 - fix local Git ownership if `dubious ownership` is reported
-- create an initial commit per module after reviewing publish exclusions
-- add public remotes only after local secrets and runtime artifacts are absent
+- verify that each module tracks its GitHub `origin/main`
+- make the private repositories public only after local secrets and runtime
+  artifacts are confirmed absent
 
 Do not use the root OEDS repository commit as the publication boundary for these
 add-on modules. Each module should have its own history, tag, and release notes.
 
 ## First Public Tag
 
-1. Create empty public remotes for the four primary add-on module repositories.
-2. Create the reviewed initial commit in each local module repository.
-3. Push each local module repository without local runtime artifacts.
-4. Add CI workflows for fast unit and manifest checks.
-5. Run the full local function test from a clean checkout.
-6. Tag module repositories with matching release-candidate tags.
-7. Update `oeds-deployment/compatibility.yml` from local paths to tagged
+1. Review the four private GitHub repositories and their publish exclusions.
+2. Run the full local function test from a clean GitHub checkout.
+3. Add or enable CI workflows for fast unit and manifest checks.
+4. Make the repositories public when the review and clean-install test pass.
+5. Tag module repositories with matching release-candidate tags.
+6. Update `oeds-deployment/compatibility.yml` from commit pins to tagged
    repository references.
-8. Run a remote-host deployment smoke test.
-9. Publish the final deployment-compatible release tag.
+7. Run a remote-host deployment smoke test.
+8. Publish the final deployment-compatible release tag.

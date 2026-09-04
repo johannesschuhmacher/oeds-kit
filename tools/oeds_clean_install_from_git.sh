@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEPLOYMENT_REPO_URL=${OEDS_DEPLOYMENT_REPO_URL:-https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git}
+DEPLOYMENT_REPO_URL=${OEDS_DEPLOYMENT_REPO_URL:-https://github.com/johannesschuhmacher/oeds-deployment.git}
 DEPLOYMENT_REF=${OEDS_DEPLOYMENT_REF:-main}
 WORK_DIR=${OEDS_INSTALL_WORK_DIR:-$HOME/oeds-modular-git-install}
 CHECKOUT_DIR=${OEDS_DEPLOYMENT_CHECKOUT_DIR:-$WORK_DIR/oeds-deployment}
@@ -16,7 +16,7 @@ CRAWLER_ENV_FILE=${OEDS_CRAWLER_ENV_FILE:-}
 usage() {
   cat <<'USAGE'
 Usage:
-  OEDS_GIT_TOKEN=<token> [OEDS_GIT_USERNAME=oauth2] tools/oeds_clean_install_from_git.sh [options]
+  OEDS_GIT_TOKEN=<token> [OEDS_GIT_USERNAME=<github-user>] tools/oeds_clean_install_from_git.sh [options]
 
 Options:
   --reset                 Run a destructive OEDS uninstall before installing.
@@ -31,8 +31,8 @@ Options:
   -h, --help              Show this help.
 
 Environment:
-  OEDS_GIT_TOKEN              GitLab PAT or deploy token password for private HTTPS clones.
-  OEDS_GIT_USERNAME           GitLab username for the token. Use "oauth2" for PATs.
+  OEDS_GIT_TOKEN              GitHub personal access token for private HTTPS clones.
+  OEDS_GIT_USERNAME           GitHub username. Defaults to "x-access-token".
   OEDS_CRAWLER_ENV_FILE       Optional crawler .env copied after install for live crawlers.
   OEDS_BECOME_PASSWORD_FILE   Optional sudo password file for non-interactive Ansible runs.
 
@@ -88,7 +88,7 @@ setup_git_auth() {
   cat > "$ASKPASS_DIR/oeds-git-askpass.sh" <<'SH'
 #!/usr/bin/env bash
 case "$1" in
-  *Username*) printf '%s\n' "${OEDS_GIT_USERNAME:-oauth2}" ;;
+  *Username*) printf '%s\n' "${OEDS_GIT_USERNAME:-x-access-token}" ;;
   *Password*) printf '%s\n' "$OEDS_GIT_TOKEN" ;;
   *) printf '\n' ;;
 esac

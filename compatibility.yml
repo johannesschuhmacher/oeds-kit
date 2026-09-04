@@ -1,5 +1,5 @@
 name: oeds-deployment-compatibility
-version: "0.0.0-rc.0-gitlab"
+version: "0.0.0-rc.0-github"
 
 components:
   oeds-core:
@@ -16,25 +16,25 @@ components:
 
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
-    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-crawler-pack.git"
+    repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
     branch: "main"
-    commit: "24dda880d1ca0a58e592d0b31baa4fbeac7064bc"
-    status: "gitlab-initial"
+    commit: "494c01f45e7ef0d048e036f45999a006bc01b6d4"
+    status: "github-initial"
     registry_priority: "before-oeds-core"
 
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
-    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-scheduler-ui.git"
+    repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
     branch: "main"
-    commit: "a43d031b13ef271fb6e495c62859c90f9a6975a6"
-    status: "gitlab-initial"
+    commit: "9f5682856a6713852f71f70fd671b07672ca9d54"
+    status: "github-initial"
 
   oeds-post-scripts:
     path: "../oeds-post-scripts"
-    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-post-scripts.git"
+    repository: "https://github.com/johannesschuhmacher/oeds-post-scripts.git"
     branch: "main"
-    commit: "af40b678af67b784e17ed68f8e07f9243519006e"
-    status: "gitlab-initial"
+    commit: "4db48b10ef894c62898edfbfe342bc33a4a78f14"
+    status: "github-initial"
     commands:
       - "oeds-post gapfill smard"
       - "oeds-post gapfill entsoe-fms"
@@ -47,10 +47,10 @@ components:
 
   oeds-deployment:
     path: "."
-    repository: "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git"
+    repository: "https://github.com/johannesschuhmacher/oeds-deployment.git"
     branch: "main"
     self: true
-    status: "gitlab-initial"
+    status: "github-initial"
     compose:
       baseline: "compose.yml"
       modular_overlay: "compose.modular.yml"

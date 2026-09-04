@@ -10,10 +10,10 @@ maintained independently.
 | Repository | Responsibility | Current status |
 | --- | --- | --- |
 | `sources/oeds-core` / OEDS core | shared crawler implementation, `crawler_core`, database contract | central crawler base |
-| `modules/oeds-crawler-pack` | optional KIT crawler registry and preferred crawler specs | functional registry facade |
-| `modules/oeds-scheduler-ui` | scheduler runtime, daemon, admin UI | scheduler core plus extracted KIT admin UI |
-| `modules/oeds-post-scripts` | gapfill, forecast, refresh, derived data tools | stable CLI and copied KIT implementation |
-| `modules/oeds-deployment` | Compose, Docker, Ansible, provisioning, ops, compatibility manifest | KIT baseline plus modular/test overlays |
+| [`modules/oeds-crawler-pack`](https://github.com/johannesschuhmacher/oeds-crawler-pack) | optional KIT crawler registry and preferred crawler specs | private GitHub repository |
+| [`modules/oeds-scheduler-ui`](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | scheduler runtime, daemon, admin UI | private GitHub repository |
+| [`modules/oeds-post-scripts`](https://github.com/johannesschuhmacher/oeds-post-scripts) | gapfill, forecast, refresh, derived data tools | private GitHub repository |
+| [`modules/oeds-deployment`](https://github.com/johannesschuhmacher/oeds-deployment) | Compose, Docker, Ansible, provisioning, ops, compatibility manifest | private GitHub repository and installation entry point |
 
 ## Verification
 
@@ -95,8 +95,10 @@ reason and matching parity/update documentation.
 
 ## Publication Boundary
 
-The current split is locally verified and ready for repository publication
-preparation. Before public release, review the publication checklist in:
+The four module repositories are published privately on GitHub. GitHub is the
+current primary remote; the earlier GitLab repositories are retained only as
+historical remotes and are not mirrored automatically. Before public release,
+review the publication checklist in:
 
 ```text
 docs/publication-readiness.md

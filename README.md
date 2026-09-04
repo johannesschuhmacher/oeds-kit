@@ -2,6 +2,13 @@
 
 Deployment and operations module for the modular OEDS stack.
 
+This is the installation entry point for the modular stack. It assembles the
+original [OEDS core](https://github.com/open-energy-data-server/open-energy-data-server)
+with [oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
+[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
+and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts)
+at the revisions pinned in `compatibility.yml`.
+
 ## Responsibility
 
 This module should install and operate a selected set of OEDS components. It
@@ -93,7 +100,7 @@ For a fresh test from the published repositories, start with this deployment
 repository only and assemble the full workspace from `compatibility.yml`:
 
 ```powershell
-git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+git clone https://github.com/johannesschuhmacher/oeds-deployment.git
 cd oeds-deployment
 python .\tools\assemble_workspace.py --output C:\tmp\oeds-assembled --clean
 ```
@@ -123,17 +130,19 @@ On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
 run the documented Ansible install/update/smoke-test path from the assembled
 deployment checkout.
 
-For a clean Linux VM that should clone directly from GitLab, the shortest path
-is the install wrapper. Create a GitLab PAT or deploy token with read access to
-the private `josc` module repositories and pass it only through the shell
+For a clean Linux VM that should clone the private GitHub repositories, the
+shortest path is the install wrapper. Create a GitHub personal access token with
+read access to the four module repositories and pass it only through the shell
 environment:
 
 ```bash
-export OEDS_GIT_USERNAME=oauth2
-export OEDS_GIT_TOKEN='<gitlab-token>'
-
-git clone https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-deployment.git
+git clone https://github.com/johannesschuhmacher/oeds-deployment.git
 cd oeds-deployment
+
+export OEDS_GIT_USERNAME='<github-user>'
+read -rsp 'GitHub token: ' OEDS_GIT_TOKEN
+export OEDS_GIT_TOKEN
+
 bash ./tools/oeds_clean_install_from_git.sh \
   --reset \
   --crawler-env-file /path/to/crawler.env \
@@ -141,12 +150,17 @@ bash ./tools/oeds_clean_install_from_git.sh \
   --include-entsoe-fms
 ```
 
-For a GitLab deploy token, set `OEDS_GIT_USERNAME` to the deploy-token
-username instead of `oauth2`. The wrapper uses a temporary `GIT_ASKPASS` helper
-for all Git clones, assembles the workspace from `compatibility.yml`, writes a
-local Ansible inventory, installs the modular stack, runs the Ansible smoke
-test, and can call `tools/load_sample_data.sh` to write bounded real crawler
-data into the installed database.
+Because the repository is private during the test phase, the initial
+`git clone` prompts for the GitHub username and the personal access token as
+the password. The exported token is then used by the wrapper for its clean
+deployment clone and the sibling module clones.
+
+If `OEDS_GIT_USERNAME` is omitted, the wrapper uses `x-access-token`. The
+wrapper uses a temporary `GIT_ASKPASS` helper for all Git clones, assembles the
+workspace from `compatibility.yml`, writes a local Ansible inventory, installs
+the modular stack, runs the Ansible smoke test, and can call
+`tools/load_sample_data.sh` to write bounded real crawler data into the
+installed database.
 
 Pass `--crawler-env-file` or set `OEDS_CRAWLER_ENV_FILE` when live crawlers
 need API tokens. The wrapper installs that file as

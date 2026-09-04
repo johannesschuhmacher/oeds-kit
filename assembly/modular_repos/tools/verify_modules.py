@@ -693,9 +693,9 @@ def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
     assert "oeds-post --migrate-config CRAWLER_CONFIG.yml --check" in (
         compatibility_manifest
     )
-    assert "gitlab-initial" in compatibility_manifest
+    assert "github-initial" in compatibility_manifest
     assert (
-        "https://gitlab.kit.edu/kit/iip/energyeconomics/sem-fec/josc/oeds-scheduler-ui.git"
+        "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
         in compatibility_manifest
     )
     assert "publication-readiness.md" in compatibility_manifest
