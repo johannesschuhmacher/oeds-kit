@@ -531,6 +531,19 @@ class EntsoeFMSCrawler(BaseCrawler):
         except ValueError:
             return None
 
+    @classmethod
+    def _file_period_overlaps(
+        cls,
+        filename: str,
+        start_time: pd.Timestamp,
+        end_time: pd.Timestamp,
+    ) -> bool | None:
+        file_start = cls._extract_file_period_start(filename)
+        if file_start is None:
+            return None
+        file_end = file_start + pd.DateOffset(months=1)
+        return file_start < end_time and file_end > start_time
+
     def _get_table_state(self, table_name: str) -> dict:
         state = {
             "table_exists": False,
@@ -598,6 +611,24 @@ class EntsoeFMSCrawler(BaseCrawler):
             state["last_date_time"] = state["last_date_time"].replace(tzinfo=None)
 
         return state
+
+    def _ensure_current_table_schema(self, table_name: str) -> None:
+        if table_name != "UnavailabilityOfConsumptionUnits":
+            return
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    'ALTER TABLE "entsoe_fms"."UnavailabilityOfConsumptionUnits" '
+                    'ADD COLUMN IF NOT EXISTS "ActualUnavailableCapacity[MW]" DOUBLE PRECISION'
+                )
+            )
+            conn.execute(
+                text(
+                    'ALTER TABLE "entsoe_fms"."UnavailabilityOfConsumptionUnits" '
+                    'ADD COLUMN IF NOT EXISTS "TotalUnavailableCapacity[MW]" DOUBLE PRECISION'
+                )
+            )
 
     @staticmethod
     def _normalize_timestamp_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -767,6 +798,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         # Kept as a safe fallback if a future change re-introduces buffered writes.
         df_insert_full = pd.DataFrame()
         df_update_full = pd.DataFrame()
+        failures: list[str] = []
 
         target_data_items = self._get_target_data_items()
         if not target_data_items:
@@ -780,6 +812,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         for data_item in target_data_items:
             create = False
             do_not_create_again = False
+            schema_checked = False
             table_name = self._get_table_name_for_data_item(data_item)
 
             print(f"\n--- Processing data item: {data_item} ---")
@@ -789,6 +822,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                 metas = self._list_metadata(data_item, start_time, end_time)
             except Exception as exc:
                 self.logger.error(f"Failed metadata request for {data_item}: {exc}", exc_info=True)
+                failures.append(f"{data_item}: metadata request")
                 continue
 
             metas = sorted(
@@ -809,7 +843,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                         effective_start_time,
                     )
                 elif table_state["table_exists"] and table_state["last_update_time"]:
-                    effective_start_time = end_time - update_interval
+                    effective_start_time = max(start_time, end_time - update_interval)
                     self.logger.info(
                         "Table '%s' exists. Incremental mode starts at %s.",
                         table_name,
@@ -823,14 +857,18 @@ class EntsoeFMSCrawler(BaseCrawler):
 
                 skip_date_filter = self._should_skip_date_filter(data_item)
                 if not skip_date_filter:
-                    file_date = self._extract_file_period_start(fname)
-                    if file_date is None:
+                    overlaps = self._file_period_overlaps(
+                        fname,
+                        effective_start_time,
+                        end_time,
+                    )
+                    if overlaps is None:
                         self.logger.warning(
                             "Could not infer period from FMS file '%s' in '%s'. Processing without date filter.",
                             fname,
                             data_item,
                         )
-                    elif file_date < effective_start_time:
+                    elif not overlaps:
                         continue
 
                 local_path = os.path.join(local_dir, fname)
@@ -840,6 +878,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                     self._download_file(meta["fileId"], local_path)
                 except requests.HTTPError as exc:
                     self.logger.error(f"Download failed for {fname}: {exc}", exc_info=True)
+                    failures.append(f"{fname}: download")
                     continue
 
                 # ---------------- CSV Parsing & DB Logic (Stream-Processing) ----------------
@@ -852,6 +891,9 @@ class EntsoeFMSCrawler(BaseCrawler):
                             self._create_table_with_unique_constraint(table_name)
                             do_not_create_again = True
                         table_state = self._get_table_state(table_name)
+                    if not schema_checked:
+                        self._ensure_current_table_schema(table_name)
+                        schema_checked = True
 
                     chunk_size = 50000
                     total_file_inserts = 0
@@ -923,6 +965,7 @@ class EntsoeFMSCrawler(BaseCrawler):
 
                 except Exception as e:
                     self.logger.error(f"Error processing file {meta['name']}: {e}", exc_info=True)
+                    failures.append(f"{fname}: processing")
 
                 finally:
                     print(f"Data processing complete for file {meta['name']}")
@@ -944,6 +987,11 @@ class EntsoeFMSCrawler(BaseCrawler):
 
             df_insert_full = pd.DataFrame()
             df_update_full = pd.DataFrame()
+
+        if failures:
+            raise RuntimeError(
+                "ENTSO-E FMS completed with failed files: " + ", ".join(failures)
+            )
 
     # ------------------------------------------------------------------
     # Database flush helper extracted from the legacy SFTP crawler
@@ -1569,6 +1617,8 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("AreaTypeCode", String),
                     Column("AreaMapCode", String),
                     Column("PlannedUnavailableCapacity[MW]", Float),
+                    Column("ActualUnavailableCapacity[MW]", Float),
+                    Column("TotalUnavailableCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
                         "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
