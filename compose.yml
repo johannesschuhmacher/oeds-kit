@@ -21,26 +21,27 @@ x-oeds-python-environment: &oeds-python-environment
 
 x-oeds-python-service: &oeds-python-service
   build:
-    context: .
-    dockerfile: docker/Dockerfile.crawler
+    context: ../../..
+    dockerfile: modular_repos/modules/oeds-deployment/docker/Dockerfile.crawler-modular
   restart: unless-stopped
   working_dir: /app
   environment:
     <<: *oeds-python-environment
   env_file:
-    - ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+    - path: ${OEDS_RUNTIME_DIR:-../../..}/crawler/.env
+      required: false
   volumes:
     - type: bind
-      source: ${OEDS_RUNTIME_DIR:-.}/CRAWLER_CONFIG.yml
+      source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
       target: /app/CRAWLER_CONFIG.yml
       bind:
         create_host_path: false
     - type: bind
-      source: ${OEDS_RUNTIME_DIR:-.}/crawler/data
+      source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
       target: /app/crawler/data
       bind:
         create_host_path: false
-    - ${OEDS_RUNTIME_DIR:-.}/logs:/app/logs
+    - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
   networks:
     - netlocalhost
   depends_on:
@@ -68,9 +69,9 @@ services:
       POSTGRES_DB: opendata
     volumes:
       - postgres-home:/home/postgres/pgdata/data
-      - ./docker/initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
+      - ./modular_initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
       - ./docker/initdb/10-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
-      - ./scripts/lib/postgres_functions.sql:/docker-entrypoint-initdb.d/postgres_functions.sql:ro
+      - ../oeds-post-scripts/scripts/lib/postgres_functions.sql:/docker-entrypoint-initdb.d/postgres_functions.sql:ro
     networks:
       - netlocalhost
     ports:
@@ -150,7 +151,18 @@ services:
     container_name: oeds-scheduler
     profiles:
       - crawlers
-    command: ["python", "crawler_scheduler.py"]
+    command:
+      - oeds-scheduler
+      - --config
+      - /app/CRAWLER_CONFIG.yml
+      - --inventory
+      - /app/modular_repos/docs/crawler-inventory.json
+      - --workspace-root
+      - /app/modular_repos
+      - --daemon
+    environment:
+      <<: *oeds-python-environment
+      OEDS_ADMIN_REPO_ROOT: /app
 
   crawler-admin:
     <<: *oeds-python-service
@@ -159,24 +171,25 @@ services:
       - crawlers
     # The admin UI must update the bind-mounted runtime config on the host.
     user: "0:0"
-    command: ["python", "crawler_admin_server.py"]
+    command: ["oeds-crawler-admin"]
     environment:
       <<: *oeds-python-environment
+      OEDS_ADMIN_REPO_ROOT: /app
       OEDS_ADMIN_HOST: 0.0.0.0
       OEDS_ADMIN_PORT: "3010"
       OEDS_ADMIN_STATE_DIR: /var/lib/oeds-admin
     volumes:
       - type: bind
-        source: ${OEDS_RUNTIME_DIR:-.}/CRAWLER_CONFIG.yml
+        source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
         target: /app/CRAWLER_CONFIG.yml
         bind:
           create_host_path: false
       - type: bind
-        source: ${OEDS_RUNTIME_DIR:-.}/crawler/data
+        source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
         target: /app/crawler/data
         bind:
           create_host_path: false
-      - ${OEDS_RUNTIME_DIR:-.}/logs:/app/logs
-      - ${OEDS_RUNTIME_DIR:-.}/crawler_admin_state:/var/lib/oeds-admin
+      - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
+      - ${OEDS_RUNTIME_DIR:-../../..}/crawler_admin_state:/var/lib/oeds-admin
     ports:
       - "${OEDS_CRAWLER_ADMIN_PORT:-3010}:3010"

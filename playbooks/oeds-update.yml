@@ -3,12 +3,13 @@
   become: true
   vars:
     oeds_default_root: /open_energy_data_server
-    oeds_default_repo_url: https://github.com/johannesschuhmacher/open-energy-data-server-KIT.git
+    oeds_default_repo_url: https://github.com/johannesschuhmacher/oeds-deployment.git
     oeds_default_repo_version: main
     oeds_default_compose_project_name: oeds
     oeds_default_repo_source_mode: git
     oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
     oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
+    oeds_repo_source_dir_effective: "{{ oeds_repo_source_dir | default(oeds_root_effective ~ '/deployment-source') if oeds_repo_source_mode_effective == 'git' else oeds_repo_dir_effective }}"
     oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_root_effective ~ '/docker_data') }}"
     oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
     oeds_repo_url_effective: "{{ oeds_repo_url | default(oeds_default_repo_url) }}"
@@ -18,8 +19,8 @@
     oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
     oeds_default_enable_crawlers: false
     oeds_enable_crawlers_effective: "{{ oeds_enable_crawlers | default(oeds_default_enable_crawlers) }}"
-    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective) }}"
-    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
+    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml', 'compose.modular.yml']) }}"
     oeds_runtime_crawler_data_files:
       - crawler/data/mapping_eic_to_location.py
       - crawler/data/mapping_p_to_g.json
@@ -115,9 +116,9 @@
     ansible.builtin.stat:
       path: "{{ oeds_root_effective }}/compose.yml"
     register: oeds_legacy_compose
-  - name: Check whether the repo exists
+  - name: Check whether the selected source checkout exists
     ansible.builtin.stat:
-      path: "{{ oeds_repo_dir_effective }}"
+      path: "{{ oeds_repo_source_dir_effective }}"
     register: oeds_repo_stat
   - name: Check whether the selected compose project exists
     ansible.builtin.stat:

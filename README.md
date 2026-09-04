@@ -1,139 +1,34 @@
 # oeds-deployment
 
-Deployment and operations module for the modular OEDS stack.
+Installation and operations entry point for modular OEDS.
 
-This is the installation entry point for the modular stack. It assembles the
-original [OEDS core](https://github.com/open-energy-data-server/open-energy-data-server)
-with [oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
-[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
-and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts)
-at the revisions pinned in `compatibility.yml`.
+This repository assembles the original
+[Open Energy Data Server](https://github.com/open-energy-data-server/open-energy-data-server)
+with the compatible revisions of these add-ons:
 
-## Responsibility
+| Repository | Responsibility |
+| --- | --- |
+| `oeds-crawler-pack` | KIT crawler implementations and temporary BaseCrawler compatibility |
+| `oeds-scheduler-ui` | scheduler, crawler runtime, and admin UI |
+| `oeds-post-scripts` | gapfill, backfill, forecasts, and derived-data jobs |
+| `oeds-deployment` | Compose, Ansible, provisioning, installation, and compatibility pins |
 
-This module should install and operate a selected set of OEDS components. It
-should not patch crawler source code at deployment time.
+There is no separate distribution repository. This repository owns assembly
+and installation. `compatibility.yml` is the single list of compatible source
+revisions. `open-energy-data-server-KIT` is not needed at runtime or during
+installation.
 
-## Contents
+## Fastest Linux Install
 
-- Docker Compose files
-- Docker build contexts
-- Ansible playbooks
-- host setup
-- backup, restore, migration, rollback
-- provisioning for Grafana, PgAdmin, and PostgREST
-- operational documentation
-- compatibility metadata in `compatibility.yml`
+Requirements:
 
-## Current Copied Implementation
+- Linux host with `sudo`
+- Python 3 and Git
+- network access to GitHub and container registries
+- GitHub token with read access while the add-on repositories are private
+- optional crawler `.env` containing credentials for token-backed sources
 
-This module repository now contains local copies of the current KIT deployment
-assets:
-
-```text
-compose.yml
-compose.modular.yml
-compose.test.yml
-docker/
-playbooks/
-data/provisioning/
-oeds_ops/
-modular_initdb/
-tools/verify_deployment.py
-tools/test_db_smoke.ps1
-tools/test_real_crawler_smoke.ps1
-tools/test_active_crawlers_smoke.ps1
-tools/test_stack_smoke.ps1
-tools/oeds_clean_install_from_git.sh
-tools/load_sample_data.sh
-```
-
-These files are intentionally copied first and refactored later. That gives the
-split repository a working deployment baseline while component boundaries are
-stabilized.
-
-`compose.modular.yml` is the first modular overlay. It keeps the copied KIT
-baseline intact and overrides only the crawler-related build path:
-
-- build context is the local KIT workspace root
-- Dockerfile is `docker/Dockerfile.crawler-modular`
-- scheduler command uses `oeds-scheduler`
-- admin command uses `oeds-crawler-admin`
-- admin runtime root is passed as `OEDS_ADMIN_REPO_ROOT=/app`
-- post-run SQL bootstrap comes from `../oeds-post-scripts`
-- the modular overlay uses `modular_initdb/09-bootstrap-roles.sh` with LF line
-  endings so Docker init does not depend on the Windows checkout line endings
-  of the byte-identical KIT copy
-- runtime mounts default to `${OEDS_RUNTIME_DIR:-../../..}`, so local use from
-  this repo picks up the current KIT workspace root unless another runtime dir
-  is supplied
-
-This means the same deployment repo can validate both:
-
-| Mode | Command shape | Purpose |
-| --- | --- | --- |
-| KIT baseline | `docker compose -f compose.yml ...` | reproduce current KIT deployment |
-| Modular split | `docker compose -f compose.yml -f compose.modular.yml ...` | run the local module layout |
-| Isolated test | `docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml ...` | run disposable local tests without touching default KIT volumes |
-
-## Reproducibility Against KIT
-
-The copied deployment baseline is checked byte-for-byte against the current KIT
-checkout:
-
-```powershell
-python .\modular_repos\tools\verify_split_parity.py
-```
-
-If this check passes, the copied deployment files are identical to KIT. They
-should provision the same stack when run with the same host, environment files,
-secrets, images, and service versions.
-
-## Local Development
-
-Use this repo for deployment changes only. Do not patch crawler or post-script
-source code here.
-
-## Assemble From Compatibility
-
-For a fresh test from the published repositories, start with this deployment
-repository only and assemble the full workspace from `compatibility.yml`:
-
-```powershell
-git clone https://github.com/johannesschuhmacher/oeds-deployment.git
-cd oeds-deployment
-python .\tools\assemble_workspace.py --output C:\tmp\oeds-assembled --clean
-```
-
-The output directory becomes a normal modular OEDS workspace. The tool clones
-the pinned OEDS/KIT/core/module repositories, copies the current deployment
-checkout to `modular_repos/modules/oeds-deployment`, installs the modular
-support docs/tools/generated examples under `modular_repos/`, and writes
-`modular_repos/assembly.json` with the resolved component revisions.
-
-After assembly, run deployment checks from the assembled workspace:
-
-```powershell
-cd C:\tmp\oeds-assembled
-python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
-python .\modular_repos\tools\verify_modules.py --skip-split-parity
-docker compose --profile crawlers -f .\modular_repos\modules\oeds-deployment\compose.yml -f .\modular_repos\modules\oeds-deployment\compose.modular.yml config
-```
-
-`verify_split_parity.py` is intentionally not part of the default fresh
-assembly check while `oeds-kit-source` points to a published KIT commit that can
-lag behind the split module pins. Use it in the split-preparation workspace, or
-after the KIT source pin and module pins have been published from the same
-source revision.
-
-On Linux or a fresh Ubuntu VM, use the same flow with a Linux output path, then
-run the documented Ansible install/update/smoke-test path from the assembled
-deployment checkout.
-
-For a clean Linux VM that should clone the private GitHub repositories, the
-shortest path is the install wrapper. Create a GitHub personal access token with
-read access to the four module repositories and pass it only through the shell
-environment:
+Clone this repository, then run the installer:
 
 ```bash
 git clone https://github.com/johannesschuhmacher/oeds-deployment.git
@@ -150,169 +45,174 @@ bash ./tools/oeds_clean_install_from_git.sh \
   --include-entsoe-fms
 ```
 
-Because the repository is private during the test phase, the initial
-`git clone` prompts for the GitHub username and the personal access token as
-the password. The exported token is then used by the wrapper for its clean
-deployment clone and the sibling module clones.
+Remove `--reset` to preserve the existing database and runtime directory.
+Remove `--load-sample-data` for a normal installation without immediate live
+crawler runs. The token is passed to Git through a temporary `GIT_ASKPASS`
+helper and is not written into the assembled workspace.
 
-If `OEDS_GIT_USERNAME` is omitted, the wrapper uses `x-access-token`. The
-wrapper uses a temporary `GIT_ASKPASS` helper for all Git clones, assembles the
-workspace from `compatibility.yml`, writes a local Ansible inventory, installs
-the modular stack, runs the Ansible smoke test, and can call
-`tools/load_sample_data.sh` to write bounded real crawler data into the
-installed database.
-
-Pass `--crawler-env-file` or set `OEDS_CRAWLER_ENV_FILE` when live crawlers
-need API tokens. The wrapper installs that file as
-`/open_energy_data_server/runtime/crawler/.env` with `0600` permissions after
-the clean reset and installation.
-
-For non-interactive sudo, set:
+When `sudo` cannot prompt interactively, point the installer at a local file:
 
 ```bash
-export OEDS_BECOME_PASSWORD_FILE=/path/to/local/sudo-password-file
+export OEDS_BECOME_PASSWORD_FILE=/path/to/sudo-password-file
 ```
 
-Do not commit token files, password files, or generated runtime directories.
+Keep token, password, and crawler environment files outside every checkout.
 
-For a modular Ansible rollout from that assembled workspace, run the playbooks
-from `modular_repos/modules/oeds-deployment/playbooks` and point Compose at the
-deployment module:
+## Manual Assembly
+
+The assembler uses only Python's standard library. It clones the exact commits
+from `compatibility.yml` and creates the workspace expected by Docker and
+Ansible.
+
+Linux:
+
+```bash
+python3 tools/assemble_workspace.py --output "$HOME/oeds-assembled" --clean
+```
+
+PowerShell:
+
+```powershell
+python .\tools\assemble_workspace.py --output C:\tmp\oeds-assembled --clean
+```
+
+Resulting structure:
+
+```text
+oeds-assembled/
+  CRAWLER_CONFIG.yml
+  crawler/
+    .env.example
+    data/
+  modular_repos/
+    sources/oeds-core/
+    modules/oeds-crawler-pack/
+    modules/oeds-scheduler-ui/
+    modules/oeds-post-scripts/
+    modules/oeds-deployment/
+```
+
+The workspace deliberately contains no checkout of
+`open-energy-data-server-KIT` and no copied root Python environment.
+
+## Docker Compose
+
+Run Compose from the deployment module inside the assembled workspace:
+
+```bash
+cd "$HOME/oeds-assembled/modular_repos/modules/oeds-deployment"
+docker compose --profile crawlers -f compose.yml up -d --build
+```
+
+`compose.yml` is the primary modular definition. `compose.modular.yml` remains
+compatible with existing two-file commands during the transition:
+
+```bash
+docker compose --profile crawlers \
+  -f compose.yml -f compose.modular.yml up -d --build
+```
+
+Without `OEDS_RUNTIME_DIR`, mutable files are read from the assembled workspace
+root. Set it to an absolute path for managed installations. It must contain:
+
+```text
+CRAWLER_CONFIG.yml
+crawler/.env
+crawler/data/
+logs/
+crawler_admin_state/
+```
+
+The scheduler container runs as the non-root `oeds` image user. The admin UI
+currently runs as root inside its container because it must update the
+root-owned bind-mounted `CRAWLER_CONFIG.yml` created by Ansible. The admin UI
+should not be exposed to untrusted networks without an authentication layer.
+
+## Ansible
+
+For a preassembled local workspace:
 
 ```bash
 cd /path/to/oeds-assembled/modular_repos/modules/oeds-deployment/playbooks
-ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-uninstall.yml \
-  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
-  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
-ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-install-crawlers.yml \
+ansible-galaxy collection install -r requirements.yml
+cp inventory.example.yml inventory.yml
+
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i inventory.yml \
+  oeds-install-crawlers.yml \
   -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src=/path/to/oeds-assembled \
-  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
-  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
-ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i /tmp/oeds-local-inventory.yml oeds-update.yml \
-  -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src=/path/to/oeds-assembled \
-  -e oeds_enable_crawlers=true \
-  -e oeds_compose_dir=/open_energy_data_server/repo/modular_repos/modules/oeds-deployment \
-  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
+  -e oeds_repo_local_src=/path/to/oeds-assembled
 ```
 
-Recommended checks from the parent workspace:
+The defaults install to:
 
-```powershell
-.\modular_repos\tools\run_full_function_test.ps1
-python .\modular_repos\tools\verify_modules.py
-python .\modular_repos\tools\verify_split_parity.py
-python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
+```text
+/open_energy_data_server/repo
+/open_energy_data_server/runtime
+/open_energy_data_server/docker_data
+/open_energy_data_server/backups
 ```
 
-Inside the standalone deployment repository, run the local-only verifier:
+In `git` source mode the playbooks clone `oeds-deployment` into
+`/open_energy_data_server/deployment-source` and run the same assembler before
+starting Compose. This mode is suitable once the repositories are public or
+Git access is already configured on the target host. During private testing,
+use `oeds_clean_install_from_git.sh` so one temporary token covers all clones.
 
-```powershell
-python .\tools\verify_deployment.py --local-only
+Update an existing installation:
+
+```bash
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i inventory.yml oeds-update.yml
 ```
 
-If Docker is available, validate the combined Compose model without starting
-containers:
+The uninstall defaults preserve data. A destructive reset requires all three
+explicit flags and the confirmation value:
 
-```powershell
-cd .\modular_repos\modules\oeds-deployment
-docker compose --profile crawlers -f compose.yml -f compose.modular.yml config
+```bash
+ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i inventory.yml oeds-uninstall.yml \
+  -e oeds_uninstall_remove_repo=true \
+  -e oeds_uninstall_remove_runtime=true \
+  -e oeds_uninstall_destroy_data=true \
+  -e oeds_uninstall_confirm=DELETE_OEDS_DATA
 ```
 
-For an isolated disposable DB smoke test, add the test overlay:
+## Verification
 
-```powershell
-.\tools\test_db_smoke.ps1
+Static checks:
+
+```bash
+python3 tools/verify_deployment.py --local-only
+python3 /path/to/oeds-assembled/modular_repos/tools/verify_modules.py
+docker compose --profile crawlers -f compose.yml config --quiet
 ```
 
-On Linux:
+Disposable integration checks from the assembled deployment module:
 
 ```bash
 sudo bash ./tools/test_db_smoke.sh
-```
-
-The smoke script starts only `open-data`, waits for health, asserts the
-`readonly` role, `postgis` extension, and `public.linear_interpolate` function,
-then removes the disposable test volumes.
-
-For a real crawler run against the disposable DB, use:
-
-```powershell
-.\tools\test_real_crawler_smoke.ps1 -RunPostScripts
-```
-
-On Linux:
-
-```bash
 sudo bash ./tools/test_real_crawler_smoke.sh --run-post-scripts
-```
-
-This builds the modular crawler image, runs the SMARD crawler, executes the
-legacy SMARD gapfill post-run script, asserts source and derived row counts, and
-removes the disposable test volumes.
-
-For a local setup smoke covering the service stack, use:
-
-```powershell
-.\tools\test_stack_smoke.ps1
-```
-
-On Linux:
-
-```bash
+sudo bash ./tools/test_active_crawlers_smoke.sh --include-entsoe-fms
 sudo bash ./tools/test_stack_smoke.sh
 ```
 
-This starts `open-data`, PostGREST, Grafana, and the crawler admin UI on the
-isolated test ports, verifies HTTP readiness, and removes the disposable
-containers and volumes.
-
-For the active configured crawler set, use:
-
-```powershell
-.\tools\test_active_crawlers_smoke.ps1 -IncludeEntsoeFms
-```
-
-On Linux:
+Load a bounded sample into the installed normal database:
 
 ```bash
-sudo bash ./tools/test_active_crawlers_smoke.sh --include-entsoe-fms
-```
-
-This runs ENTSO-E API, ENTSO-E FMS EnergyPrices, power-system data, and weather
-forecast with reduced windows against the disposable DB. It copies only the
-required static mapping files and `.env` into an ignored temporary runtime
-directory, then removes that directory after the test.
-
-To load the same bounded sample into the installed normal database instead of a
-disposable DB, run from the installed deployment module:
-
-```bash
-cd /open_energy_data_server/repo/modular_repos/modules/oeds-deployment
 sudo bash ./tools/load_sample_data.sh --include-entsoe-fms
 ```
 
-This keeps the normal stack running, starts only a one-off scheduler container
-with a temporary runtime config, and verifies the resulting source and derived
-tables in `open-data`.
+## Core Boundary
+
+The official OEDS repository remains the base and is never replaced by this
+deployment. Generic improvements to the crawler contract, BaseCrawler, or
+database handling should be proposed upstream. Until those changes are merged,
+the adapter required by the KIT crawlers lives in `oeds-crawler-pack`.
+
+Scheduler/UI, post-processing, and deployment behavior stay in their own
+repositories and are not candidates for the OEDS core merge.
 
 ## Publication Boundary
 
-Do not publish local runtime content:
-
-- `.env` and `.env.*`
-- `runtime/`
-- `.tmp/`
-- `logs/`
-- `crawler_admin_state/`
-- Docker volumes or generated DB data
-
-The deployment repo may publish Compose files, Dockerfiles, Ansible playbooks,
-provisioning assets, smoke-test scripts, and documented examples.
-
-## Required Interfaces
-
-- component version pins
-- database service contract
-- deployment smoke tests
+Do not publish `.env` files, tokens, password files, runtime state, logs,
+database volumes, dumps containing real data, or machine-specific files. The
+repositories may publish source, tests, example configuration, Compose,
+Ansible, provisioning assets, and documentation.

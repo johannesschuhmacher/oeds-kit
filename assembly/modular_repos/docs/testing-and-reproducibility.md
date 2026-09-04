@@ -1,85 +1,55 @@
 # Testing And Reproducibility
 
-This document defines how the local modular split is tested against the current
-KIT version.
-
-Latest recorded local test run:
-
-```text
-docs/test-run-2026-06-02.md
-```
+The release boundary is the set of commits pinned by
+`oeds-deployment/compatibility.yml`. Reproducibility no longer depends on a KIT
+monorepository checkout or byte-for-byte comparison with that repository.
 
 ## Test Layers
 
-| Layer | Command | What it proves |
+| Layer | Command | Evidence |
 | --- | --- | --- |
-| Module wiring | `python .\modular_repos\tools\verify_modules.py` | registry priority, scheduler contracts, post-command mapping, copied artifact presence |
-| Byte parity | `python .\modular_repos\tools\verify_split_parity.py` | copied post-script, deployment, and admin UI files match the current KIT checkout byte-for-byte |
-| Deployment smoke | `python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py` | modular overlay references existing component paths and Dockerfile wiring |
-| Compose model | `docker compose --profile crawlers -f compose.yml -f compose.modular.yml config` from `modules/oeds-deployment` | Docker can render the modular deployment model without starting containers |
-| Isolated DB model | `docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml config` from `modules/oeds-deployment` | disposable test ports and volumes avoid default KIT data collisions |
-| Isolated DB smoke | `.\tools\test_db_smoke.ps1` from `modules/oeds-deployment` | starts `open-data`, verifies init role/extension/function, then removes test volumes |
-| Real crawler smoke | `.\tools\test_real_crawler_smoke.ps1 -RunPostScripts` from `modules/oeds-deployment` | builds the modular crawler image, runs SMARD against a fresh DB, runs `gapfill_smard.py`, verifies source and derived row counts |
-| Active crawler smoke | `.\tools\test_active_crawlers_smoke.ps1 -IncludeEntsoeFms` from `modules/oeds-deployment` | runs the active configured crawler set with reduced windows: ENTSO-E API, ENTSO-E FMS EnergyPrices, power-system data, and weather forecast |
-| Stack smoke | `.\tools\test_stack_smoke.ps1` from `modules/oeds-deployment` | starts DB, PostGREST, Grafana, and Crawler Admin with isolated ports and verifies HTTP readiness |
-| Python syntax | `python -m compileall ...` | copied Python files are importable/parseable in the current environment |
+| Module contracts | `python modular_repos/tools/verify_modules.py` | registry priority, constructor compatibility, scheduler contracts, post commands |
+| Deployment structure | `python modular_repos/modules/oeds-deployment/tools/verify_deployment.py` | component paths, manifest, Compose, Dockerfile, Ansible, smoke tools |
+| Package tests | module-local `uv run --with pytest python -m pytest -q` | standalone crawler-pack, scheduler/UI, and post-script behavior |
+| Image build | `docker compose --profile crawlers -f compose.yml build scheduler` | official core and all add-ons install together |
+| Database smoke | `tools/test_db_smoke.sh` or `.ps1` | PostgreSQL initialization, roles, extensions, SQL functions |
+| Real crawler smoke | `tools/test_real_crawler_smoke.sh --run-post-scripts` | SMARD source rows and gapfilled output |
+| Active crawler smoke | `tools/test_active_crawlers_smoke.sh --include-entsoe-fms` | bounded active crawler runs and expected tables |
+| Stack smoke | `tools/test_stack_smoke.sh` | database, PostgREST, Grafana, and Admin UI readiness |
+| Fresh install | `tools/oeds_clean_install_from_git.sh --reset ...` | clone, assembly, Ansible, Compose, live data, and cleanup on Linux |
 
-## Current Reproducibility Statement
+## Source Revisions
 
-For `oeds-post-scripts`, `oeds-deployment`, and the extracted admin UI, the
-current split keeps copied KIT files byte-parity checked. These modules should
-reproduce the same results as KIT when run with the same:
+The assembler checks out every component at the exact commit recorded in
+`compatibility.yml` and verifies the resulting `HEAD`. The official OEDS core
+is one of these components and remains unmodified. The Crawler Pack contains
+the current KIT crawler implementations and temporary adapter explicitly,
+rather than obtaining them from an implicit workspace path.
 
-- Python environment and installed dependencies
-- database contents and schema state
-- credentials and environment variables
-- external API/file availability
-- Docker/Ansible host context
+The same result still depends on the same runtime inputs:
 
-For `oeds-scheduler-ui`, the code is a modular rewrite rather than a direct
-copy, except for the copied admin UI. Reproducibility is checked through
-contract tests for:
-
-- config merge semantics
-- named job expansion
-- post-run script metadata
-- registry priority
-- constructor compatibility
-- queue locking and daemon ticks
-
-## What Is Not Yet Proven
-
-The local checks now execute the active crawler set with reduced windows plus
-the SMARD legacy post-run path. Full equivalence across every optional crawler
-family still needs broader integration tests because several disabled crawlers
-depend on API credentials, SFTP access, external package subscriptions, or
-large downloads.
-
-Recommended next integration scenarios:
-
-1. Run `smard` regularly with `.\tools\test_real_crawler_smoke.ps1 -RunPostScripts`.
-2. Run the active crawler set with `.\tools\test_active_crawlers_smoke.ps1 -IncludeEntsoeFms`.
-3. Run `.\tools\test_stack_smoke.ps1` after Compose/Admin changes.
-4. Run broader `entsoe_fms` windows with `oeds-post gapfill entsoe-fms`
-   and `oeds-post refresh entsoe-availability-map`.
-5. Run `entsoe_api` with `oeds-post forecast day-ahead-price` in self-test or
-   API-backed mode.
-6. Compare row counts, derived schemas, and run metadata against the current KIT
-   commands.
+- crawler configuration
+- Python and container versions
+- database state
+- credentials and source permissions
+- upstream API or download availability
 
 ## Baseline Commands
 
-```powershell
-python .\modular_repos\tools\verify_modules.py
-python .\modular_repos\tools\verify_split_parity.py
-python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
-python -m compileall .\modular_repos\modules\oeds-post-scripts .\modular_repos\modules\oeds-scheduler-ui\src .\modular_repos\modules\oeds-crawler-pack\src .\modular_repos\tools
-```
+From an assembled workspace on Windows:
 
 ```powershell
+python .\modular_repos\tools\verify_modules.py
+python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
+
 cd .\modular_repos\modules\oeds-deployment
+docker compose --profile crawlers -f compose.yml config --quiet
 .\tools\test_db_smoke.ps1
 .\tools\test_real_crawler_smoke.ps1 -RunPostScripts
 .\tools\test_active_crawlers_smoke.ps1 -IncludeEntsoeFms
 .\tools\test_stack_smoke.ps1
 ```
+
+Equivalent `.sh` smoke scripts are provided for Linux. Credential-dependent or
+large crawlers must be tested separately with their required environment and
+bounded time windows.

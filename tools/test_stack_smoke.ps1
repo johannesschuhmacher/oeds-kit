@@ -95,7 +95,7 @@ smard:
   schema_name: "smard"
   schedule: "0 4 * * *"
   post_run_scripts:
-    - "scripts/gapfill_smard.py"
+    - "oeds-post gapfill smard"
 "@
 
     $config | Set-Content -Path $Path -Encoding utf8

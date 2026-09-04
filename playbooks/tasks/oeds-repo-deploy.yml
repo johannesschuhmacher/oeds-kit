@@ -6,7 +6,7 @@
 
 - name: Remove existing repo path before git deploy when it is not a checkout
   ansible.builtin.file:
-    path: "{{ oeds_repo_dir_effective }}"
+    path: "{{ oeds_repo_source_dir_effective }}"
     state: absent
   when:
     - oeds_repo_source_mode_effective == "git"
@@ -23,7 +23,7 @@
 
 - name: Remove non-git repo path before git deploy
   ansible.builtin.file:
-    path: "{{ oeds_repo_dir_effective }}"
+    path: "{{ oeds_repo_source_dir_effective }}"
     state: absent
   when:
     - oeds_repo_source_mode_effective == "git"
@@ -33,12 +33,24 @@
 - name: Git checkout requested release
   ansible.builtin.git:
     repo: "{{ oeds_repo_url_effective }}"
-    dest: "{{ oeds_repo_dir_effective }}"
+    dest: "{{ oeds_repo_source_dir_effective }}"
     version: "{{ oeds_repo_version_effective }}"
     update: true
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GIT_ASKPASS: /bin/false
+  when: oeds_repo_source_mode_effective == "git"
+
+- name: Assemble modular workspace from Git compatibility pins
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ oeds_repo_source_dir_effective }}/tools/assemble_workspace.py"
+      - --output
+      - "{{ oeds_repo_dir_effective }}"
+      - --clean
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
   when: oeds_repo_source_mode_effective == "git"
 
 - name: Remove temporary repo archive on control node

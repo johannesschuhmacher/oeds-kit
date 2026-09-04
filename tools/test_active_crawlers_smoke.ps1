@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 $deploymentRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $repoRoot = Resolve-Path (Join-Path $deploymentRoot "..\..\..")
 $composeArgs = @(
+    "--profile", "crawlers",
     "-f", "compose.yml",
     "-f", "compose.modular.yml",
     "-f", "compose.test.yml"
@@ -146,7 +147,10 @@ plans = [plan for plan in app.plan_result.plans if plan.crawler_name in expected
 seen = {plan.crawler_name for plan in plans}
 missing = sorted(expected - seen)
 if missing:
-    raise SystemExit(f"missing active crawler plan(s): {', '.join(missing)}")
+    raise SystemExit(
+        f"missing active crawler plan(s): {', '.join(missing)}; "
+        f"skipped={app.plan_result.skipped!r}; errors={app.plan_result.errors!r}"
+    )
 
 runner = CrawlerJobRunner(app.factory)
 payload = []

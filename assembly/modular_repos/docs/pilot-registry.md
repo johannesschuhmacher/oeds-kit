@@ -1,7 +1,6 @@
 # Pilot Crawler Registry
 
-This document records the first local implementation step for the modular OEDS
-crawler strategy.
+This document records the implemented registry strategy for modular OEDS.
 
 ## Goal
 
@@ -63,7 +62,7 @@ Implemented in:
 modules/oeds-crawler-pack/src/oeds_crawler_pack/registry.py
 ```
 
-Current pilot specs:
+The package currently discovers 21 bundled crawler specs, including:
 
 ```python
 {
@@ -72,16 +71,10 @@ Current pilot specs:
 }
 ```
 
-The crawler pack points to the local KIT clone through:
+The crawler pack resolves these specs from its own installed source tree:
 
 ```text
-OEDS_KIT_SOURCE_PATH
-```
-
-or, by default:
-
-```text
-sources/oeds-kit-current
+modules/oeds-crawler-pack/src/crawler
 ```
 
 ## Test Results
@@ -92,9 +85,7 @@ Current standard-library verification:
 modular repository scaffold verification passed
 ```
 
-The previous pytest suites are still present in the module repositories, but
-this sandbox cannot execute the user-local `uv 0.11.17` binary. The current
-verification therefore uses `tools/verify_modules.py`.
+Module pytest suites and `tools/verify_modules.py` both cover this behavior.
 
 ## Constructor Pilot
 
@@ -106,13 +97,8 @@ eurostat_crawler  -> oeds-crawler-pack -> crawler_name_config
 chargepoint       -> oeds-core         -> schema_name_config
 ```
 
-## Next Step
+## Current Result
 
-The next implementation step is to add actual registry loading from installed
-packages or configured local source paths:
-
-1. Load KIT crawler specs from `oeds-crawler-pack`.
-2. Load OEDS core crawler specs from upstream OEDS.
-3. Merge them in registry priority.
-4. Instantiate one crawler through normalized config without running network or
-   database work.
+The scheduler loads the Crawler Pack and official OEDS registries from the
+paths in `crawler-inventory.json`, merges them in declared priority, and keeps
+all upstream-only crawlers available.

@@ -11,7 +11,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0 \
-    OEDS_POST_REPO_ROOT=/app \
     PYTHONPATH=/app \
     PATH="/app/.venv/bin:$PATH"
 
@@ -24,32 +23,26 @@ RUN apt-get update && \
         libeccodes-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml uv.lock .python-version ./
-
-RUN uv sync --locked --no-dev --no-install-project --group price-forecast
-
-COPY crawler ./crawler
-COPY crawler_core ./crawler_core
 COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
+COPY crawler/data ./crawler/data
 
-COPY modular_repos/docs ./modular_repos/docs
+RUN mkdir -p ./modular_repos/docs
+COPY modular_repos/modules/oeds-deployment/assembly/crawler-inventory.json ./modular_repos/docs/crawler-inventory.json
 COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
-COPY modular_repos/modules/oeds-crawler-pack /opt/oeds/modules/oeds-crawler-pack
-COPY modular_repos/modules/oeds-scheduler-ui /opt/oeds/modules/oeds-scheduler-ui
-COPY modular_repos/modules/oeds-post-scripts /opt/oeds/modules/oeds-post-scripts
+COPY modular_repos/modules/oeds-crawler-pack ./modular_repos/modules/oeds-crawler-pack
+COPY modular_repos/modules/oeds-scheduler-ui ./modular_repos/modules/oeds-scheduler-ui
+COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-scripts
 
-COPY modular_repos/modules/oeds-post-scripts/scripts ./scripts
-COPY modular_repos/modules/oeds-post-scripts/oeds_gapfill ./oeds_gapfill
-COPY modular_repos/modules/oeds-post-scripts/oeds_price_forecast ./oeds_price_forecast
-
-RUN uv pip install --python /app/.venv/bin/python --no-deps \
-        -e /opt/oeds/modules/oeds-crawler-pack \
-        -e /opt/oeds/modules/oeds-scheduler-ui \
-        -e /opt/oeds/modules/oeds-post-scripts
+RUN uv venv /app/.venv --python /usr/local/bin/python && \
+    uv pip install --python /app/.venv/bin/python \
+        -e /app/modular_repos/sources/oeds-core \
+        -e /app/modular_repos/modules/oeds-crawler-pack \
+        -e /app/modular_repos/modules/oeds-scheduler-ui \
+        -e '/app/modular_repos/modules/oeds-post-scripts[price-forecast]'
 
 RUN useradd --create-home --shell /bin/bash oeds && \
     mkdir -p /app/logs /var/lib/oeds-admin && \
-    chown -R oeds:oeds /app /var/lib/oeds-admin /opt/oeds
+    chown -R oeds:oeds /app/logs /app/crawler /var/lib/oeds-admin
 
 USER oeds
 

@@ -37,7 +37,6 @@ MODULES = {
         "compose.yml",
         "compose.modular.yml",
         "compose.test.yml",
-        "docker/Dockerfile.crawler",
         "docker/Dockerfile.crawler-modular",
         "tools/verify_deployment.py",
         "tools/smoke_lib.sh",
@@ -65,7 +64,6 @@ ROOT_FILES = {
     "tools/check_publication_readiness.py",
     "tools/run_full_function_test.ps1",
     "tools/verify_modules.py",
-    "tools/verify_split_parity.py",
 }
 
 FORBIDDEN_DIR_NAMES = {

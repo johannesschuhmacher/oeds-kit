@@ -1,6 +1,6 @@
 # Modular overlay for the local OEDS repository split.
 #
-# Use together with the copied KIT baseline:
+# Use from a workspace created by tools/assemble_workspace.py:
 #
 #   docker compose --profile crawlers -f compose.yml -f compose.modular.yml config
 #   docker compose -f compose.yml -f compose.modular.yml --profile crawlers up -d --build
@@ -22,7 +22,7 @@ services:
   scheduler:
     build: *oeds-modular-build
     env_file:
-      - path: ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+      - path: ${OEDS_RUNTIME_DIR:-../../..}/crawler/.env
         required: false
     command:
       - oeds-scheduler
@@ -34,7 +34,6 @@ services:
       - /app/modular_repos
       - --daemon
     environment:
-      OEDS_POST_REPO_ROOT: /app
       OEDS_ADMIN_REPO_ROOT: /app
     volumes:
       - type: bind
@@ -52,12 +51,12 @@ services:
   crawler-admin:
     build: *oeds-modular-build
     env_file:
-      - path: ${OEDS_RUNTIME_DIR:-.}/crawler/.env
+      - path: ${OEDS_RUNTIME_DIR:-../../..}/crawler/.env
         required: false
     command:
       - oeds-crawler-admin
     environment:
-      OEDS_POST_REPO_ROOT: /app
+      OEDS_ADMIN_REPO_ROOT: /app
     volumes:
       - type: bind
         source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml

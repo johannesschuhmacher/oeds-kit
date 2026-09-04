@@ -7,7 +7,8 @@ overlay:
 ```
 <workspace>/
   crawler/
-  crawler_core/
+    data/
+  CRAWLER_CONFIG.yml
   modular_repos/
     docs/
     sources/oeds-core/
@@ -27,6 +28,7 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -84,8 +86,7 @@ def main() -> int:
     workspace.mkdir(parents=True, exist_ok=True)
     deployment_target = (workspace / DEFAULT_DEPLOYMENT_TARGET).resolve()
 
-    ordered = _ordered_components(components)
-    for component in ordered:
+    for component in _ordered_components(components):
         target = _component_target(workspace, deployment_target, component)
         _assert_target_inside_workspace(workspace, target, component.name)
         if component.self_component or component.name == "oeds-deployment":
@@ -94,6 +95,7 @@ def main() -> int:
             _clone_component(component, target)
 
     _install_modular_support(workspace)
+    _install_runtime_support(workspace)
     _write_assembly_metadata(workspace, components)
     _verify_workspace(workspace)
     print(f"assembled modular OEDS workspace at {workspace}")
@@ -204,7 +206,7 @@ def _as_bool(value: str | None) -> bool:
 def _ordered_components(components: list[Component]) -> list[Component]:
     by_name = {component.name: component for component in components}
     ordered: list[Component] = []
-    for name in ("oeds-kit-source", "oeds-core", "oeds-crawler-pack", "oeds-scheduler-ui", "oeds-post-scripts", "oeds-deployment"):
+    for name in ("oeds-core", "oeds-crawler-pack", "oeds-scheduler-ui", "oeds-post-scripts", "oeds-deployment"):
         if name in by_name:
             ordered.append(by_name.pop(name))
     ordered.extend(by_name.values())
@@ -279,6 +281,43 @@ def _install_modular_support(workspace: Path) -> None:
     shutil.copy2(inventory_source, docs_target / "crawler-inventory.json")
 
 
+def _install_runtime_support(workspace: Path) -> None:
+    dockerignore = DEPLOYMENT_ROOT / ".dockerignore"
+    if dockerignore.is_file():
+        shutil.copy2(dockerignore, workspace / ".dockerignore")
+
+    config_source = (
+        DEFAULT_MODULAR_DOCS
+        / "modular_repos"
+        / "generated"
+        / "CRAWLER_CONFIG.post.yml"
+    )
+    if not config_source.is_file():
+        raise FileNotFoundError(config_source)
+    shutil.copy2(config_source, workspace / "CRAWLER_CONFIG.yml")
+
+    crawler_package = (
+        workspace
+        / "modular_repos"
+        / "modules"
+        / "oeds-crawler-pack"
+        / "src"
+        / "crawler"
+    )
+    data_source = crawler_package / "data"
+    data_target = workspace / "crawler" / "data"
+    if not data_source.is_dir():
+        raise FileNotFoundError(data_source)
+    shutil.copytree(data_source, data_target, dirs_exist_ok=True)
+
+    env_example = crawler_package / ".env.example"
+    if env_example.is_file():
+        shutil.copy2(env_example, workspace / "crawler" / ".env.example")
+
+    (workspace / "logs").mkdir(exist_ok=True)
+    (workspace / "crawler_admin_state").mkdir(exist_ok=True)
+
+
 def _copy_tree_contents(source: Path, target: Path) -> None:
     target.mkdir(parents=True, exist_ok=True)
     for child in source.iterdir():
@@ -322,21 +361,22 @@ def _write_assembly_metadata(workspace: Path, components: list[Component]) -> No
 
 def _verify_workspace(workspace: Path) -> None:
     required = [
-        "pyproject.toml",
-        "uv.lock",
-        ".python-version",
-        "crawler/common/base_crawler.py",
-        "crawler_core/__init__.py",
+        ".dockerignore",
         "CRAWLER_CONFIG.yml",
+        "crawler/.env.example",
+        "crawler/data/mapping_eic_to_location.py",
+        "crawler/data/mapping_p_to_g.json",
+        "crawler/data/mapping_g_to_p.json",
         "modular_repos/docs/crawler-inventory.json",
         "modular_repos/docs/publication-readiness.md",
         "modular_repos/generated/CRAWLER_CONFIG.post.yml",
         "modular_repos/tools/verify_modules.py",
-        "modular_repos/tools/verify_split_parity.py",
         "modular_repos/tools/check_publication_readiness.py",
         "modular_repos/sources/oeds-core/oeds/base_crawler.py",
         "modular_repos/modules/oeds-deployment/compose.modular.yml",
         "modular_repos/modules/oeds-crawler-pack/pyproject.toml",
+        "modular_repos/modules/oeds-crawler-pack/src/crawler/common/base_crawler.py",
+        "modular_repos/modules/oeds-crawler-pack/src/crawler_core/__init__.py",
         "modular_repos/modules/oeds-scheduler-ui/pyproject.toml",
         "modular_repos/modules/oeds-post-scripts/pyproject.toml",
     ]
@@ -367,7 +407,13 @@ def _remove_tree_safely(path: Path) -> None:
         return
     if path.parent == path or len(path.parts) < 3:
         raise ValueError(f"refusing to remove unsafe path: {path}")
-    shutil.rmtree(path)
+    shutil.rmtree(path, onexc=_retry_readonly_delete)
+
+
+def _retry_readonly_delete(function: object, path: str, excinfo: object) -> None:
+    del excinfo
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
 
 
 if __name__ == "__main__":

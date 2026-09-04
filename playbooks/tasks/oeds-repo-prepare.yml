@@ -141,7 +141,7 @@
 
 - name: Check whether the repo path contains git metadata
   ansible.builtin.stat:
-    path: "{{ oeds_repo_dir_effective }}/.git"
+    path: "{{ oeds_repo_source_dir_effective }}/.git"
   register: oeds_repo_git_metadata
   when:
     - oeds_repo_source_mode_effective == "git"
@@ -155,7 +155,7 @@
       - status
       - --porcelain
   args:
-    chdir: "{{ oeds_repo_dir_effective }}"
+    chdir: "{{ oeds_repo_source_dir_effective }}"
   register: oeds_repo_dirty_state
   changed_when: false
   when:
@@ -167,7 +167,7 @@
 - name: Block updates from a dirty repo checkout
   ansible.builtin.fail:
     msg: >-
-      Local modifications exist in {{ oeds_repo_dir_effective }}. Clean or back up
+      Local modifications exist in {{ oeds_repo_source_dir_effective }}. Clean or back up
       the checkout before running the update, or use
       oeds_repo_source_mode=local_archive/local_worktree to deploy directly from
       the control node.

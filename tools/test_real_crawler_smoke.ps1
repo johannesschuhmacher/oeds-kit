@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $deploymentRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $composeArgs = @(
+    "--profile", "crawlers",
     "-f", "compose.yml",
     "-f", "compose.modular.yml",
     "-f", "compose.test.yml"
@@ -59,7 +60,7 @@ function Write-SmardSmokeConfig {
     $postRunScripts = if ($RunPostScripts) {
         @"
   post_run_scripts:
-    - "scripts/gapfill_smard.py"
+    - "oeds-post gapfill smard"
 "@
     } else {
         "  post_run_scripts: []"
@@ -105,7 +106,10 @@ app = SchedulerApplication(
 
 plans = [plan for plan in app.plan_result.plans if plan.crawler_name == "smard"]
 if len(plans) != 1:
-    raise SystemExit(f"expected exactly one smard plan, got {len(plans)}")
+    raise SystemExit(
+        f"expected exactly one smard plan, got {len(plans)}; "
+        f"skipped={app.plan_result.skipped!r}; errors={app.plan_result.errors!r}"
+    )
 
 result = CrawlerJobRunner(app.factory).run(plans[0])
 payload = {

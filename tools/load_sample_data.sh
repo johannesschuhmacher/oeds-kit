@@ -34,6 +34,7 @@ done
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 DEPLOYMENT_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 REPO_ROOT=$(cd -- "$DEPLOYMENT_ROOT/../../.." && pwd)
+CRAWLER_DATA_SOURCE=$REPO_ROOT/modular_repos/modules/oeds-crawler-pack/src/crawler/data
 source "$SCRIPT_DIR/smoke_lib.sh"
 
 compose_env_value() {
@@ -89,15 +90,15 @@ if [[ -n "$SOURCE_ENV" ]]; then
   cp "$SOURCE_ENV" "$RUNTIME_ROOT/crawler/.env"
 fi
 
-cp "$REPO_ROOT/crawler/data/mapping_eic_to_location.py" "$RUNTIME_ROOT/crawler/data/"
-cp "$REPO_ROOT/crawler/data/mapping_p_to_g.json" "$RUNTIME_ROOT/crawler/data/"
-cp "$REPO_ROOT/crawler/data/mapping_g_to_p.json" "$RUNTIME_ROOT/crawler/data/"
+cp "$CRAWLER_DATA_SOURCE/mapping_eic_to_location.py" "$RUNTIME_ROOT/crawler/data/"
+cp "$CRAWLER_DATA_SOURCE/mapping_p_to_g.json" "$RUNTIME_ROOT/crawler/data/"
+cp "$CRAWLER_DATA_SOURCE/mapping_g_to_p.json" "$RUNTIME_ROOT/crawler/data/"
 chmod -R 0777 "$RUNTIME_ROOT"
 
 POST_RUN_BLOCK='  post_run_scripts: []'
 if [[ "$RUN_POST_SCRIPTS" == "true" ]]; then
   POST_RUN_BLOCK='  post_run_scripts:
-    - "scripts/gapfill_smard.py"'
+    - "oeds-post gapfill smard"'
 fi
 
 FMS_BLOCK=""

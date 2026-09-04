@@ -9,7 +9,6 @@ from pathlib import Path
 DEPLOYMENT_ROOT = Path(__file__).resolve().parents[1]
 MODULES_ROOT = DEPLOYMENT_ROOT.parent
 MODULAR_ROOT = MODULES_ROOT.parent
-KIT_ROOT = MODULAR_ROOT.parent
 
 
 def main(local_only: bool = False) -> None:
@@ -19,7 +18,6 @@ def main(local_only: bool = False) -> None:
             "compose.yml",
             "compose.modular.yml",
             "compose.test.yml",
-            "docker/Dockerfile.crawler",
             "docker/Dockerfile.crawler-modular",
             "docker/initdb/09-bootstrap-roles.sh",
             "docker/initdb/10-init.sql",
@@ -31,7 +29,6 @@ def main(local_only: bool = False) -> None:
             "assembly/modular_repos/docs/publication-readiness.md",
             "assembly/modular_repos/generated/CRAWLER_CONFIG.post.yml",
             "assembly/modular_repos/tools/verify_modules.py",
-            "assembly/modular_repos/tools/verify_split_parity.py",
             "oeds_ops/password_rotation.py",
             "tools/assemble_workspace.py",
             "tools/test_db_smoke.ps1",
@@ -72,6 +69,9 @@ def main(local_only: bool = False) -> None:
             [
                 "pyproject.toml",
                 "src/oeds_crawler_pack/registry.py",
+                "src/crawler/common/base_crawler.py",
+                "src/crawler_core/__init__.py",
+                "src/crawler/smard.py",
             ],
         )
         _assert_files(
@@ -81,25 +81,13 @@ def main(local_only: bool = False) -> None:
                 "sources/oeds-core/oeds/base_crawler.py",
             ],
         )
-        _assert_files(
-            KIT_ROOT,
-            [
-                "pyproject.toml",
-                "uv.lock",
-                ".python-version",
-                "crawler/common/base_crawler.py",
-                "crawler_core/__init__.py",
-                "CRAWLER_CONFIG.yml",
-                "modular_repos/tools/verify_modules.py",
-                "modular_repos/tools/verify_split_parity.py",
-                "modular_repos/generated/CRAWLER_CONFIG.post.yml",
-            ],
-        )
     _assert_contains(
         DEPLOYMENT_ROOT / "tools" / "assemble_workspace.py",
         [
             "compatibility.yml",
-            "oeds-kit-source",
+            "oeds-crawler-pack",
+            "CRAWLER_CONFIG.yml",
+            "crawler/data",
             "crawler-inventory.json",
             "modular_repos",
             "verify_modules.py",
@@ -123,13 +111,16 @@ def main(local_only: bool = False) -> None:
             "oeds-crawler-pack.git",
         ],
     )
+    _assert_not_contains(
+        DEPLOYMENT_ROOT / "compatibility.yml",
+        ["oeds-kit-source", "open-energy-data-server-KIT"],
+    )
     _assert_contains(
         DEPLOYMENT_ROOT / "compose.modular.yml",
         [
             "Dockerfile.crawler-modular",
             "oeds-scheduler",
             "oeds-crawler-admin",
-            "OEDS_POST_REPO_ROOT",
             "OEDS_ADMIN_REPO_ROOT",
             "${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml",
             "required: false",
@@ -164,7 +155,8 @@ def main(local_only: bool = False) -> None:
     _assert_contains(
         DEPLOYMENT_ROOT / "docker" / "Dockerfile.crawler-modular",
         [
-            "uv sync --locked",
+            "uv venv",
+            "uv pip install",
             "PYTHONPATH=/app",
             "oeds-crawler-pack",
             "oeds-scheduler-ui",
@@ -255,7 +247,7 @@ def main(local_only: bool = False) -> None:
         [
             "runtime-real-crawler",
             "CrawlerJobRunner",
-            "gapfill_smard.py",
+            "oeds-post gapfill smard",
             "missing smard.smard table",
             "COMPOSE_PROJECT_NAME",
             "real crawler smoke passed",
@@ -267,7 +259,7 @@ def main(local_only: bool = False) -> None:
         [
             "runtime-real-crawler",
             "CrawlerJobRunner",
-            "gapfill_smard.py",
+            "oeds-post gapfill smard",
             "missing smard.smard table",
             "COMPOSE_PROJECT_NAME",
             "real crawler smoke passed",
@@ -296,6 +288,8 @@ def main(local_only: bool = False) -> None:
             "power_system_data",
             "weather_forecast",
             "--include-entsoe-fms",
+            "oeds-crawler-pack/src/crawler/data",
+            "oeds-post gapfill smard",
             "sample data load passed",
         ],
     )
@@ -316,6 +310,12 @@ def _assert_contains(path: Path, expected_tokens: list[str]) -> None:
     text = path.read_text(encoding="utf-8")
     for token in expected_tokens:
         assert token in text, f"{path} does not contain {token!r}"
+
+
+def _assert_not_contains(path: Path, rejected_tokens: list[str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    for token in rejected_tokens:
+        assert token not in text, f"{path} unexpectedly contains {token!r}"
 
 
 def _parse_args() -> argparse.Namespace:

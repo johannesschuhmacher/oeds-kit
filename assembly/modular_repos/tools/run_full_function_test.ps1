@@ -8,6 +8,11 @@ $scriptRoot = Resolve-Path $PSScriptRoot
 $modularRoot = Resolve-Path (Join-Path $scriptRoot "..")
 $repoRoot = Resolve-Path (Join-Path $modularRoot "..")
 $python = Join-Path $repoRoot ".venv/Scripts/python.exe"
+$crawlerSrc = Join-Path $modularRoot "modules/oeds-crawler-pack/src"
+$schedulerSrc = Join-Path $modularRoot "modules/oeds-scheduler-ui/src"
+$postSrc = Join-Path $modularRoot "modules/oeds-post-scripts/src"
+$postRoot = Join-Path $modularRoot "modules/oeds-post-scripts"
+$modulePythonPath = "$crawlerSrc;$schedulerSrc;$postSrc;$postRoot"
 $outputRoot = Join-Path $modularRoot ".tmp/full-function-test"
 $results = New-Object System.Collections.Generic.List[object]
 
@@ -78,7 +83,7 @@ function Invoke-InDirectory {
 }
 
 if (-not (Test-Path $python)) {
-    throw "missing project Python interpreter: $python"
+    $python = (Get-Command python -ErrorAction Stop).Source
 }
 
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
@@ -91,11 +96,6 @@ Invoke-TestStep "Python version" {
 Invoke-TestStep "Module scaffold verifier" {
     & $python (Join-Path $modularRoot "tools/verify_modules.py")
     Assert-LastExitCode "verify_modules.py"
-}
-
-Invoke-TestStep "Split parity verifier" {
-    & $python (Join-Path $modularRoot "tools/verify_split_parity.py")
-    Assert-LastExitCode "verify_split_parity.py"
 }
 
 Invoke-TestStep "Crawler registry audit" {
@@ -122,7 +122,7 @@ Invoke-TestStep "Python compileall" {
 
 Invoke-TestStep "Crawler-pack tests" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-crawler-pack") {
-        Invoke-WithPythonPath "src" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m pytest tests
             Assert-LastExitCode "crawler-pack pytest"
         }
@@ -131,7 +131,7 @@ Invoke-TestStep "Crawler-pack tests" {
 
 Invoke-TestStep "Post-scripts tests" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m pytest tests
             Assert-LastExitCode "post-scripts pytest"
         }
@@ -140,7 +140,7 @@ Invoke-TestStep "Post-scripts tests" {
 
 Invoke-TestStep "Scheduler/UI tests" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-scheduler-ui") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m pytest tests
             Assert-LastExitCode "scheduler-ui pytest"
         }
@@ -149,7 +149,7 @@ Invoke-TestStep "Scheduler/UI tests" {
 
 Invoke-TestStep "Post CLI command registry" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_post_scripts.cli --list --json
             Assert-LastExitCode "oeds-post --list"
         }
@@ -158,7 +158,7 @@ Invoke-TestStep "Post CLI command registry" {
 
 Invoke-TestStep "Post CLI gapfill listing" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_post_scripts.cli gapfill entsoe-fms --list-tables
             Assert-LastExitCode "oeds-post gapfill entsoe-fms --list-tables"
         }
@@ -167,7 +167,7 @@ Invoke-TestStep "Post CLI gapfill listing" {
 
 Invoke-TestStep "Post CLI price forecast self-test" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_post_scripts.cli forecast day-ahead-price --self-test --model-backend ridge --train-days 30 --backtest-days 1
             Assert-LastExitCode "oeds-post forecast day-ahead-price --self-test"
         }
@@ -176,7 +176,7 @@ Invoke-TestStep "Post CLI price forecast self-test" {
 
 Invoke-TestStep "Post CLI backfill help" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_post_scripts.cli backfill entsoe-unavailability --help
             Assert-LastExitCode "oeds-post backfill entsoe-unavailability --help"
         }
@@ -185,7 +185,7 @@ Invoke-TestStep "Post CLI backfill help" {
 
 Invoke-TestStep "Post CLI legacy command print" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-post-scripts") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_post_scripts.cli --print-command gapfill smard
             Assert-LastExitCode "oeds-post --print-command gapfill smard"
         }
@@ -194,7 +194,7 @@ Invoke-TestStep "Post CLI legacy command print" {
 
 Invoke-TestStep "Scheduler CLI planning" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-scheduler-ui") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -m oeds_scheduler_ui.cli `
                 --config (Join-Path $repoRoot "CRAWLER_CONFIG.yml") `
                 --inventory (Join-Path $modularRoot "docs/crawler-inventory.json") `
@@ -207,7 +207,7 @@ Invoke-TestStep "Scheduler CLI planning" {
 
 Invoke-TestStep "Admin app import" {
     Invoke-InDirectory (Join-Path $modularRoot "modules/oeds-scheduler-ui") {
-        Invoke-WithPythonPath "src;$repoRoot" {
+        Invoke-WithPythonPath $modulePythonPath {
             & $python -c "from crawler_admin.app import app; print(app.title, app.version)"
             Assert-LastExitCode "crawler_admin import"
         }

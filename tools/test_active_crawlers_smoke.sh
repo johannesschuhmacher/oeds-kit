@@ -18,7 +18,7 @@ source "$SCRIPT_DIR/smoke_lib.sh"
 
 cd "$DEPLOYMENT_ROOT"
 export COMPOSE_PROJECT_NAME=oeds-modular-test
-COMPOSE=(docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml)
+COMPOSE=(docker compose --profile crawlers -f compose.yml -f compose.modular.yml -f compose.test.yml)
 RUNTIME_DIR=.tmp/runtime-active-crawlers
 RUNTIME_ROOT=$DEPLOYMENT_ROOT/$RUNTIME_DIR
 
@@ -133,7 +133,10 @@ plans = [plan for plan in app.plan_result.plans if plan.crawler_name in expected
 seen = {plan.crawler_name for plan in plans}
 missing = sorted(expected - seen)
 if missing:
-    raise SystemExit(f"missing active crawler plan(s): {', '.join(missing)}")
+    raise SystemExit(
+        f"missing active crawler plan(s): {', '.join(missing)}; "
+        f"skipped={app.plan_result.skipped!r}; errors={app.plan_result.errors!r}"
+    )
 runner = CrawlerJobRunner(app.factory)
 payload = []
 for plan in sorted(plans, key=lambda item: item.crawler_name):

@@ -1,0 +1,9 @@
+**/.git
+**/.venv
+**/__pycache__
+**/*.pyc
+**/build
+**/dist
+**/*.egg-info
+crawler_admin_state
+logs

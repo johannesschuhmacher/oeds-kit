@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import io
-import argparse
 import os
 import sys
 import tempfile
@@ -24,7 +23,12 @@ DEPLOYMENT_ROOT = ROOT / "modules" / "oeds-deployment"
 
 
 def _add_source_paths() -> None:
-    for path in (SCHEDULER_SRC, CRAWLER_PACK_SRC, POST_SCRIPTS_SRC):
+    for path in (
+        SCHEDULER_SRC,
+        CRAWLER_PACK_SRC,
+        POST_SCRIPTS_SRC,
+        POST_SCRIPTS_ROOT,
+    ):
         path_text = str(path)
         if path_text not in sys.path:
             sys.path.insert(0, path_text)
@@ -135,9 +139,9 @@ def _verify_scheduler_interfaces() -> None:
     assert merged_inventory["jao_crawler"].source_name == "oeds-core"
     assert len(merged_inventory) >= 45
 
-    kit_discovery = discover_crawler_specs(
+    extension_discovery = discover_crawler_specs(
         source_name="oeds-crawler-pack",
-        source_path=ROOT.parent,
+        source_path=CRAWLER_PACK_SRC,
         crawler_package_path="crawler",
         module_prefix="crawler",
     )
@@ -147,7 +151,7 @@ def _verify_scheduler_interfaces() -> None:
         crawler_package_path="oeds/crawler",
         module_prefix="oeds.crawler",
     )
-    assert len(kit_discovery.crawlers) >= 20
+    assert len(extension_discovery.crawlers) >= 20
     assert len(core_discovery.crawlers) >= 30
 
     factory = CrawlerFactory(merged_inventory)
@@ -473,7 +477,10 @@ def _verify_scheduler_interfaces() -> None:
 
 
 def _verify_crawler_pack() -> None:
-    from oeds_crawler_pack.registry import default_kit_source_path, get_crawler_specs
+    from oeds_crawler_pack.registry import (
+        default_crawler_source_path,
+        get_crawler_specs,
+    )
 
     specs = get_crawler_specs()
     assert specs["smard"] == "crawler.smard:SmardCrawler"
@@ -481,7 +488,7 @@ def _verify_crawler_pack() -> None:
     assert specs["entsoe_fms"] == "crawler.entsoe_fms:EntsoeFMSCrawler"
     assert specs["weather_forecast"] == "crawler.weather_forecast:WeatherForecastCrawler"
     assert len(specs) >= 20
-    assert (default_kit_source_path() / "crawler").is_dir()
+    assert (default_crawler_source_path() / "crawler").is_dir()
 
 
 def _verify_post_scripts() -> None:
@@ -604,9 +611,7 @@ def _verify_inventory() -> None:
     assert inventory["pilot"]["chargepoint"]["preferred_source"] == "oeds-core"
 
 
-def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
-    from verify_split_parity import verify_split_parity
-
+def _verify_split_artifacts() -> None:
     split_files = [
         "README.md",
         ".gitignore",
@@ -652,7 +657,6 @@ def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
     deployment_files = [
         "compose.yml",
         "compose.modular.yml",
-        "docker/Dockerfile.crawler",
         "docker/Dockerfile.crawler-modular",
         "docker/initdb/10-init.sql",
         "modular_initdb/09-bootstrap-roles.sh",
@@ -693,7 +697,7 @@ def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
     assert "oeds-post --migrate-config CRAWLER_CONFIG.yml --check" in (
         compatibility_manifest
     )
-    assert "github-initial" in compatibility_manifest
+    assert "github-modular" in compatibility_manifest
     assert (
         "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
         in compatibility_manifest
@@ -708,34 +712,15 @@ def _verify_split_artifacts(skip_split_parity: bool = False) -> None:
     assert "oeds-post gapfill entsoe-fms" in migrated_config_text
     assert "oeds-post refresh entsoe-availability-map" in migrated_config_text
     assert "oeds-post forecast day-ahead-price" in migrated_config_text
-    if not skip_split_parity:
-        assert sum(check.file_count for check in verify_split_parity()) > 0
-
-
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--skip-split-parity",
-        action="store_true",
-        help=(
-            "skip byte-for-byte parity against the KIT source checkout; use this "
-            "for assembled compatibility workspaces where module pins can be newer "
-            "than the pinned KIT source"
-        ),
-    )
-    return parser.parse_args()
-
-
-def main(skip_split_parity: bool = False) -> None:
+def main() -> None:
     _add_source_paths()
     _verify_scheduler_interfaces()
     _verify_crawler_pack()
     _verify_post_scripts()
     _verify_inventory()
-    _verify_split_artifacts(skip_split_parity=skip_split_parity)
+    _verify_split_artifacts()
     print("modular repository scaffold verification passed")
 
 
 if __name__ == "__main__":
-    args = _parse_args()
-    main(skip_split_parity=args.skip_split_parity)
+    main()

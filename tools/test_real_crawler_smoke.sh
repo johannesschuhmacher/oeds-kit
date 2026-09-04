@@ -19,7 +19,7 @@ source "$SCRIPT_DIR/smoke_lib.sh"
 
 cd "$DEPLOYMENT_ROOT"
 export COMPOSE_PROJECT_NAME=oeds-modular-test
-COMPOSE=(docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml)
+COMPOSE=(docker compose --profile crawlers -f compose.yml -f compose.modular.yml -f compose.test.yml)
 RUNTIME_DIR=.tmp/runtime-real-crawler
 RUNTIME_ROOT=$DEPLOYMENT_ROOT/$RUNTIME_DIR
 
@@ -34,7 +34,7 @@ mkdir -p "$RUNTIME_ROOT/crawler/data" "$RUNTIME_ROOT/logs"
 chmod -R 0777 "$RUNTIME_ROOT"
 if [[ "$RUN_POST_SCRIPTS" == "true" ]]; then
   POST_RUN_BLOCK='  post_run_scripts:
-    - "scripts/gapfill_smard.py"'
+    - "oeds-post gapfill smard"'
 else
   POST_RUN_BLOCK='  post_run_scripts: []'
 fi
@@ -73,7 +73,10 @@ app = SchedulerApplication(
 )
 plans = [plan for plan in app.plan_result.plans if plan.crawler_name == "smard"]
 if len(plans) != 1:
-    raise SystemExit(f"expected exactly one smard plan, got {len(plans)}")
+    raise SystemExit(
+        f"expected exactly one smard plan, got {len(plans)}; "
+        f"skipped={app.plan_result.skipped!r}; errors={app.plan_result.errors!r}"
+    )
 result = CrawlerJobRunner(app.factory).run(plans[0])
 print(json.dumps({
     "job_id": result.job_id,

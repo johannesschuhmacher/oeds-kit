@@ -2,17 +2,13 @@
   "sources": {
     "oeds-core": {
       "path": "sources/oeds-core",
-      "commit": "6d6d228f00798be3652406620959ee99080c2768"
-    },
-    "oeds-kit-current": {
-      "path": "..",
-      "commit": "0e3ee0b8223750d9ebda3bac0793c0cbeaeb06ea"
+      "commit": "38abf45139f332d59a198c1b0feb95016b323ee1"
     }
   },
   "registry_sources": [
     {
       "source_name": "oeds-crawler-pack",
-      "source_path": "..",
+      "source_path": "modules/oeds-crawler-pack/src",
       "crawler_package_path": "crawler",
       "module_prefix": "crawler"
     },
@@ -26,14 +22,14 @@
   "pilot": {
     "smard": {
       "preferred_source": "oeds-crawler-pack",
-      "source_path": "..",
+      "source_path": "modules/oeds-crawler-pack/src",
       "module": "crawler.smard",
       "attribute": "SmardCrawler",
       "reason": "KIT version is scheduler-integrated, uses upsert behavior, and is wired to current gapfill flow. Keep upstream available separately because it covers broader SMARD module groups."
     },
     "eurostat_crawler": {
       "preferred_source": "oeds-crawler-pack",
-      "source_path": "..",
+      "source_path": "modules/oeds-crawler-pack/src",
       "module": "crawler.eurostat_crawler",
       "attribute": "EurostatCrawler",
       "reason": "KIT-only crawler with configurable dataset and year range."

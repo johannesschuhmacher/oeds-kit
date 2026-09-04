@@ -7,8 +7,8 @@ public versions.
 
 ## Current State
 
-- The split contains four primary add-on module repositories under `modules/`
-  plus the optional transition module `oeds-crawler-pack`.
+- The split contains four repositories under `modules/`, including the
+  transition module `oeds-crawler-pack`.
 - The original OEDS repository remains the central crawler and database base.
 - KIT-specific scheduler, UI, post-processing, and deployment work is
   separated into add-on repositories. Compatibility metadata lives in
@@ -76,7 +76,6 @@ Run these from the workspace root before tagging a public release candidate:
 
 ```powershell
 python .\modular_repos\tools\verify_modules.py
-python .\modular_repos\tools\verify_split_parity.py
 python .\modular_repos\modules\oeds-deployment\tools\verify_deployment.py
 python -B .\modular_repos\tools\check_publication_readiness.py
 .\modular_repos\tools\run_full_function_test.ps1
@@ -85,7 +84,7 @@ python -B .\modular_repos\tools\check_publication_readiness.py
 The full function test should cover:
 
 - module contract verification
-- copied-artifact parity
+- package and component-boundary checks
 - Python compile checks
 - module unit tests
 - post-script CLI smoke tests
@@ -105,8 +104,6 @@ Start with lightweight CI per repository:
 - use the prepared `.github/workflows/ci.yml` in each module repository
 - run unit tests and compile checks for Python packages
 - run `verify_modules.py` from the assembled deployment workspace
-- run `verify_split_parity.py` against the checked-out KIT reference while
-  copied artifacts are still expected to be byte-identical
 - run `tools/verify_deployment.py --local-only` for standalone deployment
   repository checks
 - run `tools/verify_deployment.py --local-only` and the publication preflight
