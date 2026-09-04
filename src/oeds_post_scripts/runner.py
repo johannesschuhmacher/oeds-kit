@@ -116,7 +116,6 @@ def _run_direct_main_if_available(
 
     module_name, function_name, accepts_argv = direct_target
     old_argv = sys.argv[:]
-    old_cwd = Path.cwd()
     added_sys_paths: list[str] = []
     try:
         for path in (repo_root, repo_root / "scripts"):
@@ -124,7 +123,6 @@ def _run_direct_main_if_available(
             if path_text not in sys.path:
                 sys.path.insert(0, path_text)
                 added_sys_paths.append(path_text)
-        os.chdir(repo_root)
         module = import_module(module_name)
         main_func = getattr(module, function_name)
         if accepts_argv:
@@ -141,7 +139,6 @@ def _run_direct_main_if_available(
         return 1
     finally:
         sys.argv = old_argv
-        os.chdir(old_cwd)
         for path_text in added_sys_paths:
             try:
                 sys.path.remove(path_text)

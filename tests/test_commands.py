@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from types import ModuleType
 from pathlib import Path
 
 from oeds_post_scripts.commands import (
@@ -9,6 +10,7 @@ from oeds_post_scripts.commands import (
     script_to_post_command,
 )
 from oeds_post_scripts.migration import migrate_post_run_scripts
+from oeds_post_scripts import runner
 
 
 def test_backfill_config_path_can_be_set_by_environment(tmp_path):
@@ -43,6 +45,28 @@ def test_backfill_help_does_not_require_crawler_package():
 
     assert result.returncode == 0, result.stderr
     assert "Backfill ENTSO-E unavailability" in result.stdout
+
+
+def test_direct_post_command_keeps_runtime_working_directory(monkeypatch, tmp_path):
+    observed_cwds = []
+    module = ModuleType("test_direct_post_module")
+    module.main = lambda _args: observed_cwds.append(Path.cwd())
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setitem(
+        runner._DIRECT_MAIN_SCRIPTS,
+        "scripts/test_direct.py",
+        (module.__name__, "main", True),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    returncode = runner._run_direct_main_if_available(
+        "scripts/test_direct.py",
+        Path(__file__).resolve().parents[1],
+        (),
+    )
+
+    assert returncode == 0
+    assert observed_cwds == [tmp_path]
 
 
 def test_resolve_entsoe_gapfill_command():
