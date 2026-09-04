@@ -98,6 +98,9 @@ These packages and their SQL files are included in both source distributions
 and wheels. The repository can therefore be installed independently of the KIT
 monorepository. The ENTSO-E backfill command additionally requires
 `oeds-crawler-pack`, which the deployment installs alongside this module.
+Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
+the post-scripts repository root. The modular deployment sets this variable to
+`/app/CRAWLER_CONFIG.yml` inside its Python containers.
 
 Current direct-call candidates:
 

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import logging
+import os
 from pathlib import Path
 import sys
 
@@ -11,7 +12,9 @@ from sqlalchemy import create_engine, text
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL_FILE = ROOT / "scripts" / "lib" / "entsoe_availability_map.sql"
-CONFIG_FILE = ROOT / "CRAWLER_CONFIG.yml"
+CONFIG_FILE = Path(
+    os.getenv("OEDS_CRAWLER_CONFIG", ROOT / "CRAWLER_CONFIG.yml")
+).expanduser()
 REQUIRED_SOURCE_TABLES = (
     ("entsoe_fms", "powersystemdata"),
     ("entsoe_fms", "UnavailabilityOfProductionAndGenerationUnits"),

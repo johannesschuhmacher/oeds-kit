@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -16,7 +17,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG_FILE = ROOT / "CRAWLER_CONFIG.yml"
+CONFIG_FILE = Path(
+    os.getenv("OEDS_CRAWLER_CONFIG", ROOT / "CRAWLER_CONFIG.yml")
+).expanduser()
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

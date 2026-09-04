@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +9,26 @@ from oeds_post_scripts.commands import (
     script_to_post_command,
 )
 from oeds_post_scripts.migration import migrate_post_run_scripts
+
+
+def test_backfill_config_path_can_be_set_by_environment(tmp_path):
+    config_path = tmp_path / "crawler.yml"
+    env = dict(os.environ, OEDS_CRAWLER_CONFIG=str(config_path))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from scripts.backfill_entsoe_unavailability import CONFIG_FILE; print(CONFIG_FILE)",
+        ],
+        capture_output=True,
+        check=False,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert Path(result.stdout.strip()) == config_path
 
 
 def test_backfill_help_does_not_require_crawler_package():
