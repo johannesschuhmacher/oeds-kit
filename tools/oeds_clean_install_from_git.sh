@@ -52,7 +52,15 @@ while [[ $# -gt 0 ]]; do
     --crawler-env-file) CRAWLER_ENV_FILE=$2; shift 2 ;;
     --repo-url) DEPLOYMENT_REPO_URL=$2; shift 2 ;;
     --ref) DEPLOYMENT_REF=$2; shift 2 ;;
-    --work-dir) WORK_DIR=$2; CHECKOUT_DIR=$2/oeds-deployment; ASSEMBLED_DIR=$2/assembled; shift 2 ;;
+    --work-dir)
+      WORK_DIR=$2
+      CHECKOUT_DIR=$2/oeds-deployment
+      ASSEMBLED_DIR=$2/assembled
+      if [[ -z "${OEDS_ANSIBLE_INVENTORY_FILE:-}" ]]; then
+        INVENTORY_FILE=$2/inventory.local.yml
+      fi
+      shift 2
+      ;;
     --root) OEDS_ROOT=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;

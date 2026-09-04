@@ -19,3 +19,5 @@
   consumption-unavailability table for current source columns.
 - Pin the scheduler constructor audit that rejects unsupported additional
   required parameters in legacy crawler modules.
+- Keep the generated Ansible inventory inside a custom `--work-dir` unless an
+  explicit `OEDS_ANSIBLE_INVENTORY_FILE` is configured.
