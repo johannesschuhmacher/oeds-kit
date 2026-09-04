@@ -14,3 +14,12 @@
         - docker-buildx-plugin
         - docker-compose-plugin
       state: "{{ oeds_package_state }}"
+  - name: Add the deployment user to the Docker operator group
+    ansible.builtin.user:
+      name: "{{ ansible_user }}"
+      groups:
+        - docker
+      append: true
+    when:
+      - ansible_user is defined
+      - ansible_user != "root"

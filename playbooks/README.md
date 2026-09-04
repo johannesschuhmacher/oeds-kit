@@ -8,9 +8,9 @@ Secrets, inventories, host-specific overrides, and runtime data do not belong
 in the repository. Keep them in local `group_vars`, untracked `.env` files, or
 host-side runtime directories.
 
-For managed internal deployments, keep the repo-root compose `.env` at `0600`.
-It is the natural place for the rotated OEDS service passwords because Compose
-loads it automatically.
+The generated Compose `.env` contains only the project name and runtime path.
+Keep service passwords and crawler credentials in protected runtime files, not
+in the repository checkout.
 
 ## Quick install
 
@@ -80,8 +80,8 @@ sample into the installed database.
 
 Pass `--crawler-env-file` or set `OEDS_CRAWLER_ENV_FILE` when live crawlers
 need API tokens. The wrapper installs that file as
-`/open_energy_data_server/runtime/crawler/.env` with `0600` permissions after
-the clean reset and installation.
+`/open_energy_data_server/runtime/crawler/.env` with owner `root`, group
+`docker`, and mode `0640` after the clean reset and installation.
 
 For unattended sudo, pass a local password file:
 
@@ -195,6 +195,10 @@ Target host:
 - Python for Ansible modules.
 - Network access to Docker registries and the selected git remote.
 - Enough storage for PostgreSQL data and backups.
+
+The host-preparation playbook adds the Ansible deployment user to the `docker`
+group. Open a new login session after the first host preparation before running
+Docker or Compose manually without `sudo`.
 
 ## Inventory and local variables
 
