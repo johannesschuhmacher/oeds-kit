@@ -116,6 +116,10 @@ def main(local_only: bool = False) -> None:
         ["oeds-kit-source", "open-energy-data-server-KIT"],
     )
     _assert_contains(
+        DEPLOYMENT_ROOT / "compose.yml",
+        ["OEDS_CRAWLER_CONFIG: /app/CRAWLER_CONFIG.yml"],
+    )
+    _assert_contains(
         DEPLOYMENT_ROOT / "compose.modular.yml",
         [
             "Dockerfile.crawler-modular",

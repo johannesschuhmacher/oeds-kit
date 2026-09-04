@@ -13,3 +13,5 @@
   for runtime-mounted Admin UI operation.
 - Added starter GitHub Actions CI and a `--local-only` deployment repository
   verification mode.
+- Install the complete official OEDS crawler requirements on Python 3.13 and
+  pass the runtime crawler-config path to post-processing commands.
