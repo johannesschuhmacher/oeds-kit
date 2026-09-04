@@ -213,9 +213,9 @@ if [[ -n "$CRAWLER_ENV_FILE" ]]; then
   fi
   log "Installing crawler runtime environment file"
   if [[ -n "${OEDS_BECOME_PASSWORD_FILE:-}" ]]; then
-    sudo -S install -o root -g root -m 0600 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env" < "$OEDS_BECOME_PASSWORD_FILE"
+    sudo -S install -o root -g docker -m 0640 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env" < "$OEDS_BECOME_PASSWORD_FILE"
   else
-    sudo install -o root -g root -m 0600 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env"
+    sudo install -o root -g docker -m 0640 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env"
   fi
 fi
 

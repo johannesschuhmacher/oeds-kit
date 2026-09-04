@@ -136,15 +136,22 @@
       path: "{{ oeds_runtime_dir_effective }}/crawler/.env"
       state: touch
       owner: root
-      group: root
-      mode: "0600"
+      group: docker
+      mode: "0640"
     when: not oeds_runtime_env.stat.exists
+  - name: Protect runtime crawler credentials for Docker operators
+    ansible.builtin.file:
+      path: "{{ oeds_runtime_dir_effective }}/crawler/.env"
+      state: file
+      owner: root
+      group: docker
+      mode: "0640"
   - name: Create compose environment file with runtime path
     ansible.builtin.copy:
       dest: "{{ oeds_repo_dir_effective }}/.env"
       owner: root
       group: root
-      mode: "0600"
+      mode: "0644"
       content: |
         COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
         OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
@@ -153,7 +160,7 @@
       dest: "{{ oeds_compose_dir_effective }}/.env"
       owner: root
       group: root
-      mode: "0600"
+      mode: "0644"
       content: |
         COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
         OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}

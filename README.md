@@ -128,6 +128,11 @@ currently runs as root inside its container because it must update the
 root-owned bind-mounted `CRAWLER_CONFIG.yml` created by Ansible. The admin UI
 should not be exposed to untrusted networks without an authentication layer.
 
+Managed installations store crawler secrets as `root:docker` with mode `0640`.
+The Compose `.env` files contain only the project name and runtime path and use
+mode `0644`. A host operator therefore needs membership in the `docker` group
+to read crawler secrets and manage the stack without `sudo`.
+
 ## Ansible
 
 For a preassembled local workspace:
