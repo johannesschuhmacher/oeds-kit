@@ -2,6 +2,14 @@
 
 Post-run processing module for the modular OEDS stack.
 
+This repository is part of the modular OEDS stack. The shared crawler and
+database core remains in
+[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
+while crawler extensions, scheduling/UI, and installation live in
+[oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
+[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
+and [oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment).
+
 ## Responsibility
 
 This module should transform, validate, fill, forecast, or derive data after
