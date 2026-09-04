@@ -117,7 +117,10 @@ def main(local_only: bool = False) -> None:
     )
     _assert_contains(
         DEPLOYMENT_ROOT / "compose.yml",
-        ["OEDS_CRAWLER_CONFIG: /app/CRAWLER_CONFIG.yml"],
+        [
+            "OEDS_CRAWLER_CONFIG: /app/CRAWLER_CONFIG.yml",
+            "OEDS_CRAWLER_DATA_DIR: /app/crawler/data",
+        ],
     )
     _assert_contains(
         DEPLOYMENT_ROOT / "compose.modular.yml",

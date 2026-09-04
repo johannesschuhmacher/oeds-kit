@@ -27,7 +27,7 @@ components:
     path: "../oeds-post-scripts"
     repository: "https://github.com/johannesschuhmacher/oeds-post-scripts.git"
     branch: "main"
-    commit: "da5bd6049c0033e6a6081a83bc4e6b5b7c2224de"
+    commit: "ef800ab36024eb6d09423fb8b49083269aadaa09"
     status: "github-modular"
     commands:
       - "oeds-post gapfill smard"
