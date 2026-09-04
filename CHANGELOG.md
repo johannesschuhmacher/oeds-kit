@@ -17,3 +17,5 @@
   pass the runtime crawler-config path to post-processing commands.
 - Bound ENTSO-E FMS backfills to the requested file period and migrate the
   consumption-unavailability table for current source columns.
+- Pin the scheduler constructor audit that rejects unsupported additional
+  required parameters in legacy crawler modules.

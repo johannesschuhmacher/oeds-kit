@@ -20,7 +20,7 @@ components:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
     branch: "main"
-    commit: "8988f8b0d0a7cf2b28f7fec8e460011323a74457"
+    commit: "26c1ed540d6b3a0ee44356455823986469cd0f09"
     status: "github-modular"
 
   oeds-post-scripts:
