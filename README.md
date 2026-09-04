@@ -101,6 +101,8 @@ monorepository. The ENTSO-E backfill command additionally requires
 Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
 the post-scripts repository root. The modular deployment sets this variable to
 `/app/CRAWLER_CONFIG.yml` inside its Python containers.
+For ENTSO-E backfill downloads, `OEDS_CRAWLER_DATA_DIR` selects the writable
+crawler data directory; the modular deployment uses `/app/crawler/data`.
 
 Current direct-call candidates:
 

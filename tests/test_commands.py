@@ -15,13 +15,19 @@ from oeds_post_scripts import runner
 
 def test_backfill_config_path_can_be_set_by_environment(tmp_path):
     config_path = tmp_path / "crawler.yml"
-    env = dict(os.environ, OEDS_CRAWLER_CONFIG=str(config_path))
+    crawler_data_path = tmp_path / "crawler-data"
+    env = dict(
+        os.environ,
+        OEDS_CRAWLER_CONFIG=str(config_path),
+        OEDS_CRAWLER_DATA_DIR=str(crawler_data_path),
+    )
 
     result = subprocess.run(
         [
             sys.executable,
             "-c",
-            "from scripts.backfill_entsoe_unavailability import CONFIG_FILE; print(CONFIG_FILE)",
+            "from scripts.backfill_entsoe_unavailability import CONFIG_FILE, CRAWLER_DATA_DIR; "
+            "print(CONFIG_FILE); print(CRAWLER_DATA_DIR)",
         ],
         capture_output=True,
         check=False,
@@ -30,7 +36,9 @@ def test_backfill_config_path_can_be_set_by_environment(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert Path(result.stdout.strip()) == config_path
+    output_lines = result.stdout.splitlines()
+    assert Path(output_lines[0]) == config_path
+    assert Path(output_lines[1]) == crawler_data_path
 
 
 def test_backfill_help_does_not_require_crawler_package():

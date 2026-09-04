@@ -17,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG_FILE = Path(
     os.getenv("OEDS_CRAWLER_CONFIG", ROOT / "CRAWLER_CONFIG.yml")
 ).expanduser()
+CRAWLER_DATA_DIR = Path(
+    os.getenv("OEDS_CRAWLER_DATA_DIR", ROOT / "crawler" / "data")
+).expanduser()
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -74,7 +77,7 @@ def main() -> None:
     )
 
     crawler = EntsoeFMSCrawler("entsoe_fms", load_crawler_config())
-    local_dir = ROOT / "crawler" / "data"
+    local_dir = CRAWLER_DATA_DIR
 
     logging.info(
         "Backfilling ENTSO-E unavailability data items: %s",
