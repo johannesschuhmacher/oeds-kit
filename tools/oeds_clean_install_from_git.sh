@@ -6,6 +6,7 @@ DEPLOYMENT_REF=${OEDS_DEPLOYMENT_REF:-main}
 WORK_DIR=${OEDS_INSTALL_WORK_DIR:-$HOME/oeds-modular-git-install}
 CHECKOUT_DIR=${OEDS_DEPLOYMENT_CHECKOUT_DIR:-$WORK_DIR/oeds-deployment}
 ASSEMBLED_DIR=${OEDS_ASSEMBLED_DIR:-$WORK_DIR/assembled}
+INVENTORY_FILE=${OEDS_ANSIBLE_INVENTORY_FILE:-$WORK_DIR/inventory.local.yml}
 OEDS_ROOT=${OEDS_ROOT:-/open_energy_data_server}
 RESET=false
 SKIP_HOST_PREP=false
@@ -35,6 +36,7 @@ Environment:
   OEDS_GIT_USERNAME           GitHub username. Defaults to "x-access-token".
   OEDS_CRAWLER_ENV_FILE       Optional crawler .env copied after install for live crawlers.
   OEDS_BECOME_PASSWORD_FILE   Optional sudo password file for non-interactive Ansible runs.
+  OEDS_ANSIBLE_INVENTORY_FILE Optional inventory path outside the assembled workspace.
 
 The token is passed to git through a temporary GIT_ASKPASS helper and is removed
 when the script exits. It is not written to the repository or Ansible inventory.
@@ -148,7 +150,7 @@ if [[ ! -d "$PLAYBOOK_DIR" ]]; then
 fi
 
 log "Preparing local Ansible inventory"
-cat > "$PLAYBOOK_DIR/inventory.local.yml" <<YAML
+cat > "$INVENTORY_FILE" <<YAML
 all:
   children:
     oeds:
@@ -167,7 +169,7 @@ ansible-galaxy collection install -r requirements.yml
 
 BECOME_ARGS=()
 readarray_nul BECOME_ARGS < <(become_args)
-COMMON_ARGS=(-i inventory.local.yml "${BECOME_ARGS[@]}")
+COMMON_ARGS=(-i "$INVENTORY_FILE" "${BECOME_ARGS[@]}")
 MODULAR_EXTRA=(
   -e "oeds_root=$OEDS_ROOT"
   -e "oeds_repo_source_mode=local_worktree"
