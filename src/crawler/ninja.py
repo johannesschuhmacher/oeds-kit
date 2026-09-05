@@ -100,6 +100,7 @@ class NinjaCrawler(BaseCrawler):
             self.config.get("smoke_start", "2016-01-01 00:00:00"),
             periods=periods,
             freq="h",
+            name="time",
         )
         wind = pd.DataFrame(
             {
