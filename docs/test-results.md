@@ -1,5 +1,87 @@
 # Intern-test results, 2026-09-05
 
+## Latest clean reinstall and crawler fixes
+
+This section supersedes the older installation revisions below. The final
+documented application reset/install used fresh private GitHub sources at
+deployment `b521741`, core `8a53778`, crawler pack `2f77898`, scheduler/UI
+`12bc913` and post-scripts `e1622ff`. Later report-only commits do not change
+that runtime. Core `8a53778` is a private test branch based on official OEDS
+`38abf45`, not an official upstream release.
+
+The intern-test host remained **CentOS Stream 10**. The operating system was
+not reinstalled. Ansible backed up the database, removed OEDS containers,
+volumes, source code, runtime and database directories, and retained backups.
+Absence of those directories was checked before installation. Host preparation,
+database installation, all four Docker stages and explicit post/crawler module
+installation completed successfully using [the step-by-step guide](testing.md).
+Docker image caches were reused. Production was not touched.
+
+The first repeat exposed a real documentation/test gap: the sample loader used
+June 2024, while SMARD's dashboard opens the last 30 days. A browser check showed
+empty panels even though SQL against the old date window passed. The loader
+now defaults to the preceding chart week; the dashboard test uses the actual
+default date windows and requires data from every SQL target. The stricter check
+failed on the old sample as expected. A second full reset/install from GitHub
+then passed with current samples. Both SMARD panels show series in the browser;
+the weather dashboard displays numeric values and its map/series controls.
+
+Completed checks:
+
+- Core and KIT HTTP ZIP fixtures: three tables and 12 exact values per implementation.
+- Two real minute-separated scheduler runs, post-run commands and disabling by reload.
+- Numerical gapfill and forecast self-tests; all 11 Grafana SQL targets return data.
+- Admin form save/restore, cron preview, manual Ninja run with four stored rows,
+  gapfill self-tests and a real holdout form submission.
+- Ansible update retains SMARD row counts and the exact runtime configuration;
+  the complete integration suite passed again after the update.
+- Readonly TCP login without INSERT rights, scheduler UID 1000, writable runtime
+  paths, root:docker 0640 crawler credentials and localhost-only service ports.
+- 90 focused regressions: core 3, crawler pack 18, post-scripts 27, scheduler/UI 33,
+  deployment 9. Provider-dependent core tests ran with the full core environment.
+- Existing AGPL license texts match the original in all five repositories. No
+  actual values from the local credential file were found in tracked files;
+  matches were limited to the public Copernicus API URL.
+
+Final installed sample, verified by SQL:
+
+| Dataset | Rows |
+| --- | ---: |
+| SMARD energy/load / prices / gapfilled | 8,064 / 672 / 8,064 |
+| ENTSO-E API prices | 193 |
+| ENTSO-E FMS prices / installed-capacity reference | 25,327 / 39,341 |
+| Power-plant reference / weather forecast | 165,064 / 24 |
+| Consumption / generation outages | 21,139 / 69,737 |
+
+SMARD covers 2026-08-23 22:00 through 2026-08-30 21:45 UTC. The August outage
+backfill also refreshed availability-map objects. FMS package selection is
+monthly, even when the requested interval is shorter. These counts reflect
+publication at test time, not permanent expected values.
+
+The [crawler report](crawler-live-tests.md) documents **36 completed bounded
+imports out of 53 implementations** across the full audit and follow-ups.
+Twelve corrected implementations were repeated successfully in the freshly built
+GitHub runtime; Regelleistung remained partial because one requested FCR dataset
+was empty. The other source failures, missing credentials, legacy prerequisites
+and unfinished full archives are not declared fixed. No crawler was removed.
+
+All five repositories remain private. SMTP delivery, live Bitwarden integration,
+Ubuntu provisioning, full historical imports and every optional research
+dashboard are not certified by this run. Upstream merging and public visibility
+are separate steps.
+
+Temporary VM Git, sudo and source-credential files were removed, as were the
+isolated crawler-test database and network. The installed runtime `.env`, sample
+data, backups and six healthy/running services remain; normal crawler schedules
+are disabled. The original Windows `.env` is unchanged. Private run logs are at
+`/home/oeds/oeds-test-logs-2026-09-05/crawler-fixes`; isolated source logs remain in
+`/home/oeds/oeds-crawler-validation/logs` without their temporary environment file.
+
+## Earlier installation audit
+
+The following preserves the earlier test evidence and its original limitations.
+Use the latest section above for current revision and installation decisions.
+
 ## Environment and scope
 
 Tests ran on `iip-vm-oeds-intern-test.iip.kit.edu`, **CentOS Stream 10**,

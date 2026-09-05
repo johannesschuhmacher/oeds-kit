@@ -312,3 +312,10 @@ when2heat reads and repeatable exclusive-end Regelleistung windows.
 
 The application reset/reinstall and scheduler, post-script and Grafana results
 are recorded separately in [VM installation results](test-results.md).
+
+After a fresh GitHub assembly, all twelve corrected successful implementations
+in the table above (excluding the separately completed EPEX run) were repeated
+in `oeds-test:runtime`, UID 1000, with empty validation databases. All twelve
+passed. Regelleistung was also repeated and remained partial (126 records,
+two of three requested FCR datasets). This repeat used the published private
+core and crawler revisions, not source files mounted from the development tree.

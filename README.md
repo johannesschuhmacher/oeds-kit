@@ -43,6 +43,17 @@ settings are preserved. **Do not add `--reset` unless you intend to delete
 the old database and runtime settings.** All crawlers start disabled: choose
 the sources you need in the admin UI before enabling a schedule.
 
+To load a small real sample after installation, run inside the test VM:
+
+```bash
+cd /open_energy_data_server/repo/modular_repos/modules/oeds-deployment
+sudo bash tools/load_sample_data.sh --include-entsoe-fms
+sudo bash tools/test_installation.sh
+```
+
+This uses your ENTSO-E credentials and writes test data to the installed database.
+The recent SMARD week is visible in the dashboard's default time range.
+
 For a guided, module-by-module installation and test, follow
 [Testing a fresh installation](docs/testing.md). For backup, update, migration,
 password rotation and removal, see [Operations](playbooks/README.md).
