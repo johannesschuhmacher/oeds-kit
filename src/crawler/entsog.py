@@ -88,6 +88,7 @@ class EntsogCrawler(BaseCrawler):
 
     def _fetch_collection(self, endpoint: str, root_key: str, params: dict | None = None) -> pd.DataFrame:
         query_params = {
+            "limit": -1,
             "periodize": "false",
             "includeExemptions": "true",
         }

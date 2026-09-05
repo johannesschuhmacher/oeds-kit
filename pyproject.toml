@@ -16,6 +16,7 @@ dependencies = [
     "entsoe-py",
     "eurostat",
     "lxml",
+    "netCDF4",
     "openpyxl",
     "pandas",
     "paramiko",

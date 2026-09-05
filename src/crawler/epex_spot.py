@@ -21,7 +21,7 @@ import os
 import re
 import stat
 import zipfile
-from typing import Callable
+from typing import Callable, Iterator
 
 import pandas as pd
 import paramiko
@@ -522,56 +522,40 @@ class EpexSpotCrawler(BaseCrawler):
         df["download_time_utc"] = pd.Timestamp.now(tz="UTC")
         return df
 
-    def _parse_continuous_trades_zip(self, payload: bytes, filename: str) -> pd.DataFrame:
-        frames = []
+    def _parse_continuous_trades_zip(self, payload: bytes, filename: str) -> Iterator[pd.DataFrame]:
         with zipfile.ZipFile(io.BytesIO(payload)) as archive:
             for member in archive.namelist():
                 if not member.lower().endswith(".csv"):
                     continue
-                member_payload = archive.read(member)
-                header, df = self._read_csv_payload(member_payload)
-                if df.empty:
-                    continue
-
-                df = df.rename(
-                    columns={
-                        "TradeId": "trade_id",
-                        "RemoteTradeId": "remote_trade_id",
-                        "Side": "side",
-                        "Product": "product",
-                        "DeliveryStart": "delivery_start_utc",
-                        "DeliveryEnd": "delivery_end_utc",
-                        "ExecutionTime": "execution_time_utc",
-                        "DeliveryArea": "delivery_area",
-                        "TradePhase": "trade_phase",
-                        "UserDefinedBlock": "user_defined_block",
-                        "SelfTrade": "self_trade",
-                        "Price": "price",
-                        "Currency": "currency",
-                        "Volume": "volume",
-                        "VolumeUnit": "volume_unit",
-                        "OrderID": "order_id",
-                    }
-                )
-
-                for column in ("delivery_start_utc", "delivery_end_utc", "execution_time_utc"):
-                    if column in df.columns:
-                        df[column] = self._timestamp_utc(df[column])
-                for column in ("price", "volume"):
-                    if column in df.columns:
-                        df[column] = self._numeric(df[column])
-                for column in ("trade_id", "remote_trade_id", "order_id"):
-                    if column in df.columns:
-                        df[column] = df[column].astype("string")
-
-                df["source_file"] = filename
-                df["publication_time_utc"] = self._publication_time_from_header(header)
-                df["download_time_utc"] = pd.Timestamp.now(tz="UTC")
-                frames.append(df)
-
-        if not frames:
-            return pd.DataFrame()
-        return pd.concat(frames, ignore_index=True)
+                with archive.open(member) as csv_file:
+                    header = csv_file.readline().decode("utf-8-sig", errors="replace")
+                    csv_file.seek(0)
+                    # Trade archives can expand to several GB; normalize and write one block at a time.
+                    batch_size = int(self.config.get("database_batch_size", 5000))
+                    for df in pd.read_csv(csv_file, comment="#", chunksize=batch_size,
+                                          dtype={"TradeId": "string", "RemoteTradeId": "string", "OrderID": "string"}):
+                        df = df.rename(columns={
+                            "TradeId": "trade_id", "RemoteTradeId": "remote_trade_id",
+                            "Side": "side", "Product": "product",
+                            "DeliveryStart": "delivery_start_utc", "DeliveryEnd": "delivery_end_utc",
+                            "ExecutionTime": "execution_time_utc", "DeliveryArea": "delivery_area",
+                            "TradePhase": "trade_phase", "UserDefinedBlock": "user_defined_block",
+                            "SelfTrade": "self_trade", "Price": "price", "Currency": "currency",
+                            "Volume": "volume", "VolumeUnit": "volume_unit", "OrderID": "order_id",
+                        })
+                        for column in ("delivery_start_utc", "delivery_end_utc", "execution_time_utc"):
+                            if column in df.columns:
+                                df[column] = self._timestamp_utc(df[column])
+                        for column in ("price", "volume"):
+                            if column in df.columns:
+                                df[column] = self._numeric(df[column])
+                        for column in ("trade_id", "remote_trade_id", "order_id"):
+                            if column in df.columns:
+                                df[column] = df[column].astype("string")
+                        df["source_file"] = filename
+                        df["publication_time_utc"] = self._publication_time_from_header(header)
+                        df["download_time_utc"] = pd.Timestamp.now(tz="UTC")
+                        yield df
 
     def _parse_intraday_auction_file(
         self,
@@ -642,7 +626,7 @@ class EpexSpotCrawler(BaseCrawler):
         self,
         remote_dir: str,
         table_name: str,
-        parser: Callable[[bytes, str], pd.DataFrame],
+        parser: Callable[[bytes, str], pd.DataFrame | Iterator[pd.DataFrame]],
         constraint_name: str,
         start_time: pd.Timestamp,
     ) -> int:
@@ -655,9 +639,12 @@ class EpexSpotCrawler(BaseCrawler):
 
             remote_path = self._join_remote_path(remote_dir, entry.filename)
             payload = self._download_bytes(remote_path)
-            df = parser(payload, entry.filename)
-            df = self._filter_delivery_start(df, start_time)
-            rows = self._upsert_dataframe(table_name, df, constraint_name)
+            parsed = parser(payload, entry.filename)
+            frames = [parsed] if isinstance(parsed, pd.DataFrame) else parsed
+            rows = 0
+            for frame in frames:
+                frame = self._filter_delivery_start(frame, start_time)
+                rows += self._upsert_dataframe(table_name, frame, constraint_name)
             affected += rows
             self.logger.info("Imported %s rows from %s", rows, remote_path)
         return affected

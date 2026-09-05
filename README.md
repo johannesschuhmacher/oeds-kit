@@ -53,6 +53,20 @@ uv run python -c "from oeds_crawler_pack import get_crawler_specs; print(get_cra
 
 No checkout of `open-energy-data-server-KIT` is required.
 
+## Live Validation
+
+Run credentialed source checks through the deployment repository's
+`tools/test_live_crawlers.sh`, not through unit tests. It uses isolated databases
+and can exercise both KIT and upstream implementations. See the
+[live crawler report](https://github.com/johannesschuhmacher/oeds-deployment/blob/main/docs/crawler-live-tests.md)
+for commands, measured results and known failures. Registry availability does
+not mean that every remote source is operational.
+
+The package includes the NetCDF backend for Copernicus statistics. EPEX trade
+archives use the existing `database_batch_size` setting for CSV processing as
+well as database writes. Energy Forecast CSV history follows
+`OEDS_CRAWLER_DATA_DIR` (default: `crawler/data`).
+
 ## Policy
 
 No crawler should be removed from the deployable crawler set until it has one of

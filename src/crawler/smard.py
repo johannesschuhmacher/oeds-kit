@@ -9,7 +9,6 @@ It contains mostly data for Germany which is also availble in the ENTSO-E transp
 
 import json
 import logging
-from datetime import timedelta
 
 import pandas as pd
 import requests
@@ -191,24 +190,18 @@ class SmardCrawler(BaseCrawler):
                 latest = pd.read_sql(sql, conn, parse_dates=["timestamp"]).values[0][0]
             latest = pd.to_datetime(latest, unit="ns", utc=True)
             log.info(f"The latest date in the database is {latest}")
-            if latest.weekday() != 6 or (latest.hour < 21 and latest.minute == 45):
-                last_sunday = latest - timedelta(days=latest.weekday() + 1)
-                last_sunday_22 = last_sunday.replace(
-                    hour=22, minute=0, second=0, microsecond=0
-                )
-                log.info(
-                    f"the latest date in the database is not a sunday after 22:00, taking last week sunday 22:00 as start date to fill the missing data: {latest} -> {last_sunday_22}"
-                )
-                start_date = last_sunday_22
-            else:
-                log.info(
-                    "the latest date in the database is a sunday 21:45, taking this sunday 22:00 as start date"
-                )
-                start_date = latest.replace(hour=22, minute=0, second=0, microsecond=0)
+            start_date = self._week_start(latest + pd.Timedelta(minutes=15))
             return start_date, latest
         except Exception as e:
             log.info(f"Using the default start date {e}")
-            return self.default_start_date, None
+            return self._week_start(self.default_start_date), None
+
+    @staticmethod
+    def _week_start(timestamp: pd.Timestamp) -> pd.Timestamp:
+        # Chart files start on Monday in German local time, including DST changes.
+        local = timestamp.tz_convert("Europe/Berlin").tz_localize(None)
+        monday = local.normalize() - pd.Timedelta(days=local.weekday())
+        return monday.tz_localize("Europe/Berlin").tz_convert("UTC")
 
     def feed(self):
         for data_for_commodity in self.get_data_per_commodity():

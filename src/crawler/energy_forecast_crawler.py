@@ -141,8 +141,7 @@ class EnergyForecastCrawler(BaseCrawler):
 
     def _write_to_csv(self, df):
         try:
-            script_dir = Path(__file__).resolve().parent
-            data_dir = script_dir / 'data'
+            data_dir = Path(os.environ.get('OEDS_CRAWLER_DATA_DIR', 'crawler/data'))
             
             if not data_dir.exists():
                 data_dir.mkdir(parents=True, exist_ok=True)
