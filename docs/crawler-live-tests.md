@@ -34,7 +34,7 @@ bash tools/test_live_crawlers.sh "$HOME/crawler.env" \
 `--reset` here deletes only the selected databases in
 `oeds-crawler-validation-db`. Do not start overlapping live-test batches.
 Use `--timeout 900 --workers 1` for a large source. Each worker has a 2-GB memory
-limit by default; `--memory 4g` raises it. This is a test limit, not a statement
+limit by default; `--memory 6g --cpus 6 --workers 1` raises it on a suitable VM. This is a test limit, not a statement
 about the memory required by a full national archive. `--image` selects another
 locally built modular runtime image. Workers normally use the invoking user's
 UID:GID; `--user` can override it for a deliberate permissions comparison.
@@ -88,7 +88,11 @@ docker network rm oeds-crawler-validation
 - This does not test SMTP delivery, accept dataset terms, create paid subscriptions
   or bypass source access restrictions. PRISMA and JAO need additional credentials.
 
-## Results, 5 September 2026
+## Initial baseline audit, 5 September 2026
+
+This section is the historical unmodified-upstream baseline. See the follow-up
+below for corrected implementations; failures here are not the current result
+of a corrected crawler.
 
 The run used the intern-test VM (CentOS Stream 10), PostgreSQL 18.3,
 TimescaleDB 2.26.3, PostGIS and the installed Python 3.13 modular runtime.
@@ -253,3 +257,57 @@ remain for inspection. They are not included in Git.
 
 This VM runs CentOS Stream 10. These results do not constitute a fresh Ubuntu
 installation test, a repeat of scheduler/post-script tests or a Grafana audit.
+
+## Follow-up fixes, 5 September 2026
+
+The private test core is now based on official OEDS, with focused corrections
+in `johannesschuhmacher/oeds-core` at `113a6f2`. It is not an upstream release.
+The crawler pack is `2f77898`. Their revisions are pinned in `compatibility.yml`.
+All follow-up workers used UID:GID 1000:1000. Large checks used one worker,
+6 GB and six CPUs on the 12-GB/eight-CPU intern-test host. The database was
+isolated from the installed stack. Full national archives are not certified.
+
+| Implementation | Follow-up evidence |
+| --- | --- |
+| KIT GIE | Eight inventory rows, including four ALSI records with numeric GWh, thousand m3 and GWh/day fields. Repeated imports passed. An old-schema upgrade preserved rows and an existing dependent view. |
+| KIT SMARD | 6,971 stored records; metadata exactly matches stored temporal bounds. Fresh and repeated imports passed. |
+| KIT MaStR | 100 rows each from EinheitenWind, Katalogkategorien and Katalogwerte. HTTP range ZIP reading and bounded XML parsing complete without loading the 3-GB archive into memory. Repeating the import leaves 300 rows, without duplicate primary keys. |
+| KIT EPEX | Full empty-database import as UID 1000 completed in 881 seconds: 1,901,078 trades, 168 statistics, 506 indices and 960 auction records. This closes the earlier normal-user qualification. |
+| Core NUTS/postcodes | 1,798 geometries and 8,334 postcodes loaded. Writable runtime cache, nested ZIP member and leading-zero postcodes fixed. |
+| Core OPSD | 37,279 capacity rows and a 48-row when2heat sample. Writable cache and chunked SQLite reads replace the previous permission/memory failures. |
+| Core REFIT | One house, 48 measurements; archive streamed to disk, CSV read in blocks. |
+| Core VEA | Two profiles: 140,544 time-series values and two master records. Blocked reshaping also tested across multiple blocks with known values. |
+| Core frequency | One 2011 file, 48 measurements; configurable bounds avoid an unbounded archive test. |
+| Core JRC IDEES | One German workbook, 2,046 rows in 93 tables. |
+| Core charging register | Current download discovered on the official page; 48 stations loaded, replacing the obsolete 404 URL. |
+| Core London | One CSV, 48 measurements. |
+| Core OEP | 48 demand areas via the documented API limit; no 10-GB full import or partial cache masquerading as a full download. |
+| Core Regelleistung | Bounded day respected; 126 records in two FCR tables. Anonymous FCR results were empty for the requested day, so the three-table check remains partial. |
+
+Together with the baseline successes, **36 of 53 implementations have completed
+a real bounded ingestion: 19 KIT and 17 core**. This combines the inventory audit
+with targeted follow-ups; it is not a new all-53 run on one image.
+Eighteen crawler-pack regressions, three core regressions and nine deployment
+tests pass. The core regression checks include exact VEA values, multi-block
+when2heat reads and repeatable exclusive-end Regelleistung windows.
+
+### Remaining limitations
+
+- KIT OSM: Overpass returned HTTP 406 for a small query. No access restriction
+  was bypassed. PRISMA and core JAO still need source credentials.
+- Core EEX: constructor/configuration fixed, but its licensed local archive is
+  absent. This is a different crawler from the successfully tested KIT EPEX.
+- Core EON: real NUTS/postcode prerequisites now load; the Nominatim geocoding
+  request timed out. No bulk geocoding retry was attempted.
+- Core Instrat and Windmodel: direct requests returned HTTP 403. They now report
+  HTTP errors instead of misleading parser exceptions. E2Watch still returns
+  non-JSON content after correcting the building identifier index.
+- Core DWD and ECMWF need additional legacy geographic/runtime preparation;
+  ECMWF's package-local working path remains unresolved. Core chargepoint,
+  MaStR, eview and Netztransparenz full imports remain outside the completed
+  bounded tests. NRW heat-density and OPEC source failures remain open.
+- Passing a sample does not certify all dates, all source fields, full-size
+  resource use, email delivery or numerical equivalence of every crawler.
+
+The application reset/reinstall and scheduler, post-script and Grafana results
+are recorded separately in [VM installation results](test-results.md).

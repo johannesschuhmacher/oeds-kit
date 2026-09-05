@@ -2,12 +2,12 @@
 components:
   oeds-core:
     path: "../../sources/oeds-core"
-    repository: "https://github.com/open-energy-data-server/open-energy-data-server.git"
-    commit: "38abf45139f332d59a198c1b0feb95016b323ee1"
+    repository: "https://github.com/johannesschuhmacher/oeds-core.git"
+    commit: "113a6f257e32aa4f688455d65f968bd5774f1756"
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
-    commit: "1e730815581d2e36033c563f69ec044b5954594f"
+    commit: "2f778989d2750e5cc90a8b157ef48aea520b2e82"
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"

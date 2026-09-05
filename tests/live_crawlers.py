@@ -9,6 +9,7 @@ import ast
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import importlib
+import inspect
 import json
 import logging
 import os
@@ -36,9 +37,11 @@ REQUIRED_TABLES = {
     "kit:regelleistung": ("file_rows", "numeric_values"),
     "kit:smard": ("prices", "smard"),
     "kit:weather_forecast": ("hourly_forecast",),
+    "kit:mastr": ("EinheitenWind", "Katalogkategorien", "Katalogwerte"),
     "kit:power_system_data": ("powersystemdata", "eic_geo_location"),
     "core:entsoe_crawler": ("query_day_ahead_prices", "query_load", "query_load_forecast",
                              "query_generation_forecast", "query_generation", "query_wind_and_solar_forecast"),
+    "core:regelleistung": ("fcr_bedarfe", "fcr_ergebnisse", "fcr_anonyme_ergebnisse"),
 }
 for _source in ("kit", "core"):
     REQUIRED_TABLES[f"{_source}:ninja"] = ("capacity_solar_merra2", "capacity_wind_on", "capacity_wind_off")
@@ -102,6 +105,16 @@ def execute_case(case):
                       fms_package_window_months=1, fms_package_write_mode="full_upsert")
     if name == "osm_power":
         config.update(bbox=[49.0, 8.35, 49.05, 8.45], max_elements=100)
+    if source == "kit" and name == "mastr":
+        config.update(tables=["EinheitenWind", "Katalogkategorien", "Katalogwerte"], max_rows_per_table=100)
+    if source == "core":
+        config.update(max_rows=48, max_profiles=2, max_houses=1, max_buildings=1, max_files=1)
+        if name == "jrc_idees":
+            config["countries"] = ["DE"]
+        if name == "frequency":
+            config.update(start_year=2011, end_year=2011)
+        if name == "regelleistung":
+            config["tables"] = ["fcr_bedarfe", "fcr_ergebnisse", "fcr_anonyme_ergebnisse"]
     if name == "regelleistung":
         config["lookback_days"] = 35  # The file archive publishes completed months.
     if name == "epex_spot":
@@ -122,7 +135,10 @@ def execute_case(case):
         config["locations"] = module.DEFAULT_LOCATIONS[:1]
     elif name == "weather_forecast":
         config["locations"] = cls.DEFAULT_LOCATIONS[:1]
-    if source == "core" and name == "eex":
+    if source == "core" and name == "eon_grid_fees":
+        from oeds.crawler.nuts_mapper import NutsCrawler
+        NutsCrawler("public", config).crawl_structural()
+    if source == "core" and name == "eex" and "config" not in inspect.signature(cls).parameters:
         crawler = cls(config["schema_name"])
     else:
         crawler = cls(config["schema_name"], config) if source == "core" else cls(name, config)
@@ -161,12 +177,24 @@ def inspect_database(case):
             quoted = engine.dialect.identifier_preparer
             table_sql = quoted.quote_schema(schema) + "." + quoted.quote(table)
             result[f"{schema}.{table}"] = conn.execute(text(f"SELECT count(*) FROM {table_sql}")).scalar()
+        if case == "kit:gie_agsi_alsi" and result.get("gie_agsi_alsi.daily_inventory"):
+            assert conn.execute(text("""SELECT count(*) FROM gie_agsi_alsi.daily_inventory
+                WHERE platform='alsi' AND lng_inventory_gwh IS NOT NULL
+                AND lng_inventory_thousand_m3 IS NOT NULL AND lng_send_out_gwh_per_day IS NOT NULL
+            """)).scalar() > 0, "ALSI rows have no normalized LNG values"
+        if case == "kit:smard" and result.get("smard.smard"):
+            assert conn.execute(text("""SELECT count(*) FROM public.metadata m WHERE m.schema_name='smard'
+                AND m.temporal_start=(SELECT min(t) FROM (
+                    SELECT min(timestamp) t FROM smard.smard UNION ALL SELECT min(timestamp) FROM smard.prices) s)
+                AND m.temporal_end=(SELECT max(t) FROM (
+                    SELECT max(timestamp) t FROM smard.smard UNION ALL SELECT max(timestamp) FROM smard.prices) s)
+            """)).scalar() == 1, "SMARD metadata does not match stored coverage"
     print(json.dumps(result), flush=True)
 
 
 def docker_command(*args):
     return ["docker", "run", "--rm", "--network", NETWORK, "--user", os.environ.get("OEDS_LIVE_USER", "1000:1000"),
-            "--memory", os.environ.get("OEDS_LIVE_MEMORY", "2g"), "--cpus", "1", "--workdir", "/work",
+            "--memory", os.environ.get("OEDS_LIVE_MEMORY", "2g"), "--cpus", os.environ.get("OEDS_LIVE_CPUS", "1"), "--workdir", "/work",
             "--tmpfs", "/work:rw,size=2g,mode=1777", "-v", f"{ROOT}:/validation:ro,z",
             "--entrypoint", "python", IMAGE, "/validation/live_crawlers.py", *args]
 
@@ -179,12 +207,15 @@ def run_case(case, secrets, timeout, reset=False):
         if reset:
             subprocess.run(["docker", "exec", DB_HOST, "dropdb", "-U", "opendata",
                             "--if-exists", "--force", dbname], check=True, capture_output=True)
-        subprocess.run(["docker", "exec", DB_HOST, "psql", "-U", "opendata", "-d", "postgres",
-                        "-v", "ON_ERROR_STOP=1", "-c", f'CREATE DATABASE "{dbname}" TEMPLATE template0'],
-                       check=True, capture_output=True)
-        subprocess.run(["docker", "exec", DB_HOST, "psql", "-U", "opendata", "-d", dbname,
-                        "-v", "ON_ERROR_STOP=1", "-c", "CREATE EXTENSION timescaledb",
-                        "-f", "/docker-entrypoint-initdb.d/10-init.sql"], check=True, capture_output=True)
+        exists = subprocess.check_output(["docker", "exec", DB_HOST, "psql", "-U", "opendata", "-d", "postgres",
+                        "-Atc", f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'"], text=True).strip()
+        if not exists:
+            subprocess.run(["docker", "exec", DB_HOST, "psql", "-U", "opendata", "-d", "postgres",
+                            "-v", "ON_ERROR_STOP=1", "-c", f'CREATE DATABASE "{dbname}" TEMPLATE template0'],
+                           check=True, capture_output=True)
+            subprocess.run(["docker", "exec", DB_HOST, "psql", "-U", "opendata", "-d", dbname,
+                            "-v", "ON_ERROR_STOP=1", "-c", "CREATE EXTENSION timescaledb",
+                            "-f", "/docker-entrypoint-initdb.d/10-init.sql"], check=True, capture_output=True)
     container = "crawler-check-" + dbname.replace("_", "-")
     command = docker_command("--worker", case)
     command[2:2] = ["--name", container]
@@ -229,7 +260,7 @@ def run_case(case, secrets, timeout, reset=False):
             log.write("\nDatabase inspection failed:\n" + inspected.stderr)
     result = {"case": case, "status": status, "exit_code": returncode,
               "seconds": round(time.monotonic() - started), "tables": tables,
-              "user": os.environ.get("OEDS_LIVE_USER", "1000:1000")}
+              "user": os.environ.get("OEDS_LIVE_USER", "1000:1000"), "image": IMAGE}
     (ROOT / "logs" / (dbname + ".json")).write_text(json.dumps(result, indent=2))
     print(json.dumps({**result, "tables": len(tables), "rows": sum(tables.values())}), flush=True)
     return result
@@ -247,6 +278,7 @@ def main():
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--reset", action="store_true", help="Drop selected validation databases before retrying")
     parser.add_argument("--memory", default="2g", help="Memory limit per worker container")
+    parser.add_argument("--cpus", default="1", help="CPU limit per worker container")
     parser.add_argument("--image", default=IMAGE)
     parser.add_argument("--user", default="1000:1000", help="Container UID:GID, matching the normal runtime by default")
     args = parser.parse_args()
@@ -265,6 +297,7 @@ def main():
     else:
         os.umask(0o077)
         os.environ["OEDS_LIVE_MEMORY"] = args.memory
+        os.environ["OEDS_LIVE_CPUS"] = args.cpus
         os.environ["OEDS_LIVE_USER"] = args.user
         (ROOT / "logs").mkdir(exist_ok=True)
         cases = json.loads(subprocess.check_output(docker_command("--list"), text=True))

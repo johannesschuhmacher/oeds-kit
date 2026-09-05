@@ -53,7 +53,7 @@ PostGIS, Grafana, pgAdmin and PostgREST, with no scheduled crawler runs.
 ## 4. Install and check Python modules in order
 
 Docker targets make each dependency boundary independently buildable. The
-`core` target installs official OEDS only, `crawlers` adds the crawler pack,
+`core` target installs the pinned OEDS core only, `crawlers` adds the crawler pack,
 `post` adds post-processing, and `runtime` adds scheduler/UI. Cached layers
 are reused. These stages verify installation order, not independent services.
 

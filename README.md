@@ -4,7 +4,7 @@ Start here to install OEDS. You do not need to install the repositories by hand.
 
 | Repository | What it does |
 | --- | --- |
-| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library, used without source changes |
+| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; current tests use the private [core test branch](https://github.com/johannesschuhmacher/oeds-core) with fixes intended for upstream review |
 | [Crawler pack](https://github.com/johannesschuhmacher/oeds-crawler-pack) | Our enhanced/new crawlers and temporary BaseCrawler compatibility |
 | [Scheduler/UI](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | Scheduled jobs, post-run commands and browser administration |
 | [Post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts) | Gapfilling, backfill, forecasts and derived database views |
@@ -13,6 +13,8 @@ Start here to install OEDS. You do not need to install the repositories by hand.
 There is no separate distribution module. `compatibility.yml` lists compatible
 Git revisions. Assembly checks out those revisions; it does not copy the KIT
 monorepository. Shared crawler improvements can later be contributed upstream.
+The test core retains upstream history and licensing. It is not an official
+OEDS release; `compatibility.yml` identifies the exact tested revision.
 
 ## Install on a Linux VM
 
