@@ -100,13 +100,22 @@ August 1-2 requests still download August packages, not a two-day-only dataset.
   displaying a missing API-key watermark. SQL-only tests did not catch this;
   browser inspection did.
 
+## Expanded crawler validation
+
+The later [53-implementation live audit](crawler-live-tests.md) supersedes the
+five-source coverage limitation below. It exercised both upstream and KIT
+implementations, found additional defects and includes normal-user permission
+checks. It does **not** certify every crawler as operational. The earlier
+installation, scheduler and dashboard results remain separate evidence.
+
 ## Limits and follow-up
 
 - Ubuntu host provisioning and an empty OS image remain untested. Host preparation
   is CentOS-specific and changes SELinux to permissive mode.
 - Restore/cutover used PostgreSQL 18 on both sides, not a cross-major upgrade.
-- Five bounded live sources plus Ninja fixtures do not validate every external
-  source, subscription, SFTP account, source revision or very large download.
+- The original five-source sample did not validate every external source.
+  The subsequent full inventory audit documents remaining source, subscription,
+  implementation and large-download failures individually.
 - The merged registry retains 47 names. Legacy upstream `dwd` needs additional
   constructor data; `eex` lacks a recognized scheduler entry point. They are not
   advertised as operational. Use `dwd_cdc` for the modular DWD path.

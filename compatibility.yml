@@ -7,7 +7,7 @@ components:
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
-    commit: "2e1f58df7a8f6f194e61ed20e93c94ab205e8e20"
+    commit: "1e730815581d2e36033c563f69ec044b5954594f"
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"

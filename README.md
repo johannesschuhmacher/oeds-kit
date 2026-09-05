@@ -45,6 +45,10 @@ For a guided, module-by-module installation and test, follow
 [Testing a fresh installation](docs/testing.md). For backup, update, migration,
 password rotation and removal, see [Operations](playbooks/README.md).
 
+For credentialed checks of all upstream and KIT crawler implementations, use
+[Live crawler validation](docs/crawler-live-tests.md). It uses separate databases
+and reports source failures and incomplete large imports explicitly.
+
 ## Open the applications
 
 Services bind to localhost. On your Windows computer, keep this SSH tunnel open

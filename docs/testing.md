@@ -116,6 +116,10 @@ The older four separate smoke scripts in Bash and PowerShell were replaced by
 this one integration entry point. Run it on Linux via SSH; no WSL is required.
 Keep module behavior/numerical tests as well as this small end-to-end suite.
 
+For a broader source audit using your environment file, follow
+[Live crawler validation](crawler-live-tests.md). Unlike the quick fixture suite,
+that opt-in check contacts all selected providers and may download large archives.
+
 ## 6. Check an update
 
 ```bash
