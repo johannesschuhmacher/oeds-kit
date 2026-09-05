@@ -10,6 +10,9 @@ since it needs the separate `entsoe.query_generation` table.
 Load sample data before opening them. For the fixed historical SMARD sample,
 select June 3-10, 2024 in Grafana's time picker. For Weather, select Germany
 and Berlin, with the current day as the time range.
+The starter map explicitly uses OpenStreetMap, avoiding a separate CARTO API
+key. It requires browser access to the tile service; for large deployments,
+configure a suitable tile provider and retain its attribution.
 
 ## Optional dashboards
 

@@ -49,6 +49,10 @@ def main():
                 # Production exports may contain a temporary "show only this series" selection.
                 panel['fieldConfig']['overrides'] = []
                 panel['fieldConfig']['defaults']['custom']['stacking']['mode'] = 'none'
+        else:
+            for panel in dashboard['panels']:
+                if panel.get('type') == 'geomap':
+                    panel['options']['basemap'] = {'name': 'OpenStreetMap', 'type': 'osm-standard'}
         target = ROOT / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(dashboard, ensure_ascii=True, indent=2) + '\n')

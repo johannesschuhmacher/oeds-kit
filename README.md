@@ -105,3 +105,4 @@ dashboards and optional source/research dashboards. No crawler implementation
 or specialist dashboard was removed by the deployment simplification.
 The small integration suite tests actual data writes and SQL panel queries;
 it is not a claim that every external API or research dashboard is available.
+See [the latest VM results and known limits](docs/test-results.md).
