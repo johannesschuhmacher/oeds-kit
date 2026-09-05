@@ -102,7 +102,7 @@ def schedule_test():
         assert app.reload_if_changed()
         assert app.snapshot.planned_job_count == 0
         with create_engine(URI).connect() as conn:
-            assert conn.execute(text('SELECT count(*) FROM oeds_test_schedule.capacity_wind_on')).scalar() == 4
+            assert conn.execute(text('SELECT count(time) FROM oeds_test_schedule.capacity_wind_on')).scalar() == 4
         print('PASS scheduler: two minute-separated crawler/post-runs; reload disables job', flush=True)
 
 

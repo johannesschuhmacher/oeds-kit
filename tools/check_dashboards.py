@@ -36,9 +36,12 @@ def main():
         with urlopen(url, timeout=30) as response:
             assert response.status == 200, url
     queried = 0
+    expected = {'d7e44e51-6f7f-4316-b9fb-1bb32c03fa18', 'weather-dashboard'}
+    seen = set()
     for hit in request('/api/search?type=dash-db'):
-        if hit['uid'] not in ('d7e44e51-6f7f-4316-b9fb-1bb32c03fa18', 'weather-dashboard'):
+        if hit['uid'] not in expected:
             continue
+        seen.add(hit['uid'])
         dashboard = request('/api/dashboards/uid/' + hit['uid'])['dashboard']
         rows = 0
         for panel in panels(dashboard['panels']):
@@ -68,7 +71,7 @@ def main():
                 queried += 1
         assert rows > 0, f'{dashboard["title"]}: no sample data returned'
         print(f'PASS Grafana {dashboard["title"]}: {rows} returned values')
-    assert queried >= 2, 'Starter dashboards were not provisioned'
+    assert seen == expected, f'Missing starter dashboards: {expected - seen}'
     print(f'PASS HTTP services and {queried} Grafana panel queries')
 
 
