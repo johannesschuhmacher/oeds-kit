@@ -23,13 +23,10 @@ DEFAULT_START_DATE = "2024-06-02 22:00:00"  # "2023-11-26 22:45:00"
 
 metadata_info = {
     "schema_name": "smard",
-    "data_date": "2024-06-12",
     "data_source": "https://www.smard.de/",
     "license": "CC-BY-4.0",
     "description": "Open access ENTSOE  Germany. Production of energy by good and timestamp",
     "contact": "",
-    "temporal_start": "2023-01-01 23:00:00",
-    "temporal_end": "2024-06-09 21:45:00",
     "concave_hull_geometry": None,
 }
 
@@ -234,8 +231,25 @@ class SmardCrawler(BaseCrawler):
         self.logger.info("SMARD crawler started.")
         self.create_table()
         self.feed()
-        self.set_metadata(metadata_info)
+        self.update_metadata()
         self.logger.info("SMARD crawler finished successfully.")
+
+    def update_metadata(self):
+        with self.engine.connect() as conn:
+            start, end = conn.execute(text("""
+                SELECT min(first_timestamp), max(last_timestamp) FROM (
+                    SELECT min(timestamp) AS first_timestamp, max(timestamp) AS last_timestamp FROM smard
+                    UNION ALL
+                    SELECT min(timestamp), max(timestamp) FROM prices
+                ) coverage
+            """)).one()
+        self.set_metadata({
+            **metadata_info,
+            "schema_name": self.schema_name,
+            "data_date": pd.Timestamp.now(tz="UTC").date().isoformat(),
+            "temporal_start": str(start) if start is not None else None,
+            "temporal_end": str(end) if end is not None else None,
+        })
 
 
 def main(schema_name):

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Normalize current ALSI LNG values with explicit units and compatible schema upgrades.
+- Derive SMARD metadata coverage from stored timestamps.
+- Stream MaStR ZIP members and support small, repeatable table samples.
+
 ## 0.1.0
 
 - Bundled all current KIT crawler implementations and required data mappings.

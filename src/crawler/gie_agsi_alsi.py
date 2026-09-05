@@ -85,6 +85,15 @@ class GieAgsiAlsiCrawler(BaseCrawler):
             )
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_gie_inventory_day ON daily_inventory (gas_day_start DESC)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_gie_inventory_platform ON daily_inventory (platform, scope)"))
+            conn.execute(text("""
+                ALTER TABLE daily_inventory
+                    ADD COLUMN IF NOT EXISTS lng_inventory_gwh double precision,
+                    ADD COLUMN IF NOT EXISTS lng_inventory_thousand_m3 double precision,
+                    ADD COLUMN IF NOT EXISTS lng_storage_capacity_gwh double precision,
+                    ADD COLUMN IF NOT EXISTS lng_storage_capacity_thousand_m3 double precision,
+                    ADD COLUMN IF NOT EXISTS lng_send_out_gwh_per_day double precision,
+                    ADD COLUMN IF NOT EXISTS lng_send_out_capacity_gwh_per_day double precision
+            """))
             conn.execute(
                 text(
                     """
@@ -98,7 +107,14 @@ class GieAgsiAlsiCrawler(BaseCrawler):
                             ) AS rn
                         FROM daily_inventory
                     )
-                    SELECT *
+                    SELECT platform, scope, name, code, url, gas_day_start,
+                        gas_in_storage, consumption, consumption_full, injection,
+                        withdrawal, working_gas_volume, injection_capacity,
+                        withdrawal_capacity, full_pct, status, trend, fetched_at,
+                        payload_json, record_key, rn,
+                        lng_inventory_gwh, lng_inventory_thousand_m3,
+                        lng_storage_capacity_gwh, lng_storage_capacity_thousand_m3,
+                        lng_send_out_gwh_per_day, lng_send_out_capacity_gwh_per_day
                     FROM ranked
                     WHERE rn = 1
                     """
@@ -163,6 +179,13 @@ class GieAgsiAlsiCrawler(BaseCrawler):
             if pd.isna(parsed_day):
                 continue
             code = row.get("code") or row.get("url") or row.get("name") or query.get("scope")
+            # ALSI quantities have different units from AGSI; retain both source units.
+            inventory = row.get("inventory") or {}
+            capacity = row.get("dtmi") or {}
+            if not isinstance(inventory, dict):
+                inventory = {"lng": inventory}
+            if not isinstance(capacity, dict):
+                capacity = {"lng": capacity}
             normalized_rows.append(
                 {
                     "platform": query["platform"],
@@ -180,6 +203,12 @@ class GieAgsiAlsiCrawler(BaseCrawler):
                     "injection_capacity": parse_number(row.get("injectionCapacity")),
                     "withdrawal_capacity": parse_number(row.get("withdrawalCapacity")),
                     "full_pct": parse_number(row.get("full")),
+                    "lng_inventory_gwh": parse_number(inventory.get("gwh")),
+                    "lng_inventory_thousand_m3": parse_number(inventory.get("lng")),
+                    "lng_storage_capacity_gwh": parse_number(capacity.get("gwh")),
+                    "lng_storage_capacity_thousand_m3": parse_number(capacity.get("lng")),
+                    "lng_send_out_gwh_per_day": parse_number(row.get("sendOut")),
+                    "lng_send_out_capacity_gwh_per_day": parse_number(row.get("dtrs")),
                     "status": row.get("status"),
                     "trend": row.get("trend"),
                     "fetched_at": fetched_at,

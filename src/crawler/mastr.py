@@ -4,11 +4,12 @@
 
 import logging
 from io import BytesIO
-from zipfile import ZipFile
+from xml.etree import ElementTree
 
 import pandas as pd
 import requests
-from sqlalchemy import text
+from remotezip import RemoteZip
+from sqlalchemy import bindparam, inspect, text
 
 from crawler.common.base_crawler import BaseCrawler
 
@@ -38,12 +39,35 @@ class MastrCrawler(BaseCrawler):
         super().__init__(crawler_name, config)
 
     def get_data_from_mastr(self, data_url):
-        response = requests.get(data_url)
-
-        with ZipFile(BytesIO(response.content)) as archive:
+        with RemoteZip(data_url, headers={"Accept-Encoding": "identity"},
+                       timeout=int(self.config.get("request_timeout_seconds", 90))) as archive:
             for info in archive.infolist():
+                table = info.filename.removesuffix(".xml").split("_")[0]
+                if not info.filename.endswith(".xml"):
+                    continue
+                if self.config.get("tables") and table not in self.config["tables"]:
+                    continue
                 with archive.open(info) as file:
                     yield file, info
+
+    @staticmethod
+    def read_xml(file, max_rows=None):
+        if max_rows is None:
+            return pd.read_xml(file, encoding="utf-16le")
+        # Parse only complete top-level records, retaining pandas' type inference.
+        rows = []
+        depth = 0
+        for event, element in ElementTree.iterparse(file, events=("start", "end")):
+            if event == "start":
+                depth += 1
+            else:
+                if depth == 2:
+                    rows.append(ElementTree.tostring(element, encoding="utf-8"))
+                    element.clear()
+                    if len(rows) >= max_rows:
+                        break
+                depth -= 1
+        return pd.read_xml(BytesIO(b"<rows>" + b"".join(rows) + b"</rows>"))
 
     def get_mastr_url(self):
         # taken from https://www.marktstammdatenregister.de/MaStR/Datendownload
@@ -56,8 +80,9 @@ class MastrCrawler(BaseCrawler):
         base_url = self.get("base_download_url")
 
         response = requests.get(
-            "https://www.marktstammdatenregister.de/MaStR/Datendownload"
+            "https://www.marktstammdatenregister.de/MaStR/Datendownload", timeout=45
         )
+        response.raise_for_status()
         html_site = response.content.decode("utf-8")
         begin = html_site.find(base_url)
         if begin == -1:
@@ -81,6 +106,11 @@ class MastrCrawler(BaseCrawler):
 
     def create_db_from_export(self):
         tables = {}
+        row_counts = {}
+        max_rows = self.config.get("max_rows_per_table")
+        if max_rows is not None and int(max_rows) < 1:
+            raise ValueError("max_rows_per_table must be positive when set")
+        max_rows = int(max_rows) if max_rows is not None else None
 
         data_url = self.get_mastr_url()
         self.logger.info(f"get data from MaStR with url {data_url}")
@@ -88,12 +118,21 @@ class MastrCrawler(BaseCrawler):
             self.logger.info(f"read file {info.filename}")
             if info.filename.endswith(".xml"):
                 table_name = info.filename[0:-4].split("_")[0]
-                df = pd.read_xml(file, encoding="utf-16le")
+                remaining = max_rows - row_counts.get(table_name, 0) if max_rows else None
+                if remaining is not None and remaining <= 0:
+                    continue
+                df = self.read_xml(file, remaining)
                 pk = self.set_index(df)
+                row_counts[table_name] = row_counts.get(table_name, 0) + len(df)
 
                 try:
                     # this will fail if there is a new column
                     with self.engine.begin() as conn:
+                        if pk and inspect(conn).has_table(table_name, schema=self.get("schema_name")):
+                            quote = conn.dialect.identifier_preparer.quote
+                            statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
+                            conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
+                                         {"ids": df[pk].dropna().tolist()})
                         df.to_sql(table_name, conn, if_exists="append", index=False)
                 except Exception as e:
                     self.logger.info(repr(e))
@@ -105,6 +144,8 @@ class MastrCrawler(BaseCrawler):
                         del data["index"]
                     pk = self.set_index(data)
                     df2 = pd.concat([data, df])
+                    if pk:
+                        df2 = df2.drop_duplicates(subset=pk, keep="last")
                     with self.engine.begin() as conn:
                         df2.to_sql(
                             name=table_name,
@@ -117,6 +158,10 @@ class MastrCrawler(BaseCrawler):
                     tables[table_name] = pk
 
         for table_name, pk in tables.items():
+            if not pk:
+                continue
+            if inspect(self.engine).get_pk_constraint(table_name, schema=self.get("schema_name")).get("constrained_columns"):
+                continue
             if str(self.engine.url).startswith("sqlite:/"):
                 query = (
                     f"CREATE UNIQUE INDEX idx_{table_name}_{pk} ON {table_name}({pk});"

@@ -67,6 +67,17 @@ archives use the existing `database_batch_size` setting for CSV processing as
 well as database writes. Energy Forecast CSV history follows
 `OEDS_CRAWLER_DATA_DIR` (default: `crawler/data`).
 
+MaStR reads the remote ZIP with HTTP range requests. For a small test, set
+`tables: [EinheitenWind, Katalogkategorien, Katalogwerte]` and
+`max_rows_per_table: 100` in that crawler's configuration. Omit both settings
+for the full import. The bounded import is a sample, not a complete register;
+repeating it updates matching primary keys without adding duplicates.
+
+GIE keeps AGSI storage columns separate from ALSI LNG columns. The explicit
+`lng_*` fields distinguish GWh, thousand cubic metres and GWh/day; raw source
+payloads remain available. Existing inventory tables and the latest-inventory
+view are upgraded in place. SMARD metadata records actual stored date bounds.
+
 ## Policy
 
 No crawler should be removed from the deployable crawler set until it has one of
