@@ -47,6 +47,10 @@ Add-ons are selected by `compatibility.yml`:
 - Actual admin HTTP form submissions: config save/restore, cron preview, manual
   Ninja smoke run with four SQL rows, gapfill self-tests and holdout tests passed.
   The original disabled configuration was restored afterwards.
+- Final Ansible update to `455aaf2`: data/config preserved, service checks and
+  all 11 panel queries passed. Readonly TCP login succeeded without INSERT
+  privileges. Scheduler UID 1000, runtime write paths, environment injection and
+  host secret permissions were verified; published ports bind to localhost.
 
 The deterministic suite downloads local HTTP ZIP fixtures through official OEDS
 and the crawler pack, then compares 12 known capacity factors in three tables for
@@ -113,3 +117,7 @@ August 1-2 requests still download August packages, not a two-day-only dataset.
   paper publication remain separate work. Only private GitHub test repos changed.
 
 Repeat the checks using [Testing a fresh installation](testing.md).
+
+Raw logs are private on the VM in `/home/oeds/oeds-test-logs-2026-09-05`.
+Temporary VM credentials and staging checkouts were removed. The installed
+runtime environment, sample data, database backups and six services remain.
