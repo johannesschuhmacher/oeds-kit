@@ -4,6 +4,7 @@
   vars:
     oeds_root: /open_energy_data_server
     oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_compose_dir: "{{ oeds_repo_dir }}/modular_repos/modules/oeds-deployment"
     oeds_data_dir: "{{ oeds_root }}/docker_data"
     oeds_live_pgdata_dir: "{{ oeds_data_dir }}/postgres-home"
     oeds_source_container_name: open-data
@@ -12,7 +13,7 @@
     oeds_target_image: timescale/timescaledb-ha:pg18.3-ts2.26.3-oss
     oeds_target_container_name: open-data-migrate
     oeds_target_db_port: 6543
-    oeds_target_admin_user: migrationadmin
+    oeds_target_admin_user: "{{ oeds_source_db_user }}"
     oeds_target_admin_password: migrationadmin
     oeds_backup_before_migration: true
     oeds_apply_cutover: false
@@ -36,7 +37,7 @@
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0700"
       loop:
         - "{{ oeds_root }}/migration"
         - "{{ oeds_migration_run_dir }}"
@@ -44,6 +45,13 @@
         - "{{ oeds_backup_run_dir }}"
         - "{{ oeds_backup_run_dir }}/db"
         - "{{ oeds_backup_run_dir }}/metadata"
+
+    - name: Make the staging data directory writable by PostgreSQL
+      ansible.builtin.file:
+        path: "{{ oeds_migration_pgdata_dir }}"
+        owner: "1000"
+        group: "1000"
+        mode: "0700"
 
     - name: Check whether the source database container is running
       ansible.builtin.command:
@@ -78,6 +86,32 @@
           - SELECT current_setting('server_version_num')::int / 10000;
       register: oeds_migration_source_pg_major
       changed_when: false
+
+    - name: Read the source bootstrap role
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_source_container_name }}"
+          - psql
+          - -U
+          - "{{ oeds_source_db_user }}"
+          - -d
+          - "{{ oeds_source_db_name }}"
+          - -tAc
+          - SELECT rolname FROM pg_roles WHERE oid = 10;
+      register: oeds_source_bootstrap_role
+      changed_when: false
+
+    - name: Preserve the bootstrap grantor identity during restore
+      ansible.builtin.assert:
+        that:
+          - oeds_target_admin_user == (oeds_source_bootstrap_role.stdout | trim)
+          - oeds_target_admin_user is match('^[a-z_][a-z0-9_]*$')
+        fail_msg: >-
+          Set oeds_target_admin_user to the source bootstrap role
+          {{ oeds_source_bootstrap_role.stdout | trim }}. PostgreSQL 18 role
+          grants must retain their bootstrap grantor identity.
 
     - name: Capture installed source database extensions
       ansible.builtin.command:
@@ -137,6 +171,14 @@
         mode: "0644"
         content: "{{ oeds_migration_source_extensions | join('\n') }}\n"
 
+    - name: Stop crawler writers before a cutover backup
+      ansible.builtin.command:
+        argv: [docker, compose, --profile, crawlers, stop, scheduler, crawler-admin]
+      args:
+        chdir: "{{ oeds_compose_dir }}"
+      when: oeds_apply_cutover | bool
+      changed_when: true
+
     - name: Create the globals SQL backup for the migration run
       ansible.builtin.shell: >-
         docker exec {{ oeds_source_container_name }}
@@ -144,7 +186,7 @@
         > {{ oeds_backup_run_dir }}/db/globals.sql
       args:
         executable: /bin/bash
-      when: oeds_backup_before_migration
+      when: oeds_backup_before_migration | bool
       changed_when: true
 
     - name: Create the logical custom-format backup for the migration run
@@ -154,7 +196,7 @@
         > {{ oeds_backup_run_dir }}/db/{{ oeds_source_db_name }}.bak
       args:
         executable: /bin/bash
-      when: oeds_backup_before_migration
+      when: oeds_backup_before_migration | bool
       changed_when: true
 
     - name: Check whether the globals SQL backup exists
@@ -196,7 +238,7 @@
           - "{{ oeds_migration_pgdata_dir }}:/home/postgres/pgdata/data"
           - "{{ oeds_backup_run_dir }}/db:/migration-backup:ro"
         published_ports:
-          - "{{ oeds_target_db_port }}:5432"
+          - "127.0.0.1:{{ oeds_target_db_port }}:5432"
 
     - name: Wait until the staging PostgreSQL port is reachable
       ansible.builtin.wait_for:
@@ -223,11 +265,28 @@
       delay: 10
       until: oeds_migration_target_ready.rc == 0
 
+    - name: Read the globals dump privately
+      ansible.builtin.slurp:
+        src: "{{ oeds_backup_run_dir }}/db/globals.sql"
+      register: oeds_globals_dump
+      no_log: true
+
+    - name: Prepare globals restore without recreating the existing bootstrap role
+      ansible.builtin.copy:
+        dest: "{{ oeds_backup_run_dir }}/db/globals.restore.sql"
+        content: "{{ oeds_globals_dump.content | b64decode | regex_replace('(?m)^CREATE ROLE ' ~ oeds_target_admin_user ~ ';$', '-- Bootstrap role already exists.') }}"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
     - name: Restore global roles into the staging cluster
       ansible.builtin.command:
         argv:
           - docker
           - exec
+          - --user
+          - "0"
           - "{{ oeds_target_container_name }}"
           - psql
           - -v
@@ -237,7 +296,7 @@
           - -d
           - postgres
           - -f
-          - /migration-backup/globals.sql
+          - /migration-backup/globals.restore.sql
       changed_when: true
 
     - name: Check whether the target application database already exists
@@ -312,6 +371,8 @@
         argv:
           - docker
           - exec
+          - --user
+          - "0"
           - "{{ oeds_target_container_name }}"
           - pg_restore
           - -U
@@ -408,18 +469,19 @@
         name: "{{ oeds_target_container_name }}"
         state: absent
         force_kill: true
-      when: oeds_apply_cutover
-
+      when: oeds_apply_cutover | bool
     - name: Stop the live compose project before live cutover
       ansible.builtin.command:
         argv:
           - docker
           - compose
+          - --profile
+          - crawlers
           - down
           - --remove-orphans
       args:
-        chdir: "{{ oeds_repo_dir }}"
-      when: oeds_apply_cutover
+        chdir: "{{ oeds_compose_dir }}"
+      when: oeds_apply_cutover | bool
       changed_when: true
 
     - name: Move the current live PostgreSQL data directory aside
@@ -428,7 +490,7 @@
           - mv
           - "{{ oeds_live_pgdata_dir }}"
           - "{{ oeds_backup_run_dir }}/postgres-home-pre-cutover"
-      when: oeds_apply_cutover
+      when: oeds_apply_cutover | bool
       changed_when: true
 
     - name: Move the staged PostgreSQL data directory into the live path
@@ -437,15 +499,15 @@
           - mv
           - "{{ oeds_migration_pgdata_dir }}"
           - "{{ oeds_live_pgdata_dir }}"
-      when: oeds_apply_cutover
+      when: oeds_apply_cutover | bool
       changed_when: true
 
     - name: Start the live compose project after cutover
       ansible.builtin.command:
-        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_cutover | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
+        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_cutover | bool | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
       args:
-        chdir: "{{ oeds_repo_dir }}"
-      when: oeds_apply_cutover
+        chdir: "{{ oeds_compose_dir }}"
+      when: oeds_apply_cutover | bool
       changed_when: true
 
     - name: Wait until the live PostgreSQL server is ready after cutover
@@ -466,4 +528,4 @@
       retries: 20
       delay: 10
       until: oeds_migration_live_ready.rc == 0
-      when: oeds_apply_cutover
+      when: oeds_apply_cutover | bool

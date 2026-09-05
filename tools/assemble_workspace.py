@@ -1,8 +1,7 @@
 """Assemble a modular OEDS workspace from ``compatibility.yml``.
 
 The deployment repository can be cloned by itself. This tool turns that
-standalone checkout into the workspace layout expected by the modular Compose
-overlay:
+standalone checkout into the workspace layout expected by Docker Compose:
 
 ```
 <workspace>/
@@ -25,7 +24,6 @@ dependencies are installed.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 import stat
@@ -54,6 +52,10 @@ IGNORED_COPY_NAMES = {
     "runtime",
     "docker_data",
     "crawler_admin_state",
+    ".env",
+    ".env.*",
+    "*.env",
+    ".bitwarden-cli-oeds",
 }
 
 
@@ -73,16 +75,18 @@ def main() -> int:
     workspace = args.output.resolve()
     components = _read_components(compatibility)
 
+    if workspace == DEPLOYMENT_ROOT or workspace in DEPLOYMENT_ROOT.parents or DEPLOYMENT_ROOT in workspace.parents:
+        raise ValueError("output must be outside the deployment checkout")
+    if args.dry_run:
+        _print_plan(workspace, components)
+        return 0
+
     if args.clean and workspace.exists():
         _remove_tree_safely(workspace)
     elif workspace.exists() and any(workspace.iterdir()):
         print(f"error: output directory is not empty: {workspace}", file=sys.stderr)
         print("       pass --clean to replace it", file=sys.stderr)
         return 2
-
-    if args.dry_run:
-        _print_plan(workspace, components)
-        return 0
 
     workspace.mkdir(parents=True, exist_ok=True)
     deployment_target = (workspace / DEFAULT_DEPLOYMENT_TARGET).resolve()
@@ -97,7 +101,6 @@ def main() -> int:
 
     _install_modular_support(workspace)
     _install_runtime_support(workspace)
-    _write_assembly_metadata(workspace, components)
     _verify_workspace(workspace)
     print(f"assembled modular OEDS workspace at {workspace}")
     return 0
@@ -270,10 +273,6 @@ def _copy_self_checkout(target: Path) -> None:
 
 def _install_modular_support(workspace: Path) -> None:
     modular_target = workspace / "modular_repos"
-    support_source = DEFAULT_MODULAR_DOCS / "modular_repos"
-    if support_source.is_dir():
-        _copy_tree_contents(support_source, modular_target)
-
     docs_target = modular_target / "docs"
     docs_target.mkdir(parents=True, exist_ok=True)
     inventory_source = DEFAULT_MODULAR_DOCS / "crawler-inventory.json"
@@ -287,12 +286,7 @@ def _install_runtime_support(workspace: Path) -> None:
     if dockerignore.is_file():
         shutil.copy2(dockerignore, workspace / ".dockerignore")
 
-    config_source = (
-        DEFAULT_MODULAR_DOCS
-        / "modular_repos"
-        / "generated"
-        / "CRAWLER_CONFIG.post.yml"
-    )
+    config_source = DEFAULT_MODULAR_DOCS / "CRAWLER_CONFIG.yml"
     if not config_source.is_file():
         raise FileNotFoundError(config_source)
     shutil.copy2(config_source, workspace / "CRAWLER_CONFIG.yml")
@@ -319,47 +313,6 @@ def _install_runtime_support(workspace: Path) -> None:
     (workspace / "crawler_admin_state").mkdir(exist_ok=True)
 
 
-def _copy_tree_contents(source: Path, target: Path) -> None:
-    target.mkdir(parents=True, exist_ok=True)
-    for child in source.iterdir():
-        destination = target / child.name
-        if child.is_dir():
-            shutil.copytree(
-                child,
-                destination,
-                dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns(*IGNORED_COPY_NAMES),
-            )
-        else:
-            shutil.copy2(child, destination)
-
-
-def _write_assembly_metadata(workspace: Path, components: list[Component]) -> None:
-    deployment_target = (workspace / DEFAULT_DEPLOYMENT_TARGET).resolve()
-    records = []
-    for component in components:
-        target = _component_target(workspace, deployment_target, component)
-        record = {
-            "name": component.name,
-            "path": str(target.relative_to(workspace)),
-            "repository": component.repository,
-            "branch": component.branch,
-            "expected_commit": component.commit,
-        }
-        if (target / ".git").is_dir():
-            record["actual_commit"] = _git_rev_parse(target, "HEAD")
-        elif component.name == "oeds-deployment":
-            record["actual_commit"] = _git_rev_parse(DEPLOYMENT_ROOT, "HEAD")
-            record["source"] = "current deployment checkout copy"
-        records.append(record)
-    metadata = {
-        "layout": "modular-oeds-workspace",
-        "components": records,
-    }
-    out = workspace / "modular_repos" / "assembly.json"
-    out.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-
-
 def _verify_workspace(workspace: Path) -> None:
     required = [
         ".dockerignore",
@@ -369,10 +322,6 @@ def _verify_workspace(workspace: Path) -> None:
         "crawler/data/mapping_p_to_g.json",
         "crawler/data/mapping_g_to_p.json",
         "modular_repos/docs/crawler-inventory.json",
-        "modular_repos/docs/publication-readiness.md",
-        "modular_repos/generated/CRAWLER_CONFIG.post.yml",
-        "modular_repos/tools/verify_modules.py",
-        "modular_repos/tools/check_publication_readiness.py",
         "modular_repos/sources/oeds-core/oeds/base_crawler.py",
         "modular_repos/modules/oeds-deployment/compose.modular.yml",
         "modular_repos/modules/oeds-crawler-pack/pyproject.toml",
@@ -408,7 +357,7 @@ def _remove_tree_safely(path: Path) -> None:
         return
     if path.parent == path or len(path.parts) < 3:
         raise ValueError(f"refusing to remove unsafe path: {path}")
-    shutil.rmtree(path, onexc=_retry_readonly_delete)
+    shutil.rmtree(path, onerror=_retry_readonly_delete)
 
 
 def _retry_readonly_delete(function: object, path: str, excinfo: object) -> None:

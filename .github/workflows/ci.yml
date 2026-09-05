@@ -25,3 +25,8 @@ jobs:
       - name: Verify repository
         run: python tools/verify_deployment.py --local-only
 
+      - name: Focused regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check shell syntax
+        run: for script in tools/*.sh docker/initdb/*.sh; do bash -n "$script"; done

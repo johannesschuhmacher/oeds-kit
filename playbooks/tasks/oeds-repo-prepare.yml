@@ -1,3 +1,15 @@
+- name: Check for existing Compose settings before replacing source code
+  ansible.builtin.stat:
+    path: "{{ oeds_compose_dir_effective }}/.env"
+  register: oeds_existing_compose_env
+
+- name: Preserve service passwords and port overrides across updates
+  ansible.builtin.slurp:
+    src: "{{ oeds_compose_dir_effective }}/.env"
+  register: oeds_saved_compose_env
+  no_log: true
+  when: oeds_existing_compose_env.stat.exists
+
 - name: Validate repo source mode
   ansible.builtin.assert:
     that:

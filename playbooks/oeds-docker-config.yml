@@ -20,7 +20,7 @@
     oeds_repo_source_mode_effective: "{{ oeds_repo_source_mode | default(oeds_default_repo_source_mode) }}"
     oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
     oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
-    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml', 'compose.modular.yml']) }}"
+    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
     oeds_runtime_crawler_data_files:
       - crawler/data/mapping_eic_to_location.py
       - crawler/data/mapping_p_to_g.json
@@ -33,33 +33,13 @@
       - name: pgadmin-varlib
         mountpoint: "{{ oeds_data_dir_effective }}/pgadmin-varlib"
   tasks:
-  - name: Download docker plugin local-persist executable
-    ansible.builtin.get_url:
-      url: "https://github.com/MatchbookLab/local-persist/releases/download/v1.3.0/local-persist-linux-amd64"
-      dest: "/usr/local/bin/docker-volume-local-persist"
-      owner: root
-      group: root
-      mode: "u=rwx,g=rx,o=rx"
-  - name: Download docker plugin local-persist service
-    ansible.builtin.get_url:
-      url: "https://raw.githubusercontent.com/MatchbookLab/local-persist/refs/heads/master/init/systemd.service"
-      dest: "/etc/systemd/system/docker-volume-local-persist.service"
-      owner: root
-      group: root
-      mode: "u=rwx,g=rx,o=rx"
-  - name: Enable systemd service
-    ansible.builtin.systemd_service:
-      name: docker-volume-local-persist.service
-      enabled: true
-      daemon_reload: true
-      daemon-reexec: true
   - name: Create OEDS directories
     ansible.builtin.file:
       path: "{{ item }}"
       state: directory
       owner: root
       group: root
-      mode: "u=rwx,g=rwx,o=rwx"
+      mode: "0755"
     loop:
       - "{{ oeds_root_effective }}"
       - "{{ oeds_data_dir_effective }}"
@@ -69,12 +49,32 @@
       - "{{ oeds_runtime_dir_effective }}/logs"
       - "{{ oeds_runtime_dir_effective }}/crawler_admin_state"
       - "{{ oeds_root_effective }}/backups"
-  - name: Enroll docker volumes
+  - name: Create writable runtime directories
+    ansible.builtin.file:
+      path: "{{ oeds_runtime_dir_effective }}/{{ item }}"
+      state: directory
+      owner: "1000"
+      group: docker
+      mode: "2775"
+    loop:
+      - crawler/data
+      - logs
+      - crawler_admin_state
+  - name: Create persistent volume directories
+    ansible.builtin.file:
+      path: "{{ item.mountpoint }}"
+      state: directory
+      mode: "0755"
+    loop: "{{ oeds_persisted_volumes }}"
+  - name: Enroll Docker volumes without a third-party plugin
     community.docker.docker_volume:
       name: "{{ item.name }}"
-      driver: local-persist
+      driver: local
+      recreate: never
       driver_options:
-        mountpoint: "{{ item.mountpoint }}"
+        type: none
+        o: bind
+        device: "{{ item.mountpoint }}"
     loop: "{{ oeds_persisted_volumes }}"
   - name: Check that the selected source checkout exists
     ansible.builtin.stat:
@@ -146,31 +146,23 @@
       owner: root
       group: docker
       mode: "0640"
-  - name: Create compose environment file with runtime path
+  - name: Install supplied crawler credentials before services start
     ansible.builtin.copy:
-      dest: "{{ oeds_repo_dir_effective }}/.env"
+      src: "{{ oeds_crawler_env_file }}"
+      dest: "{{ oeds_runtime_dir_effective }}/crawler/.env"
       owner: root
-      group: root
-      mode: "0644"
-      content: |
-        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
-        OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
-  - name: Create selected compose environment file with runtime path
-    ansible.builtin.copy:
-      dest: "{{ oeds_compose_dir_effective }}/.env"
-      owner: root
-      group: root
-      mode: "0644"
-      content: |
-        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
-        OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
-    when: oeds_compose_dir_effective != oeds_repo_dir_effective
+      group: docker
+      mode: "0640"
+    no_log: true
+    when: oeds_crawler_env_file | default('') | length > 0
+  - name: Restore Compose settings
+    ansible.builtin.import_tasks: tasks/oeds-compose-env.yml
   - name: Check grafana directory
     ansible.builtin.file:
       path: "{{ oeds_data_dir_effective }}/grafana-varlib"
-      owner: root
-      group: root
-      mode: "0777"
+      owner: "472"
+      group: "472"
+      mode: "0750"
       state: directory
   - name: Run docker compose pull
     ansible.builtin.shell: >-

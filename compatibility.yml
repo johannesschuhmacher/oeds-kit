@@ -1,78 +1,22 @@
-name: oeds-deployment-compatibility
-version: "0.1.0-rc.2-github"
-
+# Compatible source revisions used by tools/assemble_workspace.py.
 components:
   oeds-core:
     path: "../../sources/oeds-core"
     repository: "https://github.com/open-energy-data-server/open-energy-data-server.git"
-    branch: "main"
     commit: "38abf45139f332d59a198c1b0feb95016b323ee1"
-
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
-    branch: "main"
-    commit: "581f404398071b3a109a6097c63422cc9a291330"
-    status: "github-modular"
-    registry_priority: "before-oeds-core"
-
+    commit: "5eb83df486a0c76ab1eea9cd46cbedb238d6dd5d"
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
-    branch: "main"
-    commit: "3e8d129fc46cfc03f8944c6d8fb2e5e00ff42936"
-    status: "github-modular"
-
+    commit: "12bc91392918c1c59a1b66a6174adf04a59634c4"
   oeds-post-scripts:
     path: "../oeds-post-scripts"
     repository: "https://github.com/johannesschuhmacher/oeds-post-scripts.git"
-    branch: "main"
-    commit: "ef800ab36024eb6d09423fb8b49083269aadaa09"
-    status: "github-modular"
-    commands:
-      - "oeds-post gapfill smard"
-      - "oeds-post gapfill entsoe-fms"
-      - "oeds-post refresh entsoe-availability-map"
-      - "oeds-post forecast day-ahead-price"
-      - "oeds-post backfill entsoe-unavailability"
-    migration:
-      config_check: "oeds-post --migrate-config CRAWLER_CONFIG.yml --check"
-      config_write_example: "oeds-post --migrate-config CRAWLER_CONFIG.yml --output CRAWLER_CONFIG.post.yml"
-
+    commit: "e1622ff538565ef92ff1300d85b9933f047f2ae2"
   oeds-deployment:
     path: "."
     repository: "https://github.com/johannesschuhmacher/oeds-deployment.git"
-    branch: "main"
     self: true
-    status: "github-modular"
-    compose:
-      baseline: "compose.yml"
-      modular_overlay: "compose.modular.yml"
-      test_overlay: "compose.test.yml"
-    smoke_checks:
-      - "python tools/verify_deployment.py"
-      - "docker compose --profile crawlers -f compose.yml -f compose.modular.yml config"
-      - "docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml config"
-      - "pwsh ./tools/test_db_smoke.ps1"
-      - "pwsh ./tools/test_real_crawler_smoke.ps1 -RunPostScripts"
-      - "pwsh ./tools/test_active_crawlers_smoke.ps1 -IncludeEntsoeFms"
-      - "pwsh ./tools/test_stack_smoke.ps1"
-      - "bash ./tools/oeds_clean_install_from_git.sh --help"
-      - "bash ./tools/load_sample_data.sh --help"
-
-compatibility:
-  python: ">=3.12,<3.15"
-  uv: ">=0.11.7,<0.12"
-  postgres: ">=16,<19"
-
-release_readiness:
-  latest_vm_function_test: "../../docs/intern-test-vm-modular-github-test-2026-09-04.md"
-  publication_checklist: "../../docs/publication-readiness.md"
-  publish_exclusions:
-    - ".env"
-    - ".env.*"
-    - ".tmp/"
-    - "runtime/"
-    - "logs/"
-    - "crawler_admin_state/"
-    - "docker_data/"

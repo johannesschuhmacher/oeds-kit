@@ -4,6 +4,7 @@
   vars:
     oeds_root: /open_energy_data_server
     oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_compose_dir: "{{ oeds_repo_dir }}/modular_repos/modules/oeds-deployment"
     oeds_data_dir: "{{ oeds_root }}/docker_data"
     oeds_live_pgdata_dir: "{{ oeds_data_dir }}/postgres-home"
     oeds_db_user: opendata
@@ -36,17 +37,19 @@
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0700"
 
     - name: Stop the live compose project before rollback
       ansible.builtin.command:
         argv:
           - docker
           - compose
+          - --profile
+          - crawlers
           - down
           - --remove-orphans
       args:
-        chdir: "{{ oeds_repo_dir }}"
+        chdir: "{{ oeds_compose_dir }}"
       changed_when: true
 
     - name: Move the current live PostgreSQL data directory aside
@@ -67,9 +70,9 @@
 
     - name: Start the live compose project after rollback
       ansible.builtin.command:
-        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_rollback | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
+        argv: "{{ ['docker', 'compose'] + (oeds_enable_crawlers_after_rollback | bool | ternary(['--profile', 'crawlers'], [])) + ['up', '-d'] }}"
       args:
-        chdir: "{{ oeds_repo_dir }}"
+        chdir: "{{ oeds_compose_dir }}"
       changed_when: true
 
     - name: Wait until the live PostgreSQL server is ready after rollback

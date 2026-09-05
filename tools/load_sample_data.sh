@@ -20,7 +20,7 @@ Loads a bounded real-data sample into the installed OEDS database and verifies
 that the expected tables contain rows.
 
 Options:
-  --include-entsoe-fms       Also load one ENTSO-E FMS EnergyPrices package.
+  --include-entsoe-fms       Load one FMS price package and the plant-capacity reference.
   --no-post-scripts          Do not run SMARD gapfill post-script.
   --start-date VALUE         SMARD start date, default "2024-06-02 22:00:00".
   --timeout-seconds VALUE    Service wait timeout, default 1800.
@@ -68,15 +68,14 @@ fi
 BASE_RUNTIME_DIR=$(resolve_path_from_deployment "$BASE_RUNTIME_DIR")
 
 COMPOSE=(docker compose --profile crawlers -f compose.yml -f compose.modular.yml)
-RUNTIME_DIR=.tmp/runtime-load-sample-data
-RUNTIME_ROOT=$DEPLOYMENT_ROOT/$RUNTIME_DIR
+RUNTIME_ROOT=$(mktemp -d "$BASE_RUNTIME_DIR/.sample.XXXXXX")
+RUNTIME_DIR=$RUNTIME_ROOT
 
 cleanup() {
   rm -rf "$RUNTIME_ROOT"
 }
 trap cleanup EXIT
 
-rm -rf "$RUNTIME_ROOT"
 mkdir -p "$RUNTIME_ROOT/crawler/data" "$RUNTIME_ROOT/logs" "$RUNTIME_ROOT/crawler_admin_state"
 
 SOURCE_ENV=${OEDS_CRAWLER_ENV_FILE:-}
@@ -93,7 +92,12 @@ fi
 cp "$CRAWLER_DATA_SOURCE/mapping_eic_to_location.py" "$RUNTIME_ROOT/crawler/data/"
 cp "$CRAWLER_DATA_SOURCE/mapping_p_to_g.json" "$RUNTIME_ROOT/crawler/data/"
 cp "$CRAWLER_DATA_SOURCE/mapping_g_to_p.json" "$RUNTIME_ROOT/crawler/data/"
-chmod -R 0777 "$RUNTIME_ROOT"
+chmod 0755 "$RUNTIME_ROOT" "$RUNTIME_ROOT/crawler"
+chown -R 1000:1000 "$RUNTIME_ROOT/crawler/data" "$RUNTIME_ROOT/logs" "$RUNTIME_ROOT/crawler_admin_state"
+chmod 0755 "$RUNTIME_ROOT/crawler/data" "$RUNTIME_ROOT/logs" "$RUNTIME_ROOT/crawler_admin_state"
+if [[ -f "$RUNTIME_ROOT/crawler/.env" ]]; then
+  chmod 0600 "$RUNTIME_ROOT/crawler/.env"
+fi
 
 POST_RUN_BLOCK='  post_run_scripts: []'
 if [[ "$RUN_POST_SCRIPTS" == "true" ]]; then
@@ -113,7 +117,8 @@ if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
   fms_package_write_mode: "full_upsert"
   run_post_scripts: false
   target_data_items:
-    - "EnergyPrices_12.1.D_r3"'
+    - "EnergyPrices_12.1.D_r3"
+    - "InstalledGenerationCapacityPerProductionUnit_14.1.B_r3"'
 fi
 
 cat > "$RUNTIME_ROOT/CRAWLER_CONFIG.yml" <<YAML
@@ -150,7 +155,7 @@ weather_forecast:
   enable: true
   schema_name: "weather"
   schedule: "* * * * *"
-  forecast_hours: 1
+  forecast_hours: 24
   past_hours: 0
   run_post_scripts: false
   locations:

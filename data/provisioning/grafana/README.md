@@ -1,23 +1,40 @@
-# Grafana Provisioning Layout
+# Grafana dashboards
 
-Grafana file provisioning reads all dashboards below
-`data/provisioning/grafana/dashboards/` with
-`foldersFromFilesStructure: true`.
+Two starter dashboards are provisioned by default: SMARD and Weather. They
+were exported read-only from <https://oeds.iip.kit.edu> and use the local
+`OPENDATA` datasource. No changes are made to the production server.
+The starter SMARD view shows generation/load and day-ahead prices in English.
+The original cross-source comparison is preserved as an optional dashboard,
+since it needs the separate `entsoe.query_generation` table.
 
-## Folder rules
+Load sample data before opening them. For the fixed historical SMARD sample,
+select June 3-10, 2024 in Grafana's time picker. For Weather, select Germany
+and Berlin, with the current day as the time range.
 
-- Use one top-level folder per crawler, named after the crawler entry in
-  `CRAWLER_CONFIG.yml`.
-- Use `shared/` for cross-crawler, governance, or imported reference
-  dashboards that are not owned by a single crawler.
-- Keep provisioned dashboard JSON files exactly one directory below
-  `dashboards/` so Grafana creates one visible folder per crawler/domain.
-- Do not keep empty placeholder folders in git. Create the folder when the
-  first real provisioned dashboard exists.
+## Optional dashboards
 
-## Naming rules
+All other dashboards are preserved in `optional-dashboards/`, outside the
+automatically provisioned directory. This includes ENTSO-E, forecasts, gapfill
+quality, source-specific dashboards and heatwave/event research views. Internal
+and external variants are retained, but no longer clutter a fresh installation.
 
-- Each crawler should get one required signature basic dashboard at
-  `dashboards/<crawler>/Signature_Basic.json`.
-- Specialized dashboards should stay in the same crawler folder and use a
-  descriptive topic name.
+To enable a dashboard, first enable its crawler and load the required tables.
+Then import its JSON in Grafana using **Dashboards > New > Import**, selecting
+the `OPENDATA` datasource. Imported dashboards are stored in Grafana's persistent
+volume. They survive a normal update, but not a destructive reset.
+
+Alternatively, copy selected JSON files into a subdirectory of `dashboards/`
+in your deployment checkout before installing. Check for duplicate UIDs when
+enabling multiple variants. The specialist dashboards require their documented
+source datasets; a small SMARD/Weather sample cannot validate all their panels.
+
+## Check or refresh
+
+Run `python3 tools/check_dashboards.py` from the deployment repository on the VM
+after loading sample data and starting all services. It checks HTTP endpoints
+and executes each starter panel's SQL through Grafana, using the readonly role.
+It fails on SQL errors or a dashboard with no returned sample rows.
+
+`python3 tools/sync_grafana_dashboards.py` refreshes the two source exports.
+Review and retest the diff before committing it. Exports do not contain
+datasource passwords. Credentials belong in environment files, never JSON.

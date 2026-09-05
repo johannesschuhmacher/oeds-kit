@@ -10,7 +10,7 @@
     oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_root_effective ~ '/docker_data') }}"
     oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
     oeds_compose_project_name_effective: "{{ oeds_compose_project_name | default(oeds_default_compose_project_name) }}"
-    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective) }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
     oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
 
     # Safe default: remove running containers/networks, keep repo, runtime,

@@ -69,11 +69,11 @@ services:
       POSTGRES_USER: opendata
       POSTGRES_PASSWORD: ${OEDS_DB_PASSWORD:-opendata}
       POSTGRES_DB: opendata
+      OEDS_READONLY_PASSWORD: ${OEDS_READONLY_PASSWORD:-readonly}
     volumes:
       - postgres-home:/home/postgres/pgdata/data
-      - ./modular_initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
+      - ./docker/initdb/09-bootstrap-roles.sh:/docker-entrypoint-initdb.d/09-bootstrap-roles.sh:ro
       - ./docker/initdb/10-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
-      - ../oeds-post-scripts/scripts/lib/postgres_functions.sql:/docker-entrypoint-initdb.d/postgres_functions.sql:ro
     networks:
       - netlocalhost
     ports:

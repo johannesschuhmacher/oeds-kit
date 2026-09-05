@@ -32,8 +32,5 @@ returns void as $$
 	and nspname not like '%pg%';
 $$ language sql;
 
--- Import functions used for postprocessing in post-run-scripts
-\i /docker-entrypoint-initdb.d/postgres_functions.sql
-
 NOTIFY pgrst, 'reload config';
 NOTIFY pgrst, 'reload schema';

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-FROM python:3.13-slim
+FROM python:3.13-slim AS core
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
@@ -29,17 +29,25 @@ COPY crawler/data ./crawler/data
 RUN mkdir -p ./modular_repos/docs
 COPY modular_repos/modules/oeds-deployment/assembly/crawler-inventory.json ./modular_repos/docs/crawler-inventory.json
 COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
-COPY modular_repos/modules/oeds-crawler-pack ./modular_repos/modules/oeds-crawler-pack
-COPY modular_repos/modules/oeds-scheduler-ui ./modular_repos/modules/oeds-scheduler-ui
-COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-scripts
-
 RUN uv venv /app/.venv --python /usr/local/bin/python && \
     uv pip install --python /app/.venv/bin/python \
         -r /app/modular_repos/sources/oeds-core/requirements.txt \
-        -e /app/modular_repos/sources/oeds-core \
-        -e /app/modular_repos/modules/oeds-crawler-pack \
-        -e /app/modular_repos/modules/oeds-scheduler-ui \
+        -e /app/modular_repos/sources/oeds-core
+
+FROM core AS crawlers
+COPY modular_repos/modules/oeds-crawler-pack ./modular_repos/modules/oeds-crawler-pack
+RUN uv pip install --python /app/.venv/bin/python \
+        -e /app/modular_repos/modules/oeds-crawler-pack
+
+FROM crawlers AS post
+COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-scripts
+RUN uv pip install --python /app/.venv/bin/python \
         -e '/app/modular_repos/modules/oeds-post-scripts[price-forecast]'
+
+FROM post AS runtime
+COPY modular_repos/modules/oeds-scheduler-ui ./modular_repos/modules/oeds-scheduler-ui
+RUN uv pip install --python /app/.venv/bin/python \
+        -e /app/modular_repos/modules/oeds-scheduler-ui
 
 RUN useradd --create-home --shell /bin/bash oeds && \
     mkdir -p /app/logs /var/lib/oeds-admin && \

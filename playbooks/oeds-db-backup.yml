@@ -4,6 +4,7 @@
   vars:
     oeds_root: /open_energy_data_server
     oeds_repo_dir: "{{ oeds_root }}/repo"
+    oeds_compose_dir: "{{ oeds_repo_dir }}/modular_repos/modules/oeds-deployment"
     oeds_runtime_dir: "{{ oeds_root }}/runtime"
     oeds_source_container_name: open-data
     oeds_source_db_name: opendata
@@ -18,7 +19,7 @@
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0700"
       loop:
         - "{{ oeds_backup_run_dir }}"
         - "{{ oeds_backup_run_dir }}/db"
@@ -114,12 +115,12 @@
 
     - name: Capture the current compose environment file when it exists
       ansible.builtin.stat:
-        path: "{{ oeds_repo_dir }}/.env"
+        path: "{{ oeds_compose_dir }}/.env"
       register: oeds_backup_compose_env
 
     - name: Copy the compose environment file into the backup
       ansible.builtin.copy:
-        src: "{{ oeds_repo_dir }}/.env"
+        src: "{{ oeds_compose_dir }}/.env"
         dest: "{{ oeds_backup_run_dir }}/metadata/compose.env"
         remote_src: true
         owner: root
@@ -129,7 +130,7 @@
 
     - name: Copy the active compose file into the backup
       ansible.builtin.copy:
-        src: "{{ oeds_repo_dir }}/compose.yml"
+        src: "{{ oeds_compose_dir }}/compose.yml"
         dest: "{{ oeds_backup_run_dir }}/metadata/compose.yml"
         remote_src: true
         owner: root
@@ -140,8 +141,7 @@
       ansible.builtin.stat:
         path: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
       register: oeds_backup_runtime_config
-      when: oeds_backup_include_runtime
-
+      when: oeds_backup_include_runtime | bool
     - name: Copy the runtime crawler config into the backup
       ansible.builtin.copy:
         src: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
@@ -151,15 +151,14 @@
         group: root
         mode: "0644"
       when:
-        - oeds_backup_include_runtime
+        - oeds_backup_include_runtime | bool
         - oeds_backup_runtime_config.stat.exists
 
     - name: Check whether the runtime crawler environment file exists
       ansible.builtin.stat:
         path: "{{ oeds_runtime_dir }}/crawler/.env"
       register: oeds_backup_runtime_env
-      when: oeds_backup_include_runtime
-
+      when: oeds_backup_include_runtime | bool
     - name: Copy the runtime crawler environment file into the backup
       ansible.builtin.copy:
         src: "{{ oeds_runtime_dir }}/crawler/.env"
@@ -169,7 +168,7 @@
         group: root
         mode: "0600"
       when:
-        - oeds_backup_include_runtime
+        - oeds_backup_include_runtime | bool
         - oeds_backup_runtime_env.stat.exists
 
     - name: Create the globals SQL backup

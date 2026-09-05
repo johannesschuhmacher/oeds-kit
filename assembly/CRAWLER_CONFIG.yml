@@ -1,0 +1,249 @@
+default:
+  email:
+    mailhost: ''
+    fromaddr: ''
+    toaddrs: []
+    subject: OEDS Crawler :crawler_name Critical Error Notification
+    username: ''
+    password: ''
+  enable: false
+  schedule: 0 4 * * *
+  post_run_scripts: null
+  database_uri: postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=
+eurostat_crawler:
+  enable: false
+  schema_name: eurostat
+  description: Crawls Eurostat data
+  dataset_id: nrg_inf_epcrw
+  start_year: 2019
+  end_year: 2025
+  post_run_scripts: null
+  schedule: 0 4 * * *
+smard:
+  enable: false
+  schema_name: smard
+  schedule: 0 4 * * *
+  post_run_scripts:
+  - oeds-post gapfill smard
+ninja:
+  schema_name: ninja
+  enable: false
+  datafiles:
+    wind:
+      download_url: https://www.renewables.ninja/downloads/ninja_europe_wind_v1.1.zip
+      extract_filename: ninja_wind_europe_v1.1_current_on-offshore.csv
+    solar:
+      download_url: https://www.renewables.ninja/downloads/ninja_europe_pv_v1.1.zip
+      extract_filename: ninja_pv_europe_v1.1_merra2.csv
+  smoke_mode: false
+  smoke_rows: 4
+mastr:
+  enable: false
+  schema_name: mastr
+  base_download_url: https://download.marktstammdatenregister.de/Gesamtdatenexport
+entsoe_fms:
+  enable: false
+  schema_name: entsoe_fms
+  description: Crawls ENTSO-E FMS data (Transparency Platform File Library)
+  default_start_date: '2014-01-01'
+  post_run_scripts:
+  - oeds-post gapfill entsoe-fms
+  - oeds-post refresh entsoe-availability-map
+  jobs:
+    latest_hourly:
+      enable: false
+      schedule: 0 * * * *
+      mode: fms_package_refresh
+      fms_package_window_months: 1
+      fms_package_write_mode: full_upsert
+      run_post_scripts: true
+      target_data_items:
+      - ActualTotalLoad_6.1.A_r3
+      - DayAheadTotalLoadForecast_6.1.B_r3
+      - GenerationForecastsForWindAndSolar_14.1.D_r3
+      - EnergyPrices_12.1.D_r3
+      - ForecastedTransferCapacities_11.1_r3
+      - PhysicalFlows_12.1.G_r3
+    revision_sweep_daily:
+      enable: false
+      schedule: 30 2 * * *
+      mode: fms_package_refresh
+      fms_package_window_months: 3
+      fms_package_write_mode: full_upsert
+      run_post_scripts: true
+      target_data_items:
+      - ActualTotalLoad_6.1.A_r3
+      - DayAheadTotalLoadForecast_6.1.B_r3
+      - GenerationForecastsForWindAndSolar_14.1.D_r3
+      - EnergyPrices_12.1.D_r3
+      - ForecastedTransferCapacities_11.1_r3
+      - PhysicalFlows_12.1.G_r3
+  gapfill:
+    enable: false
+    target_schema: entsoe_fms_gapfilled
+    method: donor_refined
+    candidate_periods:
+    - 24h
+    - 7d
+    donor_context_periods: 6
+    donor_search_radius: 28d
+    refinement_periods: 3
+    max_gap_periods: 24
+    lookback: 28d
+    fail_on_table_error: true
+    tables:
+    - ActualTotalLoad
+    - DayAheadTotalLoadForecast
+    - GenerationForecastsForWindAndSolar
+    - EnergyPrices
+    - ForecastedTransferCapacities
+    - PhysicalFlows
+    table_methods:
+      ActualTotalLoad: linear
+      DayAheadTotalLoadForecast: donor_refined
+      GenerationForecastsForWindAndSolar: donor_refined
+      EnergyPrices: donor_refined
+      ForecastedTransferCapacities: donor_refined
+      PhysicalFlows: donor_refined
+entsoe_api:
+  enable: false
+  schema_name: entsoe_api
+  description: Crawls selected ENTSO-E Transparency Platform Web API time series
+  schedule: 35 11 * * *
+  post_run_scripts:
+  - oeds-post forecast day-ahead-price
+  country_code: DE_LU
+  lookback_days: 14
+  lookahead_days: 2
+  request_pause_seconds: 0.5
+  include_day_ahead_prices: true
+  include_exaa_prices: true
+  include_load_forecast: true
+  include_wind_solar_forecast: true
+  jobs:
+    forecast_daily:
+      enable: false
+      schedule: 35 11 * * *
+      lookback_days: 14
+      lookahead_days: 2
+      run_post_scripts: true
+    training_bootstrap:
+      enable: false
+      schedule: 10 3 * * 0
+      lookback_days: 120
+      lookahead_days: 2
+      run_post_scripts: false
+entsog:
+  enable: false
+  schema_name: entsog
+  description: Crawls ENTSOG transparency platform reference and operational gas data
+  schedule: 30 2 * * *
+  default_start_date: '2024-01-01'
+  chunk_days: 7
+  request_pause_seconds: 1.0
+energy_forecast_crawler:
+  enable: false
+  schema_name: energy_forecast
+  description: Crawls Energy Price Forecasts (Next 48h)
+  schedule: 0 4,16 * * *
+power_system_data:
+  enable: false
+  schema_name: power_system_data
+  database_uri: postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=
+  description: Crawls power system and power plant data from PyPSA
+  schedule: 0 4 * * 0
+epex_spot:
+  enable: false
+  schema_name: epex_spot
+  database_uri: postgresql://opendata:opendata@127.0.0.1:6432/opendata?options=--search_path=
+  description: Crawls EPEX SPOT Germany intraday market data via SFTP
+  schedule: 20 * * * *
+  start_date: '1970-01-01'
+  update_interval_days: 14
+  database_batch_size: 5000
+  include_continuous_statistics: true
+  include_continuous_indices: true
+  include_intraday_auctions: true
+  include_continuous_trades: true
+weather_forecast:
+  enable: false
+  schema_name: weather
+  database_uri: postgresql://opendata:opendata@127.0.0.1:6432/opendata?options=--search_path=
+  description: Crawls hourly DWD ICON weather forecasts for weather and energy-weather
+    dashboards
+  schedule: 15 */3 * * *
+  forecast_hours: 120
+  past_hours: 24
+netztransparenz:
+  enable: false
+  schema_name: netztransparenz
+  description: Crawls Netztransparenz WebAPI datasets via OAuth2 client credentials
+  schedule: 10 * * * *
+  lookback_days: 7
+  request_pause_seconds: 0.6
+regelleistung:
+  enable: false
+  schema_name: regelleistung
+  description: Crawls public regelleistung.net datacenter tender files
+  schedule: 30 4 * * *
+  lookback_days: 35
+  max_files_per_run: 12
+  download_files: true
+gie_agsi_alsi:
+  enable: false
+  schema_name: gie_agsi_alsi
+  description: Crawls GIE AGSI gas storage and ALSI LNG data via x-key API access
+  schedule: 20 5 * * *
+  lookback_days: 30
+tradinghub:
+  enable: false
+  schema_name: tradinghub
+  description: Crawls Trading Hub Europe public XML interface reports
+  schedule: 40 5 * * *
+  lookback_days: 45
+prisma_capacity:
+  enable: false
+  schema_name: prisma_capacity
+  description: Imports configured PRISMA Capacity Platform API resources after API
+    package subscription
+  schedule: 0 6 * * *
+  resources: []
+osm_power:
+  enable: false
+  schema_name: osm_power
+  description: Crawls OpenStreetMap power infrastructure features via Overpass
+  schedule: 0 3 * * 0
+  bbox:
+  - 47.2
+  - 5.5
+  - 55.2
+  - 15.5
+  power_tags:
+  - plant
+  - generator
+  - substation
+  max_elements: 50000
+dwd_cdc:
+  enable: false
+  schema_name: dwd_cdc
+  description: Crawls DWD Climate Data Center monthly regional German climate averages
+  schedule: 25 3 * * 0
+copernicus_cds:
+  enable: false
+  schema_name: copernicus_cds
+  description: Downloads configured Copernicus Climate Data Store requests using cdsapi
+  schedule: 35 3 * * 0
+  storage_dir: crawler/data/copernicus_cds
+open_meteo:
+  enable: false
+  schema_name: open_meteo
+  description: Crawls Open-Meteo DWD ICON weather forecasts for energy-relevant locations
+  schedule: 45 */3 * * *
+  forecast_days: 5
+  past_days: 1
+eia:
+  enable: false
+  schema_name: eia
+  description: Crawls configured U.S. EIA Open Data API routes
+  schedule: 55 * * * *
+  lookback_days: 14

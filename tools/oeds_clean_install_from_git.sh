@@ -34,7 +34,7 @@ Options:
 Environment:
   OEDS_GIT_TOKEN              GitHub personal access token for private HTTPS clones.
   OEDS_GIT_USERNAME           GitHub username. Defaults to "x-access-token".
-  OEDS_CRAWLER_ENV_FILE       Optional crawler .env copied after install for live crawlers.
+  OEDS_CRAWLER_ENV_FILE       Optional crawler .env installed before services start.
   OEDS_BECOME_PASSWORD_FILE   Optional sudo password file for non-interactive Ansible runs.
   OEDS_ANSIBLE_INVENTORY_FILE Optional inventory path outside the assembled workspace.
 
@@ -112,8 +112,9 @@ ensure_ansible() {
     return
   fi
   log "ansible-playbook not found; installing Ansible for the current user"
-  python3 -m pip install --user ansible
-  export PATH="$HOME/.local/bin:$PATH"
+  python3 -m venv "$HOME/.local/share/oeds-ansible"
+  "$HOME/.local/share/oeds-ansible/bin/pip" install ansible
+  export PATH="$HOME/.local/share/oeds-ansible/bin:$PATH"
   require_command ansible-playbook
 }
 
@@ -137,16 +138,31 @@ readarray_nul() {
 
 require_command git
 require_command python3
+if [[ -n "$CRAWLER_ENV_FILE" ]]; then
+  CRAWLER_ENV_FILE=$(realpath -e "$CRAWLER_ENV_FILE")
+  if [[ "$RESET" == true && "$CRAWLER_ENV_FILE" == "$(realpath -m "$OEDS_ROOT")/"* ]]; then
+    echo 'Move the credential file outside the installation before using --reset.' >&2
+    exit 2
+  fi
+fi
 setup_git_auth
 ensure_ansible
 require_command ansible-galaxy
 
 log "Cloning deployment repository"
-rm -rf "$CHECKOUT_DIR"
 mkdir -p "$WORK_DIR"
-git clone "$DEPLOYMENT_REPO_URL" "$CHECKOUT_DIR"
+if [[ ! -e "$CHECKOUT_DIR" ]]; then
+  git clone "$DEPLOYMENT_REPO_URL" "$CHECKOUT_DIR"
+elif [[ ! -d "$CHECKOUT_DIR/.git" ]] || [[ "$(git -C "$CHECKOUT_DIR" remote get-url origin)" != "$DEPLOYMENT_REPO_URL" ]] || [[ -n "$(git -C "$CHECKOUT_DIR" status --porcelain)" ]]; then
+  echo 'Checkout already exists and is not a clean clone of the requested repository. Choose another --work-dir.' >&2
+  exit 2
+fi
 git -C "$CHECKOUT_DIR" fetch --tags origin
-git -C "$CHECKOUT_DIR" checkout "$DEPLOYMENT_REF"
+if git -C "$CHECKOUT_DIR" show-ref --verify --quiet "refs/remotes/origin/$DEPLOYMENT_REF"; then
+  git -C "$CHECKOUT_DIR" checkout --detach "origin/$DEPLOYMENT_REF"
+else
+  git -C "$CHECKOUT_DIR" checkout --detach "$DEPLOYMENT_REF"
+fi
 
 log "Assembling compatible modular workspace"
 python3 "$CHECKOUT_DIR/tools/assemble_workspace.py" --output "$ASSEMBLED_DIR" --clean
@@ -184,8 +200,11 @@ MODULAR_EXTRA=(
   -e "oeds_repo_local_src=$ASSEMBLED_DIR"
   -e "oeds_enable_crawlers=true"
   -e "oeds_compose_dir=$OEDS_ROOT/repo/modular_repos/modules/oeds-deployment"
-  -e '{"oeds_compose_files":["compose.yml","compose.modular.yml"]}'
+  -e '{"oeds_compose_files":["compose.yml"]}'
 )
+if [[ -n "$CRAWLER_ENV_FILE" ]]; then
+  MODULAR_EXTRA+=(-e "oeds_crawler_env_file=$CRAWLER_ENV_FILE")
+fi
 
 if [[ "$SKIP_HOST_PREP" != "true" ]]; then
   log "Preparing host packages and Docker"
@@ -208,26 +227,12 @@ log "Installing modular OEDS"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[@]}"
 
 log "Verifying installed modular workspace"
-python3 "$OEDS_ROOT/repo/modular_repos/tools/verify_modules.py"
 python3 "$OEDS_ROOT/repo/modular_repos/modules/oeds-deployment/tools/verify_deployment.py"
 
 log "Running final Ansible smoke test"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-smoke-test.yml \
   -e "oeds_root=$OEDS_ROOT" \
   -e oeds_expect_crawler_admin=true
-
-if [[ -n "$CRAWLER_ENV_FILE" ]]; then
-  if [[ ! -f "$CRAWLER_ENV_FILE" ]]; then
-    echo "crawler env file does not exist: $CRAWLER_ENV_FILE" >&2
-    exit 1
-  fi
-  log "Installing crawler runtime environment file"
-  if [[ -n "${OEDS_BECOME_PASSWORD_FILE:-}" ]]; then
-    sudo -S install -o root -g docker -m 0640 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env" < "$OEDS_BECOME_PASSWORD_FILE"
-  else
-    sudo install -o root -g docker -m 0640 "$CRAWLER_ENV_FILE" "$OEDS_ROOT/runtime/crawler/.env"
-  fi
-fi
 
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
   if [[ -z "$CRAWLER_ENV_FILE" ]]; then

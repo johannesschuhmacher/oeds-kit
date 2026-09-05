@@ -9,3 +9,5 @@
   vars:
     oeds_expect_crawler_admin: true
 
+- import_playbook: oeds-install-post.yml
+
