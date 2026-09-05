@@ -1784,7 +1784,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         It executes the complete crawling workflow.
         """
 
-        local_dir = os.path.join("crawler", "data")
+        local_dir = os.getenv("OEDS_CRAWLER_DATA_DIR", os.path.join("crawler", "data"))
         end_time = pd.Timestamp.now(tz="Europe/Berlin")
         start_time = self._get_run_start_time(end_time)
 
@@ -1816,6 +1816,7 @@ class EntsoeFMSCrawler(BaseCrawler):
 
         except Exception as e:
             self.logger.critical(f"Crawler run FAILED: {e}", exc_info=True)
+            raise
 
     # ----------------------------------------------------------------------
     # Backward update: refresh a specific historical file period

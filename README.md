@@ -47,7 +47,7 @@ Install and test this repository directly:
 
 ```powershell
 uv sync
-uv run pytest
+uv run --with pytest pytest tests
 uv run python -c "from oeds_crawler_pack import get_crawler_specs; print(get_crawler_specs())"
 ```
 
