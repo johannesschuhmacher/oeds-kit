@@ -2,7 +2,7 @@
 set -euo pipefail
 
 TIMEOUT_SECONDS=1800
-START_DATE="2024-06-02 22:00:00"
+START_DATE=""
 INCLUDE_ENTSOE_FMS=false
 RUN_POST_SCRIPTS=true
 
@@ -22,7 +22,7 @@ that the expected tables contain rows.
 Options:
   --include-entsoe-fms       Load one FMS price package and the plant-capacity reference.
   --no-post-scripts          Do not run SMARD gapfill post-script.
-  --start-date VALUE         SMARD start date, default "2024-06-02 22:00:00".
+  --start-date VALUE         SMARD start date, default seven days ago (one chart week).
   --timeout-seconds VALUE    Service wait timeout, default 1800.
 USAGE
       exit 0
@@ -30,6 +30,10 @@ USAGE
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+
+if [[ -z "$START_DATE" ]]; then
+  START_DATE=$(date -u -d '7 days ago' '+%Y-%m-%d 00:00:00')
+fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 DEPLOYMENT_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)

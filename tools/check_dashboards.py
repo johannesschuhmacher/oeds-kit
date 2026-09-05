@@ -54,20 +54,23 @@ def main():
                 query['rawSql'] = query['rawSql'].replace('$Location', 'berlin').replace('$Country_Code', 'DE')
                 query.update(intervalMs=900000, maxDataPoints=1000)
                 print(f'Querying {dashboard["title"]}: {panel.get("title", panel.get("id"))}', flush=True)
-                historical = hit['uid'].startswith('d7e44e51')
+                smard = hit['uid'].startswith('d7e44e51')
                 now = int(time.time() * 1000)
-                start = '1717372800000' if historical else str(now - 86400000)
-                end = '1718150400000' if historical else str(now + 172800000)
+                start = str(now - (30 * 86400000 if smard else 12 * 3600000))
+                end = str(now if smard else now + 72 * 3600000)
                 # Grafana's frontend expands these globals before calling its SQL backend.
                 query['rawSql'] = query['rawSql'].replace('$__from', start).replace('$__to', end)
                 result = request('/api/ds/query', {'queries': [query],
                     'from': start, 'to': end})
+                target_rows = 0
                 for value in result['results'].values():
                     assert not value.get('error'), (dashboard['title'], panel.get('title'), value)
                     for frame in value.get('frames', []):
                         values = frame.get('data', {}).get('values', [])
                         if values:
                             rows += len(values[0])
+                            target_rows += len(values[0])
+                assert target_rows > 0, f'{dashboard["title"]}: {panel.get("title")}: no data in the default window'
                 queried += 1
         assert rows > 0, f'{dashboard["title"]}: no sample data returned'
         print(f'PASS Grafana {dashboard["title"]}: {rows} returned values')

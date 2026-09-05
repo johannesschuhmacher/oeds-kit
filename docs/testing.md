@@ -89,7 +89,8 @@ sudo bash tools/load_sample_data.sh --include-entsoe-fms
 sudo bash tools/test_installation.sh
 ```
 
-The live load uses one SMARD week, a short ENTSO-E API price window, one FMS
+The live load uses the preceding SMARD chart week (visible in the dashboard's
+default last-30-days range), a short ENTSO-E API price window, one FMS
 price package plus its plant-capacity reference, a power-plant reference dataset and 24 weather forecast hours
 for Berlin. ENTSO-E needs your API/FMS credentials. The power-plant reference
 is about 165,000 rows; it is optional for the deterministic fixture suite.
