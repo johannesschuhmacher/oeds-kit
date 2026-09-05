@@ -261,7 +261,8 @@ installation test, a repeat of scheduler/post-script tests or a Grafana audit.
 ## Follow-up fixes, 5 September 2026
 
 The private test core is now based on official OEDS, with focused corrections
-in `johannesschuhmacher/oeds-core` at `113a6f2`. It is not an upstream release.
+in `johannesschuhmacher/oeds-core` at `8a53778` (runtime fixes at `113a6f2`,
+followed by a CI-only dependency correction). It is not an upstream release.
 The crawler pack is `2f77898`. Their revisions are pinned in `compatibility.yml`.
 All follow-up workers used UID:GID 1000:1000. Large checks used one worker,
 6 GB and six CPUs on the 12-GB/eight-CPU intern-test host. The database was
