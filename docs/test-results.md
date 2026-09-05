@@ -6,7 +6,7 @@ This section supersedes the older installation revisions below. The final
 documented application reset/install used fresh private GitHub sources at
 deployment `b521741`, core `8a53778`, crawler pack `2f77898`, scheduler/UI
 `12bc913` and post-scripts `e1622ff`. Later report-only commits do not change
-that runtime. Core `8a53778` is a private test branch based on official OEDS
+that runtime. Core `8a53778` is a test branch based on official OEDS
 `38abf45`, not an official upstream release.
 
 The intern-test host remained **CentOS Stream 10**. The operating system was
@@ -65,10 +65,13 @@ GitHub runtime; Regelleistung remained partial because one requested FCR dataset
 was empty. The other source failures, missing credentials, legacy prerequisites
 and unfinished full archives are not declared fixed. No crawler was removed.
 
-All five repositories remain private. SMTP delivery, live Bitwarden integration,
+The repositories were private during these tests and were subsequently made
+public at the project owner's request. The publication changes only README
+instructions and the core documentation pin, not crawler or runtime behavior.
+Known crawler limitations remain as documented; public availability does not
+mean that every provider is operational. SMTP delivery, live Bitwarden integration,
 Ubuntu provisioning, full historical imports and every optional research
-dashboard are not certified by this run. Upstream merging and public visibility
-are separate steps.
+dashboard are not certified by this run. Upstream merging remains a separate step.
 
 Temporary VM Git, sudo and source-credential files were removed, as were the
 isolated crawler-test database and network. The installed runtime `.env`, sample

@@ -3,7 +3,7 @@ components:
   oeds-core:
     path: "../../sources/oeds-core"
     repository: "https://github.com/johannesschuhmacher/oeds-core.git"
-    commit: "8a53778199b473e9218d42e4dffb84eb100b8a91"
+    commit: "90df99fe012888ae5486fd9ffcdd573e509970c4"
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"

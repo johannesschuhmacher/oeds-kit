@@ -4,7 +4,7 @@ Start here to install OEDS. You do not need to install the repositories by hand.
 
 | Repository | What it does |
 | --- | --- |
-| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; current tests use the private [core test branch](https://github.com/johannesschuhmacher/oeds-core) with fixes intended for upstream review |
+| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; current tests use the [core test branch](https://github.com/johannesschuhmacher/oeds-core) with fixes intended for upstream review |
 | [Crawler pack](https://github.com/johannesschuhmacher/oeds-crawler-pack) | Our enhanced/new crawlers and temporary BaseCrawler compatibility |
 | [Scheduler/UI](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | Scheduled jobs, post-run commands and browser administration |
 | [Post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts) | Gapfilling, backfill, forecasts and derived database views |
@@ -23,18 +23,14 @@ SSH from Windows. Automated host preparation currently targets CentOS Stream;
 Ubuntu host preparation has not been validated. You need Git, Python 3.12+,
 sudo access and network access to GitHub/container registries.
 
-While the repositories are private, the initial HTTPS clone needs Git read
-access. Use your credential helper, or enter your GitHub username and a read
-token when Git asks for a password. Do not put a token in a clone URL or a
-committed file. The installer uses a temporary credential helper for its clones.
+All five repositories are public. Cloning and assembling them requires no
+GitHub account or token. Provider API keys for credentialed crawlers are separate;
+keep those in your private environment file, never in Git.
 
 ```bash
 git clone https://github.com/johannesschuhmacher/oeds-deployment.git
 cd oeds-deployment
-read -rsp 'GitHub read token: ' OEDS_GIT_TOKEN; echo
-export OEDS_GIT_TOKEN
 bash tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
-unset OEDS_GIT_TOKEN
 ```
 
 The environment file is optional; omit that option for sources without API

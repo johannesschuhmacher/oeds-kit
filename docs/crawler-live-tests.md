@@ -260,7 +260,7 @@ installation test, a repeat of scheduler/post-script tests or a Grafana audit.
 
 ## Follow-up fixes, 5 September 2026
 
-The private test core is now based on official OEDS, with focused corrections
+The test core is based on official OEDS, with focused corrections
 in `johannesschuhmacher/oeds-core` at `8a53778` (runtime fixes at `113a6f2`,
 followed by a CI-only dependency correction). It is not an upstream release.
 The crawler pack is `2f77898`. Their revisions are pinned in `compatibility.yml`.
