@@ -11,7 +11,6 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from crawler.common.runtime_env import resolve_database_uri
 from scripts.lib.gapfiller.core import GAPFILL_METHODS, GapfillMethod, SeriesFillConfig
 
 
@@ -257,6 +256,8 @@ def _parse_table_methods(value: object) -> dict[str, str]:
 
 
 def _database_uri_for_schema(crawler_config: dict[str, Any], default_config: dict[str, Any], source_schema: str) -> str:
+    from crawler_core.runtime_env import resolve_database_uri
+
     database_uri = str(crawler_config.get("database_uri") or default_config.get("database_uri"))
     resolved = resolve_database_uri(database_uri)
     if resolved.endswith("search_path="):

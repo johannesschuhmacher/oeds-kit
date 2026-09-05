@@ -46,9 +46,9 @@ Command execution resolves the legacy-compatible script root in this order:
 3. current working directory when it contains `scripts/`
 4. the installed module location
 
-The subprocess runs with the resolved root as its working directory. That keeps
-legacy relative imports and `scripts/lib` behavior stable even when `oeds-post`
-is called from the scheduler module or a deployment checkout.
+Direct-call commands retain the current working directory. Only the legacy
+subprocess fallback uses the script root. Set `OEDS_CRAWLER_DATA_DIR` to a
+writable directory for downloaded files; installed source code can be read-only.
 
 Useful migration helper:
 
@@ -96,8 +96,10 @@ called directly in-process; scripts with import-time side effects, such as the
 current `gapfill_smard.py`, continue to run through the subprocess fallback.
 These packages and their SQL files are included in both source distributions
 and wheels. The repository can therefore be installed independently of the KIT
-monorepository. The ENTSO-E backfill command additionally requires
-`oeds-crawler-pack`, which the deployment installs alongside this module.
+monorepository. Database-backed commands use the shared runtime configuration
+helpers in `oeds-crawler-pack`; ENTSO-E backfill also uses its FMS crawler.
+The deployment installs that dependency before this module. Pure numerical
+gapfill/forecast functions and their tests do not need a crawler installation.
 Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
 the post-scripts repository root. The modular deployment sets this variable to
 `/app/CRAWLER_CONFIG.yml` inside its Python containers.
@@ -137,16 +139,17 @@ uv run oeds-post --print-command gapfill entsoe-fms
 
 ## Test Coverage
 
-The full local function test covers the command registry, gapfill table listing,
-price forecast self-test, backfill CLI parsing, and the SMARD post-run path:
+Run the focused command tests from this repository:
 
 ```powershell
-.\modular_repos\tools\run_full_function_test.ps1
+uv run --with pytest pytest tests
 ```
 
 The repository includes a starter GitHub Actions workflow for compile and unit
 test checks. Database-backed post-processing remains covered by the
-deployment-level full function test.
+deployment repository's `tools/test_installation.sh`. That suite uses a real
+database, deterministic gapfill/forecast cases and actual scheduler post-runs.
+Live backfill needs ENTSO-E credentials and an explicitly bounded date range.
 
 ## Required Interfaces
 
