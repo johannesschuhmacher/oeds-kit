@@ -5,7 +5,7 @@
     oeds_root: /open_energy_data_server
     oeds_repo_dir: "{{ oeds_root }}/repo"
     oeds_compose_dir: "{{ oeds_repo_dir }}/modular_repos/modules/oeds-deployment"
-    oeds_data_dir: "{{ oeds_root }}/docker_data"
+    oeds_data_dir: "{{ oeds_data_root | default('/home') }}/oeds/docker_data"
     oeds_live_pgdata_dir: "{{ oeds_data_dir }}/postgres-home"
     oeds_db_user: opendata
     oeds_db_name: opendata
