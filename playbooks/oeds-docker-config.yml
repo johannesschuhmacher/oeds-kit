@@ -36,7 +36,12 @@
         mountpoint: "{{ oeds_data_dir_effective }}/pgadmin-varlib"
   tasks:
   - name: Resolve backing filesystem of root, data dir and Docker data-root
-    ansible.builtin.command: "findmnt -no SOURCE --target {{ item }}"
+    # On a fresh install the data dirs do not exist yet and findmnt needs an
+    # existing path, so resolve the nearest existing parent instead.
+    ansible.builtin.shell: |
+      p={{ item | quote }}
+      while [ ! -e "$p" ]; do p=$(dirname "$p"); done
+      findmnt -no SOURCE --target "$p"
     changed_when: false
     register: oeds_fs_check
     loop:
