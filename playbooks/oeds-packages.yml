@@ -5,9 +5,9 @@
     oeds_package_state: present
     oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
     oeds_docker_data_root_effective: "{{ oeds_docker_data_root | default(oeds_data_root_effective ~ '/docker') }}"
-    oeds_docker_log_max_size: "{{ oeds_docker_log_max_size | default('10m') }}"
-    oeds_docker_log_max_file: "{{ oeds_docker_log_max_file | default('3') }}"
-    oeds_docker_builder_keep_storage: "{{ oeds_docker_builder_keep_storage | default('20GB') }}"
+    oeds_docker_log_max_size: '10m'
+    oeds_docker_log_max_file: '3'
+    oeds_docker_builder_keep_storage: '20GB'
   tasks:
   - name: Install Docker packages
     ansible.builtin.dnf:
