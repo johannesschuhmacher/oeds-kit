@@ -7,7 +7,8 @@
     oeds_default_compose_project_name: oeds
     oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
     oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
-    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_root_effective ~ '/docker_data') }}"
+    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
+    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_data_root_effective ~ '/oeds/docker_data') }}"
     oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
     oeds_compose_project_name_effective: "{{ oeds_compose_project_name | default(oeds_default_compose_project_name) }}"
     oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"

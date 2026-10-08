@@ -3,6 +3,11 @@
   become: true
   vars:
     oeds_package_state: present
+    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
+    oeds_docker_data_root_effective: "{{ oeds_docker_data_root | default(oeds_data_root_effective ~ '/docker') }}"
+    oeds_docker_log_max_size: '10m'
+    oeds_docker_log_max_file: '3'
+    oeds_docker_builder_keep_storage: '20GB'
   tasks:
   - name: Install Docker packages
     ansible.builtin.dnf:
@@ -23,3 +28,43 @@
     when:
       - ansible_user is defined
       - ansible_user != "root"
+  - name: Ensure Docker data-root directory exists on the data partition
+    ansible.builtin.file:
+      path: "{{ oeds_docker_data_root_effective }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "0711"
+  - name: Configure the Docker daemon (data-root, log rotation, build-cache GC)
+    ansible.builtin.copy:
+      dest: /etc/docker/daemon.json
+      owner: root
+      group: root
+      mode: "0644"
+      content: |
+        {
+          "data-root": "{{ oeds_docker_data_root_effective }}",
+          "log-driver": "json-file",
+          "log-opts": {
+            "max-size": "{{ oeds_docker_log_max_size }}",
+            "max-file": "{{ oeds_docker_log_max_file }}"
+          },
+          "builder": {
+            "gc": {
+              "enabled": true,
+              "defaultKeepStorage": "{{ oeds_docker_builder_keep_storage }}"
+            }
+          }
+        }
+    notify: Restart Docker
+  - name: Ensure Docker is enabled and started
+    ansible.builtin.systemd:
+      name: docker
+      enabled: true
+      state: started
+  handlers:
+  - name: Restart Docker
+    ansible.builtin.systemd:
+      name: docker
+      state: restarted
+      daemon_reload: true

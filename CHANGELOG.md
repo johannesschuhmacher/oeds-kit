@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Store Docker persistent volumes and Docker's own data-root (images, build
+  cache, logs) on a large, separate data partition instead of the OS root
+  filesystem. New `oeds_data_root` variable (default `/home`) drives
+  `oeds_data_dir` and the new `oeds_docker_data_root`; `oeds-packages.yml`
+  now writes `/etc/docker/daemon.json` with `data-root`, json-file log
+  rotation and BuildKit cache GC. Prevents the root partition from filling up
+  as the database grows or images are rebuilt.
+- Abort the install if the data dir or Docker data-root resolve onto the root
+  filesystem, so the misconfiguration cannot recur silently.
+
 ## 0.0.0-local
 
 - Initial local split repository for KIT deployment assets.

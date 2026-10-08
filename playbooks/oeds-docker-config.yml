@@ -11,7 +11,9 @@
     oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
     oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
     oeds_repo_source_dir_effective: "{{ oeds_repo_source_dir | default(oeds_root_effective ~ '/deployment-source') if oeds_repo_source_mode_effective == 'git' else oeds_repo_dir_effective }}"
-    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_root_effective ~ '/docker_data') }}"
+    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
+    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_data_root_effective ~ '/oeds/docker_data') }}"
+    oeds_docker_data_root_effective: "{{ oeds_docker_data_root | default(oeds_data_root_effective ~ '/docker') }}"
     oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
     oeds_repo_url_effective: "{{ oeds_repo_url | default(oeds_default_repo_url) }}"
     oeds_repo_version_effective: "{{ oeds_repo_version | default(oeds_default_repo_version) }}"
@@ -33,6 +35,32 @@
       - name: pgadmin-varlib
         mountpoint: "{{ oeds_data_dir_effective }}/pgadmin-varlib"
   tasks:
+  - name: Resolve backing filesystem of root, data dir and Docker data-root
+    # On a fresh install the data dirs do not exist yet and findmnt needs an
+    # existing path, so resolve the nearest existing parent instead.
+    ansible.builtin.shell: |
+      p={{ item | quote }}
+      while [ ! -e "$p" ]; do p=$(dirname "$p"); done
+      findmnt -no SOURCE --target "$p"
+    changed_when: false
+    register: oeds_fs_check
+    loop:
+      - /
+      - "{{ oeds_data_dir_effective }}"
+      - "{{ oeds_docker_data_root_effective }}"
+  - name: Refuse to place OEDS data on the root filesystem
+    ansible.builtin.assert:
+      that:
+        - oeds_fs_check.results[1].stdout != oeds_fs_check.results[0].stdout
+        - oeds_fs_check.results[2].stdout != oeds_fs_check.results[0].stdout
+      fail_msg: >-
+        OEDS data dir ({{ oeds_data_dir_effective }}) or Docker data-root
+        ({{ oeds_docker_data_root_effective }}) is on the root filesystem
+        ({{ oeds_fs_check.results[0].stdout }}). Set oeds_data_root to a large,
+        separate data partition (e.g. /home) before installing.
+      success_msg: >-
+        OEDS data is on a separate partition
+        ({{ oeds_fs_check.results[1].stdout }}).
   - name: Create OEDS directories
     ansible.builtin.file:
       path: "{{ item }}"

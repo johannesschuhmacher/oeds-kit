@@ -24,7 +24,16 @@ oeds_enable_crawlers: false
 
 # Runtime files are kept outside the Git checkout.
 oeds_runtime_dir: "{{ oeds_root }}/runtime"
-oeds_data_dir: "{{ oeds_root }}/docker_data"
+
+# Persistent Docker volume data (TimescaleDB, Grafana, pgAdmin) AND Docker's own
+# data-root (images, build cache, container logs) must live on a large, SEPARATE
+# data partition, never on the small OS root filesystem. oeds_data_root is the
+# mountpoint of that partition. On the KIT OEDS VMs this is /home (the large LVM
+# volume); set it to wherever your data partition is mounted. The install aborts
+# if these paths resolve onto the root filesystem (see oeds-docker-config.yml).
+oeds_data_root: /home
+oeds_data_dir: "{{ oeds_data_root }}/oeds/docker_data"
+oeds_docker_data_root: "{{ oeds_data_root }}/docker"
 oeds_repo_dir: "{{ oeds_root }}/repo"
 
 # Uninstall defaults are intentionally non-destructive.
