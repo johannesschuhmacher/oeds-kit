@@ -29,9 +29,12 @@ oeds_runtime_dir: "{{ oeds_root }}/runtime"
 # data-root (images, build cache, container logs) must live on a large, SEPARATE
 # data partition, never on the small OS root filesystem. oeds_data_root is the
 # mountpoint of that partition. On the KIT OEDS VMs this is /home (the large LVM
-# volume); set it to wherever your data partition is mounted. The install aborts
-# if these paths resolve onto the root filesystem (see oeds-docker-config.yml).
+# volume); set it to wherever your data partition is mounted. On VMs with a
+# single large partition, /home is simply part of it. The install aborts if the
+# data paths are on a filesystem smaller than oeds_min_data_filesystem_gb
+# (see oeds-docker-config.yml), which protects small OS partitions.
 oeds_data_root: /home
+oeds_min_data_filesystem_gb: 200
 oeds_data_dir: "{{ oeds_data_root }}/oeds/docker_data"
 oeds_docker_data_root: "{{ oeds_data_root }}/docker"
 oeds_repo_dir: "{{ oeds_root }}/repo"

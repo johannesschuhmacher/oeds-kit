@@ -9,8 +9,10 @@
   now writes `/etc/docker/daemon.json` with `data-root`, json-file log
   rotation and BuildKit cache GC. Prevents the root partition from filling up
   as the database grows or images are rebuilt.
-- Abort the install if the data dir or Docker data-root resolve onto the root
-  filesystem, so the misconfiguration cannot recur silently.
+- Abort the install if the data dir or Docker data-root are on a filesystem
+  smaller than `oeds_min_data_filesystem_gb` (default 200 GB), so data cannot
+  silently land on a small OS partition again. VMs with a single large
+  partition pass the check.
 
 ## 0.0.0-local
 
