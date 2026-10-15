@@ -155,12 +155,12 @@ prod_unit_latest AS (
         "ProductionUnitCode" AS production_unit_code,
         "ProductionUnitName" AS production_unit_name,
         "ProductionType" AS production_type,
-        "InstalledCapacity(MW)"::double precision AS installed_capacity_mw,
+        "InstalledCapacity[MW]"::double precision AS installed_capacity_mw,
         "UpdateTime(UTC)" AS update_time_utc
     FROM entsoe_fms."InstalledGenerationCapacityPerProductionUnit"
     ORDER BY
         "ProductionUnitCode",
-        COALESCE("ValidTo", "ValidFrom") DESC,
+        COALESCE("ValidityPeriodEnd(UTC)", "ValidityPeriodStart(UTC)") DESC,
         "UpdateTime(UTC)" DESC
 )
 SELECT
