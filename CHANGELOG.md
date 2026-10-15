@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Use ENTSO-E's harmonised r3.1 column names (`AreaMapCode`,
+  `ValidityPeriodStart(UTC)`, `InstalledCapacity[MW]`, `Comment`, ...).
+
 ## 0.1.0
 
 - Packaged post-processing scripts, helper packages, and SQL resources.
