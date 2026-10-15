@@ -41,56 +41,69 @@ from crawler.common.base_crawler import BaseCrawler
 from datetime import datetime
 
 
+# Data items are identified without their extract version (such as "_r3").
+# At run time each one is resolved to the newest version available in the File
+# Library, because ENTSO-E publishes new versions and removes the old folders.
 FMS_ACTIVE_DATA_ITEMS = (
-    ("AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D_r3", "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants"),
-    ("ActualTotalLoad_6.1.A_r3", "ActualTotalLoad"),
-    ("DayAheadTotalLoadForecast_6.1.B_r3", "DayAheadTotalLoadForecast"),
-    ("ActualGenerationOutputPerGenerationUnit_16.1.A_r3", "ActualGenerationOutputPerGenerationUnit"),
-    ("AggregatedGenerationPerType_16.1.B_C_r3", "AggregatedGenerationPerType"),
-    ("CommercialSchedulesNetPositions_12.1.F_r3", "CommercialSchedulesNetPositions"),
-    ("DayAheadAggregatedGeneration_14.1.C_r3", "DayAheadAggregatedGeneration"),
-    ("GenerationForecastsForWindAndSolar_14.1.D_r3", "GenerationForecastsForWindAndSolar"),
-    ("EnergyPrices_12.1.D_r3", "EnergyPrices"),
-    ("ExpansionAndDismantlingProjects_9.1_r3", "ExpansionAndDismantlingProjects"),
-    ("ForecastedTransferCapacities_11.1_r3", "ForecastedTransferCapacities"),
-    ("InstalledGenerationCapacityPerProductionUnit_14.1.B_r3", "InstalledGenerationCapacityPerProductionUnit"),
-    ("InstalledGenerationCapacityAggregated_14.1.A_r3", "InstalledGenerationCapacityAggregated"),
-    ("PhysicalFlows_12.1.G_r3", "PhysicalFlows"),
-    ("ProductionAndGenerationUnits_r3", "ProductionAndGenerationUnits"),
-    ("TotalCapacityAlreadyAllocated_12.1.C_r3", "TotalCapacityAlreadyAllocated"),
-    ("TotalCapacityNominated_12.1.B_r3", "TotalCapacityNominated"),
-    ("TotalLoadForecast_6.1.C_D_E_r3", "TotalLoadForecast"),
-    ("TransmissionAssets_r3", "TransmissionAssets"),
-    ("UnavailabilityInTheTransmissionGrid_10.1.A_B_r3", "UnavailabilityInTheTransmissionGrid"),
-    ("UnavailabilityOfConsumptionUnits_7.1.A_B_r3", "UnavailabilityOfConsumptionUnits"),
-    ("UnavailabilityOfOffshoreGrid_10.1.C_r3", "UnavailabilityOfOffshoreGrid"),
-    ("UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D_r3", "UnavailabilityOfProductionAndGenerationUnits"),
-    ("UseOfTransferCapacity_12.1.A_r3", "UseOfTransferCapacity"),
-    ("YearAheadForecastMargin_8.1_r3", "YearAheadForecastMargin"),
+    ("AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D", "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants"),
+    ("ActualTotalLoad_6.1.A", "ActualTotalLoad"),
+    ("DayAheadTotalLoadForecast_6.1.B", "DayAheadTotalLoadForecast"),
+    ("ActualGenerationOutputPerGenerationUnit_16.1.A", "ActualGenerationOutputPerGenerationUnit"),
+    ("AggregatedGenerationPerType_16.1.B_C", "AggregatedGenerationPerType"),
+    ("CommercialSchedulesNetPositions_12.1.F", "CommercialSchedulesNetPositions"),
+    ("DayAheadAggregatedGeneration_14.1.C", "DayAheadAggregatedGeneration"),
+    ("GenerationForecastsForWindAndSolar_14.1.D", "GenerationForecastsForWindAndSolar"),
+    ("EnergyPrices_12.1.D", "EnergyPrices"),
+    ("ExpansionAndDismantlingProjects_9.1", "ExpansionAndDismantlingProjects"),
+    ("ForecastedTransferCapacities_11.1", "ForecastedTransferCapacities"),
+    ("InstalledGenerationCapacityPerProductionUnit_14.1.B", "InstalledGenerationCapacityPerProductionUnit"),
+    ("InstalledGenerationCapacityAggregated_14.1.A", "InstalledGenerationCapacityAggregated"),
+    ("PhysicalFlows_12.1.G", "PhysicalFlows"),
+    ("ProductionAndGenerationUnits", "ProductionAndGenerationUnits"),
+    ("TotalCapacityAlreadyAllocated_12.1.C", "TotalCapacityAlreadyAllocated"),
+    ("TotalCapacityNominated_12.1.B", "TotalCapacityNominated"),
+    ("TotalLoadForecast_6.1.C_D_E", "TotalLoadForecast"),
+    ("TransmissionAssets", "TransmissionAssets"),
+    ("UnavailabilityInTheTransmissionGrid_10.1.A_B", "UnavailabilityInTheTransmissionGrid"),
+    ("UnavailabilityOfConsumptionUnits_7.1.A_B", "UnavailabilityOfConsumptionUnits"),
+    ("UnavailabilityOfOffshoreGrid_10.1.C", "UnavailabilityOfOffshoreGrid"),
+    ("UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D", "UnavailabilityOfProductionAndGenerationUnits"),
+    ("UseOfTransferCapacity_12.1.A", "UseOfTransferCapacity"),
+    ("YearAheadForecastMargin_8.1", "YearAheadForecastMargin"),
+    ("ImplicitAllocationsNetPositions_12.1.E", "ImplicitAllocationsNetPositions"),
+    ("CommercialSchedules_12.1.F", "CommercialSchedules"),
+    ("RedispatchingInternal_13.1.A", "RedispatchingInternal"),
+    ("RedispatchingCrossBorder_13.1.A", "RedispatchingCrossBorder"),
+    ("Countertrading_13.1.B", "Countertrading"),
+    ("CostsOfCongestionManagement_13.1.C", "CostsOfCongestionManagement"),
+    ("ImbalancePrices_17.1.G", "ImbalancePrices"),
+    ("TotalImbalanceVolumes_17.1.H", "TotalImbalanceVolumes"),
 )
 
 FMS_SINGLE_FILE_DATA_ITEMS = {
-    "InstalledGenerationCapacityAggregated_14.1.A_r3",
-    "InstalledGenerationCapacityPerProductionUnit_14.1.B_r3",
-    "ProductionAndGenerationUnits_r3",
-    "TransmissionAssets_r3",
-    "YearAheadForecastMargin_8.1_r3",
+    "InstalledGenerationCapacityAggregated_14.1.A",
+    "InstalledGenerationCapacityPerProductionUnit_14.1.B",
+    "ProductionAndGenerationUnits",
+    "TransmissionAssets",
+    "YearAheadForecastMargin_8.1",
 }
 
 FMS_UNFILTERED_DATE_DATA_ITEMS = {
     *FMS_SINGLE_FILE_DATA_ITEMS,
-    "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D_r3",
-    "ExpansionAndDismantlingProjects_9.1_r3",
+    "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D",
+    "CostsOfCongestionManagement_13.1.C",
+    "ExpansionAndDismantlingProjects_9.1",
 }
 
 FMS_ANNUAL_FILE_DATA_ITEMS = {
-    "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D_r3",
-    "ExpansionAndDismantlingProjects_9.1_r3",
+    "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D",
+    "CostsOfCongestionManagement_13.1.C",
+    "ExpansionAndDismantlingProjects_9.1",
 }
 
 FMS_OUTAGE_DATA_ITEMS = {
-    "UnavailabilityOfConsumptionUnits_7.1.A_B_r3",
-    "UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D_r3",
+    "UnavailabilityOfConsumptionUnits_7.1.A_B",
+    "UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D",
 }
 
 FMS_FULL_UPSERT_TABLES = {
@@ -120,6 +133,12 @@ FMS_DATETIME_COLUMNS = (
     "StartTimeSeries(UTC)",
     "EndTimeSeries(UTC)",
     "VersionPublicationTimestamp(UTC)",
+    "StartRedispatching(UTC)",
+    "EndRedispatching(UTC)",
+    "TimeIntervalFrom(UTC)",
+    "TimeIntervalTo(UTC)",
+    "ValidityPeriodStart(UTC)",
+    "ValidityPeriodEnd(UTC)",
 )
 
 FMS_UPDATE_TIME_COLUMNS = (
@@ -127,6 +146,59 @@ FMS_UPDATE_TIME_COLUMNS = (
     "UpdateTime (UTC)",
     "UpdateTime(UTC)",
 )
+
+# ENTSO-E's harmonised extracts (r3.1, October 2026) renamed these columns.
+# Existing tables are migrated once with ALTER TABLE ... RENAME COLUMN.
+FMS_COLUMN_RENAMES = {
+    "CommercialSchedulesNetPositions": {"MapCode": "AreaMapCode"},
+    "EnergyPrices": {"MapCode": "AreaMapCode"},
+    "ForecastedTransferCapacities": {"OutMapCode": "OutAreaMapCode", "InMapCode": "InAreaMapCode"},
+    "InstalledGenerationCapacityPerProductionUnit": {
+        "ValidFrom": "ValidityPeriodStart(UTC)",
+        "ValidTo": "ValidityPeriodEnd(UTC)",
+        "InstalledCapacity(MW)": "InstalledCapacity[MW]",
+        "VoltageLevel(kV)": "VoltageLevel[kV]",
+    },
+    "ProductionAndGenerationUnits": {
+        "ValidFrom": "ValidityPeriodStart(UTC)",
+        "ValidTo": "ValidityPeriodEnd(UTC)",
+        "ProductionUnitInstalledCapacity(MW)": "ProductionUnitInstalledCapacity[MW]",
+        "ProductionUnitVoltage(kV)": "ProductionUnitVoltage[kV]",
+        "GenerationUnitInstalledCapacity(MW)": "GenerationUnitInstalledCapacity[MW]",
+    },
+    "TransmissionAssets": {"ValidFrom": "ValidityPeriodStart(UTC)", "ValidTo": "ValidityPeriodEnd(UTC)"},
+    "UnavailabilityInTheTransmissionGrid": {
+        "AffectedAssetsCodes": "AssetsCodes",
+        "AffectedAssetsNames": "AssetsNames",
+        "AffectedAssetsTypes": "AssetsTypes",
+        "AffectedAssetsLocations": "AssetsLocations",
+    },
+    "UnavailabilityOfOffshoreGrid": {"ReasonText": "Comment"},
+    "UnavailabilityOfProductionAndGenerationUnits": {"ReasonText": "Comment"},
+}
+
+# Unique keys of these tables contain columns that are often empty (an open
+# ValidityPeriodEnd). Without NULLS NOT DISTINCT such rows never conflict and
+# every refresh would insert them again.
+FMS_NULLS_NOT_DISTINCT_TABLES = {
+    "InstalledGenerationCapacityPerProductionUnit",
+    "ProductionAndGenerationUnits",
+    "TransmissionAssets",
+}
+
+FMS_VERSION_SUFFIX = re.compile(r"_r(\d+(?:\.\d+)*)$")
+
+
+def base_data_item(name: str) -> str:
+    """Strip the extract version: "EnergyPrices_12.1.D_r3.1" -> "EnergyPrices_12.1.D"."""
+    return FMS_VERSION_SUFFIX.sub("", name)
+
+
+def data_item_version(name: str) -> tuple[int, ...]:
+    """Version of a File Library folder name; a folder without suffix sorts first."""
+    match = FMS_VERSION_SUFFIX.search(name)
+    return tuple(int(part) for part in match.group(1).split(".")) if match else ()
+
 
 DEFAULT_START_DATE = "2014-01-01"
 
@@ -174,6 +246,14 @@ class EntsoeFMSCrawler(BaseCrawler):
         "UnavailabilityOfProductionUnitsReasons": "unique_unava_pro_reasons",
         "UnavailabilityOfProductionAndGenerationUnits": "unique_unava_prod_gen_units",
         "YearAheadForecastMargin": "unique_year_ahead_forecast_margin",
+        "ImplicitAllocationsNetPositions": "unique_implicit_alloc_net_pos",
+        "CommercialSchedules": "unique_comm_schedules",
+        "RedispatchingInternal": "unique_redispatching_internal",
+        "RedispatchingCrossBorder": "unique_redispatching_cross_border",
+        "Countertrading": "unique_countertrading",
+        "CostsOfCongestionManagement": "unique_costs_congestion_mgmt",
+        "ImbalancePrices": "unique_imbalance_prices",
+        "TotalImbalanceVolumes": "unique_total_imbalance_volumes",
     }
 
     UNIQUE_KEY_COLUMNS = {
@@ -222,14 +302,14 @@ class EntsoeFMSCrawler(BaseCrawler):
             "InAreaDisplayName", "ContractType"
         ],
         "InstalledGenerationCapacityPerProductionUnit": [
-            "ProductionUnitCode", "ValidFrom", "ValidTo", "ProductionType",
+            "ProductionUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "ProductionType",
             "AreaCode", "AreaDisplayName", "AreaTypeCode"
         ],
         "PhysicalFlows": [
             "DateTime(UTC)", "ResolutionCode", "OutAreaDisplayName", "InAreaDisplayName"
         ],
         "ProductionAndGenerationUnits": [
-            "ProductionUnitCode", "GenerationUnitCode", "ValidFrom", "ValidTo", "AreaCode", "AreaDisplayName", "AreaTypeCode"
+            "ProductionUnitCode", "GenerationUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode"
         ],
         "TotalCapacityAlreadyAllocated": [
             "InstanceCode", "DateTime(UTC)", "ResolutionCode", "ContractType", "Category", "OutAreaDisplayName", "InAreaDisplayName"
@@ -241,7 +321,7 @@ class EntsoeFMSCrawler(BaseCrawler):
             "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ContractType"
         ],
         "TransmissionAssets": [
-            "AssetCode", "ValidFrom", "ValidTo", "AreaCode", "AreaDisplayName", "AreaTypeCode"
+            "AssetCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode"
         ],
         "UseOfTransferCapacity": [
             "InstanceCode", "DateTime(UTC)", "ResolutionCode", "ContractType", "Category", "Sequence", "OutAreaDisplayName", "InAreaDisplayName"
@@ -331,6 +411,31 @@ class EntsoeFMSCrawler(BaseCrawler):
         "YearAheadForecastMargin": [
             "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode"
         ],
+        "ImplicitAllocationsNetPositions": [
+            "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode", "ContractType"
+        ],
+        "CommercialSchedules": [
+            "DateTime(UTC)", "ResolutionCode", "OutAreaCode", "InAreaCode"
+        ],
+        "RedispatchingInternal": [
+            "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "ActionType", "ActionDirection"
+        ],
+        "RedispatchingCrossBorder": [
+            "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode",
+            "OutAreaCode", "InAreaCode", "ActionType", "ActionDirection"
+        ],
+        "Countertrading": [
+            "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "OutAreaCode", "InAreaCode"
+        ],
+        "CostsOfCongestionManagement": [
+            "Year", "Month", "AreaCode", "AreaTypeCode"
+        ],
+        "ImbalancePrices": [
+            "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode"
+        ],
+        "TotalImbalanceVolumes": [
+            "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode"
+        ],
     }
 
     # ------------------------------------------------------------------
@@ -340,6 +445,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         super().__init__(schema_name, config)
         self._access_token: str | None = None
         self.session: requests.Session | None = None
+        self._available_folders: list[str] | None = None
         configured_start = self.config.get("default_start_date", DEFAULT_START_DATE)
         self.default_start_time = pd.Timestamp(configured_start)
         if self.default_start_time.tzinfo is None:
@@ -421,10 +527,10 @@ class EntsoeFMSCrawler(BaseCrawler):
     # ---------------------------
     # File‑Library Helpers
     # ---------------------------
-    def _list_metadata(self, data_item: str, start: pd.Timestamp, end: pd.Timestamp) -> List[Dict]:
+    def _list_folder(self, path: str) -> List[Dict]:
         payload = {
             "topLevelFolder": "TP_export",
-            "path": f"/TP_export/{data_item}/",
+            "path": path,
             "pageInfo": {
                 "pageIndex": 0,
                 "pageSize": 100
@@ -437,16 +543,16 @@ class EntsoeFMSCrawler(BaseCrawler):
                 r.raise_for_status()
             except requests.HTTPError as exc:
                 if exc.response.status_code == 401:
-                    self.logger.warning(f"Access Token expired during listFolder for {data_item}. Re-authenticating...")
+                    self.logger.warning(f"Access Token expired during listFolder for {path}. Re-authenticating...")
                     self._authenticate()
                     self.logger.info("Re-authentication successful. Retrying listFolder...")
                     r = self.session.post(f"{self.FMS_BASEURL}/listFolder", json=payload, timeout=120)
                     r.raise_for_status()
                 else:
-                    self.logger.error(f"HTTP error in listFolder for {data_item}: {exc}")
+                    self.logger.error(f"HTTP error in listFolder for {path}: {exc}")
                     raise exc
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"Network error (e.g., Timeout) in listFolder for {data_item}: {e}")
+                self.logger.error(f"Network error (e.g., Timeout) in listFolder for {path}: {e}")
                 raise e
 
             data = r.json()
@@ -457,6 +563,23 @@ class EntsoeFMSCrawler(BaseCrawler):
             payload["pageInfo"]["pageIndex"] += 1
 
         return all_metas
+
+    def _resolve_folder(self, data_item: str) -> str:
+        """Return the newest File Library folder of a data item, e.g. "_r3.2" before "_r3.1"."""
+        if getattr(self, "_available_folders", None) is None:
+            self._available_folders = [
+                meta["name"] for meta in self._list_folder("/TP_export/") if meta.get("name")
+            ]
+        base = base_data_item(data_item)
+        candidates = [name for name in self._available_folders if base_data_item(name) == base]
+        if not candidates:
+            raise LookupError(f"No File Library folder found for data item '{base}'.")
+        folder = max(candidates, key=data_item_version)
+        self.logger.info("Data item %s uses File Library folder %s.", base, folder)
+        return folder
+
+    def _list_metadata(self, data_item: str, start: pd.Timestamp, end: pd.Timestamp) -> List[Dict]:
+        return self._list_folder(f"/TP_export/{self._resolve_folder(data_item)}/")
 
     def _download_file(self, fileid: str, target: str) -> None:
         payload = {
@@ -493,7 +616,8 @@ class EntsoeFMSCrawler(BaseCrawler):
         if not target_data_items:
             return list(self.DATA_ITEM_TABLE_MAP)
 
-        requested = set(target_data_items)
+        # Older configurations name versioned folders such as "EnergyPrices_12.1.D_r3".
+        requested = {base_data_item(item) for item in target_data_items}
         selected = [
             data_item
             for data_item in self.DATA_ITEM_TABLE_MAP
@@ -507,7 +631,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         return selected
 
     def _get_table_name_for_data_item(self, data_item: str) -> str:
-        return self.DATA_ITEM_TABLE_MAP[data_item]
+        return self.DATA_ITEM_TABLE_MAP[base_data_item(data_item)]
 
     @staticmethod
     def _should_process_metadata_entry(meta: Dict) -> bool:
@@ -516,7 +640,7 @@ class EntsoeFMSCrawler(BaseCrawler):
 
     @classmethod
     def _should_skip_date_filter(cls, data_item: str) -> bool:
-        return data_item in cls.UNFILTERED_DATE_DATA_ITEMS
+        return base_data_item(data_item) in cls.UNFILTERED_DATE_DATA_ITEMS
 
     @staticmethod
     def _extract_file_period_start(filename: str) -> pd.Timestamp | None:
@@ -612,23 +736,72 @@ class EntsoeFMSCrawler(BaseCrawler):
 
         return state
 
-    def _ensure_current_table_schema(self, table_name: str) -> None:
-        if table_name != "UnavailabilityOfConsumptionUnits":
-            return
+    def _table_columns(self, table_name: str) -> list[str]:
+        with self.engine.connect() as conn:
+            return [
+                row[0]
+                for row in conn.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name"
+                    ),
+                    {"table_name": table_name},
+                )
+            ]
 
+    def _migrate_renamed_columns(self, table_name: str) -> None:
+        """Rename columns of an existing table to ENTSO-E's current names, keeping the data."""
+        renames = FMS_COLUMN_RENAMES.get(table_name)
+        if not renames:
+            return
+        columns = set(self._table_columns(table_name))
         with self.engine.begin() as conn:
+            for old, new in renames.items():
+                if old in columns and new not in columns:
+                    conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" RENAME COLUMN "{old}" TO "{new}"'))
+                    self.logger.info("Renamed column %s.%s to %s.", table_name, old, new)
+
+    def _ensure_nulls_not_distinct(self, table_name: str) -> None:
+        """Recreate the unique constraint of an existing table with NULLS NOT DISTINCT."""
+        if table_name not in FMS_NULLS_NOT_DISTINCT_TABLES:
+            return
+        constraint = self.UNIQUE_KEY_DICT[table_name]
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT i.indnullsnotdistinct FROM pg_constraint c "
+                    "JOIN pg_index i ON i.indexrelid = c.conindid "
+                    "WHERE c.conrelid = to_regclass(:table) AND c.conname = :constraint"
+                ),
+                {"table": f'"entsoe_fms"."{table_name}"', "constraint": constraint},
+            ).fetchone()
+            if row is None or row[0]:
+                return
+            columns = ", ".join(f'"{col}"' for col in self.UNIQUE_KEY_COLUMNS[table_name])
             conn.execute(
                 text(
-                    'ALTER TABLE "entsoe_fms"."UnavailabilityOfConsumptionUnits" '
-                    'ADD COLUMN IF NOT EXISTS "ActualUnavailableCapacity[MW]" DOUBLE PRECISION'
+                    f'ALTER TABLE "entsoe_fms"."{table_name}" DROP CONSTRAINT "{constraint}", '
+                    f'ADD CONSTRAINT "{constraint}" UNIQUE NULLS NOT DISTINCT ({columns})'
                 )
             )
-            conn.execute(
-                text(
-                    'ALTER TABLE "entsoe_fms"."UnavailabilityOfConsumptionUnits" '
-                    'ADD COLUMN IF NOT EXISTS "TotalUnavailableCapacity[MW]" DOUBLE PRECISION'
-                )
-            )
+        self.logger.info("Unique constraint %s of %s now treats NULLs as equal.", constraint, table_name)
+
+    def _add_missing_columns(self, table_name: str, df: pd.DataFrame) -> None:
+        """Add columns that ENTSO-E introduced after the table was created."""
+        existing = set(self._table_columns(table_name))
+        missing = [col for col in df.columns if col not in existing]
+        if not missing:
+            return
+        with self.engine.begin() as conn:
+            for col in missing:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    sql_type = "TIMESTAMP WITH TIME ZONE"
+                elif pd.api.types.is_numeric_dtype(df[col]):
+                    sql_type = "DOUBLE PRECISION"
+                else:
+                    sql_type = "TEXT"
+                conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" ADD COLUMN IF NOT EXISTS "{col}" {sql_type}'))
+                self.logger.info("Added column %s.%s (%s).", table_name, col, sql_type)
 
     @staticmethod
     def _normalize_timestamp_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -665,7 +838,8 @@ class EntsoeFMSCrawler(BaseCrawler):
         if df.empty:
             return
 
-        data = df.to_dict(orient="records")
+        # NaT and NaN must reach PostgreSQL as NULL, not as the strings 'NaT'/'NaN'.
+        data = df.astype(object).where(df.notna(), None).to_dict(orient="records")
         metadata = MetaData()
         table_obj = Table(table_name, metadata, autoload_with=self.engine, schema="entsoe_fms")
         batch_size = 5000
@@ -792,8 +966,9 @@ class EntsoeFMSCrawler(BaseCrawler):
         if not os.path.exists(local_dir):
             os.makedirs(local_dir, exist_ok=True)
 
-        # Authenticate with ENTSO-E
+        # Authenticate with ENTSO-E and list the current folder versions once per run.
         self._authenticate()
+        self._available_folders = None
 
         # Kept as a safe fallback if a future change re-introduces buffered writes.
         df_insert_full = pd.DataFrame()
@@ -812,11 +987,18 @@ class EntsoeFMSCrawler(BaseCrawler):
         for data_item in target_data_items:
             create = False
             do_not_create_again = False
-            schema_checked = False
             table_name = self._get_table_name_for_data_item(data_item)
 
             print(f"\n--- Processing data item: {data_item} ---")
             self.logger.info("Starting processing for data item %s -> table %s", data_item, table_name)
+
+            try:
+                self._migrate_renamed_columns(table_name)
+                self._ensure_nulls_not_distinct(table_name)
+            except Exception as exc:
+                self.logger.error(f"Column migration failed for {table_name}: {exc}", exc_info=True)
+                failures.append(f"{data_item}: column migration")
+                continue
 
             try:
                 metas = self._list_metadata(data_item, start_time, end_time)
@@ -891,9 +1073,6 @@ class EntsoeFMSCrawler(BaseCrawler):
                             self._create_table_with_unique_constraint(table_name)
                             do_not_create_again = True
                         table_state = self._get_table_state(table_name)
-                    if not schema_checked:
-                        self._ensure_current_table_schema(table_name)
-                        schema_checked = True
 
                     chunk_size = 50000
                     total_file_inserts = 0
@@ -901,7 +1080,9 @@ class EntsoeFMSCrawler(BaseCrawler):
 
                     with pd.read_csv(local_path, sep=r"\t", engine="python", chunksize=chunk_size) as reader:
                         for chunk_idx, df in enumerate(reader):
+                            df.columns = df.columns.str.strip()
                             df = self._normalize_timestamp_columns(df)
+                            self._add_missing_columns(table_name, df)
 
                             if create:
                                 df = self._deduplicate_on_unique_keys(table_name, df)
@@ -1169,7 +1350,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("AreaCode", String),
                     Column("AreaDisplayName", String),
                     Column("AreaTypeCode", String),
-                    Column("MapCode", String),
+                    Column("AreaMapCode", String),
                     Column("DayAheadCapacity[MW]", Float),
                     Column("DayAheadSchedulesDirection", String),
                     Column("TotalCapacity[MW]", Float),
@@ -1241,7 +1422,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("AreaCode", String),
                     Column("AreaDisplayName", String),
                     Column("AreaTypeCode", String),
-                    Column("MapCode", String),
+                    Column("AreaMapCode", String),
                     Column("ContractType", String),
                     Column("Sequence", String),
                     Column("Price[Currency/MWh]", Float),
@@ -1290,11 +1471,11 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("OutAreaCode", String),
                     Column("OutAreaDisplayName", String),
                     Column("OutAreaTypeCode", String),
-                    Column("OutMapCode", String),
+                    Column("OutAreaMapCode", String),
                     Column("InAreaCode", String),
                     Column("InAreaDisplayName", String),
                     Column("InAreaTypeCode", String),
-                    Column("InMapCode", String),
+                    Column("InAreaMapCode", String),
                     Column("ContractType", String),
                     Column("ForecastTransferCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
@@ -1329,21 +1510,22 @@ class EntsoeFMSCrawler(BaseCrawler):
                     'InstalledGenerationCapacityPerProductionUnit', metadata,
                     Column("ProductionUnitCode", String),
                     Column("ProductionUnitName", String),
-                    Column("ValidFrom", DateTime(timezone=True)),
-                    Column("ValidTo", DateTime(timezone=True)),
+                    Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
+                    Column("ValidityPeriodEnd(UTC)", DateTime(timezone=True)),
                     Column("Status", String),
                     Column("ProductionType", String),
                     Column("ProductionUnitLocation", String),
-                    Column("InstalledCapacity(MW)", Float),
+                    Column("InstalledCapacity[MW]", Float),
                     Column("AreaCode", String),
                     Column("AreaDisplayName", String),
                     Column("AreaTypeCode", String),
                     Column("AreaMapCode", String),
-                    Column("VoltageLevel(kV)", Float),
+                    Column("VoltageLevel[kV]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
-                        "ProductionUnitCode", "ValidFrom", "ValidTo", "ProductionType", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_insta_capa_prod_unit"
+                        "ProductionUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "ProductionType", "AreaCode", "AreaDisplayName", "AreaTypeCode",
+                        name="unique_insta_capa_prod_unit",
+                        postgresql_nulls_not_distinct=True,
                     )
                 )
             case 'InstalledGenerationCapacityAggregated':
@@ -1387,15 +1569,15 @@ class EntsoeFMSCrawler(BaseCrawler):
             case 'ProductionAndGenerationUnits':
                 table = Table(
                     'ProductionAndGenerationUnits', metadata,
-                    Column("ValidFrom", DateTime(timezone=True)),
-                    Column("ValidTo", DateTime(timezone=True)),
+                    Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
+                    Column("ValidityPeriodEnd(UTC)", DateTime(timezone=True)),
                     Column("ProductionUnitCode", String),
                     Column("ProductionUnitName", String),
                     Column("ProductionUnitStatus", String),
                     Column("ProductionUnitType", String),
                     Column("ProductionUnitLocation", String),
-                    Column("ProductionUnitInstalledCapacity(MW)", Float),
-                    Column("ProductionUnitVoltage(kV)", Float),
+                    Column("ProductionUnitInstalledCapacity[MW]", Float),
+                    Column("ProductionUnitVoltage[kV]", Float),
                     Column("AreaCode", String),
                     Column("AreaDisplayName", String),
                     Column("AreaTypeCode", String),
@@ -1405,11 +1587,12 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("GenerationUnitStatus", String),
                     Column("GenerationUnitType", String),
                     Column("GenerationUnitLocation", String),
-                    Column("GenerationUnitInstalledCapacity(MW)", Float),
+                    Column("GenerationUnitInstalledCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
-                        "ProductionUnitCode", "GenerationUnitCode", "ValidFrom", "ValidTo", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_prod_gen_units"
+                        "ProductionUnitCode", "GenerationUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode",
+                        name="unique_prod_gen_units",
+                        postgresql_nulls_not_distinct=True,
                     )
                 )
             case 'PlannedUnavailabilityOfConsumptionUnits':
@@ -1493,13 +1676,14 @@ class EntsoeFMSCrawler(BaseCrawler):
             case 'TransmissionAssets':
                 table = Table(
                     'TransmissionAssets', metadata,
-                    Column("ValidFrom", DateTime(timezone=True)),
-                    Column("ValidTo", DateTime(timezone=True)),
+                    Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
+                    Column("ValidityPeriodEnd(UTC)", DateTime(timezone=True)),
                     Column("AssetCode", String),
                     Column("AssetName", String),
                     Column("AssetStatus", String),
                     Column("AssetType", String),
                     Column("AssetLocation", String),
+                    Column("InstalledCapacity[MW]", Float),
                     Column("LossFactor", Float),
                     Column("AreaCode", String),
                     Column("AreaDisplayName", String),
@@ -1510,8 +1694,9 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("MarketInformationDataProviderCodes", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
-                        "AssetCode", "ValidFrom", "ValidTo", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_transmission_assets"
+                        "AssetCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode",
+                        name="unique_transmission_assets",
+                        postgresql_nulls_not_distinct=True,
                     )
                 )
             case 'UseOfTransferCapacity':
@@ -1561,10 +1746,10 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("InAreaDisplayName", String),
                     Column("InAreaTypeCode", String),
                     Column("InAreaMapCode", String),
-                    Column("AffectedAssetsCodes", String),
-                    Column("AffectedAssetsNames", String),
-                    Column("AffectedAssetsTypes", String),
-                    Column("AffectedAssetsLocations", String),
+                    Column("AssetsCodes", String),
+                    Column("AssetsNames", String),
+                    Column("AssetsTypes", String),
+                    Column("AssetsLocations", String),
                     Column("NewNTC[MW]", Float),
                     Column("Reason", String),
                     Column("Comment", String),
@@ -1597,7 +1782,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("ProductionType", String),
                     Column("AvailableCapacity[MW]", Float),
                     Column("Reason", String),
-                    Column("ReasonText", String),
+                    Column("Comment", String),
                     Column("VersionPublicationTimestamp(UTC)", DateTime(timezone=True)),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
@@ -1646,7 +1831,7 @@ class EntsoeFMSCrawler(BaseCrawler):
                     Column("WindPowerFedIn[MW]", Float),
                     Column("InstalledWindPowerGenerationCapacity[MW]", Float),
                     Column("Reason", String),
-                    Column("ReasonText", String),
+                    Column("Comment", String),
                     Column("VersionPublicationTimestamp(UTC)", DateTime(timezone=True)),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
                     UniqueConstraint(
@@ -1764,6 +1949,204 @@ class EntsoeFMSCrawler(BaseCrawler):
                     UniqueConstraint(
                         "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
                         name="unique_year_ahead_forecast_margin"
+                    )
+                )
+            case 'ImplicitAllocationsNetPositions':
+                table = Table(
+                    'ImplicitAllocationsNetPositions', metadata,
+                    Column("DateTime(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("AreaCode", String),
+                    Column("AreaDisplayName", String),
+                    Column("AreaTypeCode", String),
+                    Column("AreaMapCode", String),
+                    Column("ContractType", String),
+                    Column("NetPosition[MW]", Float),
+                    Column("Direction", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode", "ContractType",
+                        name="unique_implicit_alloc_net_pos"
+                    )
+                )
+            case 'CommercialSchedules':
+                table = Table(
+                    'CommercialSchedules', metadata,
+                    Column("DateTime(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("OutAreaCode", String),
+                    Column("OutAreaDisplayName", String),
+                    Column("OutAreaTypeCode", String),
+                    Column("OutAreaMapCode", String),
+                    Column("InAreaCode", String),
+                    Column("InAreaDisplayName", String),
+                    Column("InAreaTypeCode", String),
+                    Column("InAreaMapCode", String),
+                    Column("DayAheadCapacity[MW]", Float),
+                    Column("TotalCapacity[MW]", Float),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "DateTime(UTC)", "ResolutionCode", "OutAreaCode", "InAreaCode",
+                        name="unique_comm_schedules"
+                    )
+                )
+            case 'RedispatchingInternal':
+                table = Table(
+                    'RedispatchingInternal', metadata,
+                    Column("InstanceCode", String),
+                    Column("StartRedispatching(UTC)", DateTime(timezone=True)),
+                    Column("EndRedispatching(UTC)", DateTime(timezone=True)),
+                    Column("StartTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("EndTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("AreaCode", String),
+                    Column("AreaDisplayName", String),
+                    Column("AreaTypeCode", String),
+                    Column("AreaMapCode", String),
+                    Column("AssetCode", String),
+                    Column("AssetName", String),
+                    Column("AssetType", String),
+                    Column("AssetLocation", String),
+                    Column("ConnectingMarketParticipantCode", String),
+                    Column("ConnectingMarketParticipantName", String),
+                    Column("CapacityImpact[MWh/MTU]", Float),
+                    Column("ActionType", String),
+                    Column("ActionDirection", String),
+                    Column("Reason", String),
+                    Column("Comment", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "ActionType", "ActionDirection",
+                        name="unique_redispatching_internal"
+                    )
+                )
+            case 'RedispatchingCrossBorder':
+                table = Table(
+                    'RedispatchingCrossBorder', metadata,
+                    Column("InstanceCode", String),
+                    Column("StartRedispatching(UTC)", DateTime(timezone=True)),
+                    Column("EndRedispatching(UTC)", DateTime(timezone=True)),
+                    Column("StartTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("EndTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("OutAreaCode", String),
+                    Column("OutAreaDisplayName", String),
+                    Column("OutAreaTypeCode", String),
+                    Column("OutAreaMapCode", String),
+                    Column("InAreaCode", String),
+                    Column("InAreaDisplayName", String),
+                    Column("InAreaTypeCode", String),
+                    Column("InAreaMapCode", String),
+                    Column("AssetCode", String),
+                    Column("AssetName", String),
+                    Column("AssetType", String),
+                    Column("AssetLocation", String),
+                    Column("ConnectingMarketParticipantCode", String),
+                    Column("ConnectingMarketParticipantName", String),
+                    Column("CapacityImpact[MWh/MTU]", Float),
+                    Column("ActionType", String),
+                    Column("ActionDirection", String),
+                    Column("Reason", String),
+                    Column("Comment", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode",
+                        "OutAreaCode", "InAreaCode", "ActionType", "ActionDirection",
+                        name="unique_redispatching_cross_border"
+                    )
+                )
+            case 'Countertrading':
+                table = Table(
+                    'Countertrading', metadata,
+                    Column("InstanceCode", String),
+                    Column("TimeIntervalFrom(UTC)", DateTime(timezone=True)),
+                    Column("TimeIntervalTo(UTC)", DateTime(timezone=True)),
+                    Column("StartTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("EndTimeSeries(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("OutAreaCode", String),
+                    Column("OutAreaDisplayName", String),
+                    Column("OutAreaTypeCode", String),
+                    Column("OutAreaMapCode", String),
+                    Column("InAreaCode", String),
+                    Column("InAreaDisplayName", String),
+                    Column("InAreaTypeCode", String),
+                    Column("InAreaMapCode", String),
+                    Column("ConnectingMarketParticipantCode", String),
+                    Column("ConnectingMarketParticipantName", String),
+                    Column("Action", String),
+                    Column("ChangeInCrossBorderExchange[MW]", Float),
+                    Column("Reason", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "OutAreaCode", "InAreaCode",
+                        name="unique_countertrading"
+                    )
+                )
+            case 'CostsOfCongestionManagement':
+                table = Table(
+                    'CostsOfCongestionManagement', metadata,
+                    Column("Year", Float),
+                    Column("Month", Float),
+                    Column("TimeZone", String),
+                    Column("ResolutionCode", String),
+                    Column("AreaCode", String),
+                    Column("AreaDisplayName", String),
+                    Column("AreaTypeCode", String),
+                    Column("AreaMapCode", String),
+                    Column("RedispatchingCosts", Float),
+                    Column("CountertradingCosts", Float),
+                    Column("OtherCosts", Float),
+                    Column("TotalCosts", Float),
+                    Column("Currency", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "Year", "Month", "AreaCode", "AreaTypeCode",
+                        name="unique_costs_congestion_mgmt"
+                    )
+                )
+            case 'ImbalancePrices':
+                table = Table(
+                    'ImbalancePrices', metadata,
+                    Column("DateTime(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("AreaCode", String),
+                    Column("AreaDisplayName", String),
+                    Column("AreaTypeCode", String),
+                    Column("AreaMapCode", String),
+                    Column("PositiveImbalancePrice[Currency/MWh]", Float),
+                    Column("PositiveScarcity[Currency/MWh]", Float),
+                    Column("PositiveIncentive[Currency/MWh]", Float),
+                    Column("PositiveFinancialNeutrality[Currency/MWh]", Float),
+                    Column("NegativeImbalancePrice[Currency/MWh]", Float),
+                    Column("NegativeScarcity[Currency/MWh]", Float),
+                    Column("NegativeIncentive[Currency/MWh]", Float),
+                    Column("NegativeFinancialNeutrality[Currency/MWh]", Float),
+                    Column("Currency", String),
+                    Column("Status", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode",
+                        name="unique_imbalance_prices"
+                    )
+                )
+            case 'TotalImbalanceVolumes':
+                table = Table(
+                    'TotalImbalanceVolumes', metadata,
+                    Column("DateTime(UTC)", DateTime(timezone=True)),
+                    Column("ResolutionCode", String),
+                    Column("AreaCode", String),
+                    Column("AreaDisplayName", String),
+                    Column("AreaTypeCode", String),
+                    Column("AreaMapCode", String),
+                    Column("TotalImbalanceVolume[MWh]", Float),
+                    Column("Difference[MWh]", Float),
+                    Column("Situation", String),
+                    Column("Status", String),
+                    Column("UpdateTime(UTC)", DateTime(timezone=True)),
+                    UniqueConstraint(
+                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode",
+                        name="unique_total_imbalance_volumes"
                     )
                 )
 
@@ -1916,7 +2299,7 @@ class EntsoeFMSCrawler(BaseCrawler):
         _list_metadata and _download_file methods, processes it, and flushes *only* old data.
 
         Args:
-            data_item (str): The data item string (e.g., "ActualTotalLoad_6.1.A_r3").
+            data_item (str): The data item, with or without version (e.g., "ActualTotalLoad_6.1.A").
             local_dir (str): Local directory to save temp file.
             file_identifier (str | None): The period string (e.g., "2024_01" or "2022") or None for "single" logic.
             logic_type (str): "%Y_%m", "%Y", or "single".
@@ -1934,7 +2317,7 @@ class EntsoeFMSCrawler(BaseCrawler):
 
             target_meta = None
             if logic_type == "single":
-                target_fname = f"{data_item}.csv"
+                target_fname = f"{self._resolve_folder(data_item)}.csv"
                 target_meta = next((m for m in all_metas if m["name"] == target_fname), None)
             else:
                 target_meta = next((m for m in all_metas if m["name"].startswith(str(file_identifier))), None)
@@ -1950,6 +2333,7 @@ class EntsoeFMSCrawler(BaseCrawler):
             self.logger.info(f"Downloading (Backward Update): {fname}")
             self._download_file(file_id, local_path)
             df = pd.read_csv(local_path, encoding="utf-8-sig", sep="\t")
+            df.columns = df.columns.str.strip()
 
             if table_name == "InstalledCapacityProductionUnit":
                 self.logger.info(f"[_update_data_file] Flushing (special case) {len(df)} rows for {table_name}")
@@ -1986,6 +2370,10 @@ class EntsoeFMSCrawler(BaseCrawler):
                 """)
                 result = conn.execute(query).fetchone()
                 last_update_time = result[0] if result else None
+
+            self._migrate_renamed_columns(table_name)
+            self._ensure_nulls_not_distinct(table_name)
+            self._add_missing_columns(table_name, df)
 
             if last_update_time is None:
                 self.logger.warning(f"[_update_data_file] Table '{table_name}' is empty (no last_update_time). Flushing all {len(df)} rows as update.")

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- ENTSO-E FMS: resolve every data item to the newest File Library version
+  (`_r3`, `_r3.1`, `_r3.2`, ...) at run time; old versioned names in
+  `target_data_items` keep working.
+- ENTSO-E FMS: adopt the harmonised r3.1 column names and rename existing
+  columns once in place; add columns that new extracts introduce.
+- ENTSO-E FMS: add imbalance prices and volumes, redispatching,
+  countertrading, congestion costs, implicit allocation net positions and
+  commercial schedules.
 - Normalize current ALSI LNG values with explicit units and compatible schema upgrades.
 - Derive SMARD metadata coverage from stored timestamps.
 - Stream MaStR ZIP members and support small, repeatable table samples.
