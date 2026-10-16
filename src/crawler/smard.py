@@ -9,16 +9,30 @@ It contains mostly data for Germany which is also availble in the ENTSO-E transp
 
 import json
 import logging
+import time
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
 from sqlalchemy import MetaData, Table, text
 from sqlalchemy.dialects.postgresql import insert
+
+from urllib3.util.retry import Retry
 
 from crawler.common.base_crawler import BaseCrawler
 
 log = logging.getLogger("smard")
 DEFAULT_START_DATE = "2024-06-02 22:00:00"  # "2023-11-26 22:45:00"
+# Catching up issues many requests in a row; smard.de resets connections when they come too fast.
+REQUEST_PAUSE_SECONDS = 0.5
+
+
+def _http_session() -> requests.Session:
+    retry = Retry(total=5, backoff_factor=5, status_forcelist=(429, 500, 502, 503, 504),
+                  allowed_methods=("GET",))
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
 
 
 metadata_info = {
@@ -142,13 +156,15 @@ class SmardCrawler(BaseCrawler):
             # 5097: 'Prognostizierte Erzeugung PV und Wind Day-Ahead'
         }
 
+        session = _http_session()
         for commodity_id, commodity_name in keys.items():
             start_date, latest = self.select_latest(commodity_id)
             # start_date_tz to unix time
             start_date_unix = int(start_date.timestamp() * 1000)
             url = f"https://www.smard.de/app/chart_data/{commodity_id}/DE/{commodity_id}_DE_quarterhour_{start_date_unix}.json"
             log.info(url)
-            response = requests.get(url, timeout=30)
+            time.sleep(REQUEST_PAUSE_SECONDS)
+            response = session.get(url, timeout=30)
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
