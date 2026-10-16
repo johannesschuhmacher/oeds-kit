@@ -1652,7 +1652,7 @@ negative_prices AS (
 )
 SELECT
     u."ProductionType" AS production_type,
-    COALESCE(u."ReasonText", u."Reason", 'Unknown') AS reason,
+    COALESCE(u."Comment", u."Reason", 'Unknown') AS reason,
     COUNT(DISTINCT u."InstanceCode") AS affected_assets,
     ROUND(AVG(u."AvailableCapacity[MW]")::numeric, 1) AS avg_available_capacity_mw,
     MIN(u."StartOutage(UTC)") AS first_outage_start,
