@@ -9,6 +9,8 @@ from xml.etree import ElementTree
 import pandas as pd
 import requests
 from remotezip import RemoteZip
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from sqlalchemy import bindparam, inspect, text
 
 from crawler.common.base_crawler import BaseCrawler
@@ -38,8 +40,18 @@ class MastrCrawler(BaseCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
 
+    @staticmethod
+    def _download_session() -> requests.Session:
+        # The export server occasionally resets connections; each ZIP member is
+        # fetched with its own range request, so retrying it is safe.
+        retry = Retry(total=5, backoff_factor=5, status_forcelist=(429, 500, 502, 503, 504),
+                      allowed_methods=("GET", "HEAD"))
+        session = requests.Session()
+        session.mount("https://", HTTPAdapter(max_retries=retry))
+        return session
+
     def get_data_from_mastr(self, data_url):
-        with RemoteZip(data_url, headers={"Accept-Encoding": "identity"},
+        with RemoteZip(data_url, session=self._download_session(), headers={"Accept-Encoding": "identity"},
                        timeout=int(self.config.get("request_timeout_seconds", 90))) as archive:
             for info in archive.infolist():
                 table = info.filename.removesuffix(".xml").split("_")[0]
