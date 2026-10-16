@@ -1,0 +1,5 @@
+# Version limits applied to every uv pip install in Dockerfile.crawler-modular.
+#
+# SQLAlchemy 2.1 maps postgresql:// to psycopg (v3); all OEDS modules use
+# psycopg2, so every crawler would fail with "No module named 'psycopg'".
+sqlalchemy>=2.0,<2.1
