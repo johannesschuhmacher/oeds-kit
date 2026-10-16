@@ -139,7 +139,7 @@ entsog:
   description: Crawls ENTSOG transparency platform reference and operational gas data
   schedule: 30 2 * * *
   default_start_date: '2024-01-01'
-  chunk_days: 7
+  chunk_days: 1
   request_pause_seconds: 1.0
 energy_forecast_crawler:
   enable: false
