@@ -103,6 +103,32 @@ class MastrCrawler(BaseCrawler):
         end = html_site.find('"', begin)
         return html_site[begin:end]
 
+    @staticmethod
+    def _align_table(conn, table_name: str, df: pd.DataFrame) -> None:
+        """Let an existing table accept df: add new columns, store numeric columns that now hold text as TEXT.
+
+        Later export files of the same table can contain columns or values the first file lacked.
+        """
+        inspector = inspect(conn)
+        if not inspector.has_table(table_name):
+            return
+        quote = conn.dialect.identifier_preparer.quote
+        existing = {column["name"]: column["type"] for column in inspector.get_columns(table_name)}
+        for col in df.columns:
+            holds_numbers = pd.api.types.is_numeric_dtype(df[col])
+            if col not in existing:
+                sql_type = "DOUBLE PRECISION" if holds_numbers else "TEXT"
+                conn.execute(text(f"ALTER TABLE {quote(table_name)} ADD COLUMN {quote(col)} {sql_type}"))
+                continue
+            try:
+                stored_as_number = existing[col].python_type in (int, float)
+            except NotImplementedError:
+                stored_as_number = False
+            if stored_as_number and not holds_numbers and df[col].notna().any():
+                conn.execute(text(
+                    f"ALTER TABLE {quote(table_name)} ALTER COLUMN {quote(col)} TYPE TEXT USING {quote(col)}::text"
+                ))
+
     def set_index(self, data_):
         # Mastr should always be lowercase to avoid confusion
         new_cols = list(data_.columns.copy())
@@ -137,34 +163,14 @@ class MastrCrawler(BaseCrawler):
                 pk = self.set_index(df)
                 row_counts[table_name] = row_counts.get(table_name, 0) + len(df)
 
-                try:
-                    # this will fail if there is a new column
-                    with self.engine.begin() as conn:
-                        if pk and inspect(conn).has_table(table_name, schema=self.get("schema_name")):
-                            quote = conn.dialect.identifier_preparer.quote
-                            statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
-                            conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
-                                         {"ids": df[pk].dropna().tolist()})
-                        df.to_sql(table_name, conn, if_exists="append", index=False)
-                except Exception as e:
-                    self.logger.info(repr(e))
-                    with self.engine.begin() as conn:
-                        data = pd.read_sql(f'SELECT * FROM "{table_name}"', conn)
-                    if "level_0" in data.columns:
-                        del data["level_0"]
-                    if "index" in data.columns:
-                        del data["index"]
-                    pk = self.set_index(data)
-                    df2 = pd.concat([data, df])
-                    if pk:
-                        df2 = df2.drop_duplicates(subset=pk, keep="last")
-                    with self.engine.begin() as conn:
-                        df2.to_sql(
-                            name=table_name,
-                            con=conn,
-                            if_exists="replace",
-                            index=False,
-                        )
+                with self.engine.begin() as conn:
+                    self._align_table(conn, table_name, df)
+                    if pk and inspect(conn).has_table(table_name):
+                        quote = conn.dialect.identifier_preparer.quote
+                        statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
+                        conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
+                                     {"ids": df[pk].dropna().tolist()})
+                    df.to_sql(table_name, conn, if_exists="append", index=False)
 
                 if table_name not in tables.keys():
                     tables[table_name] = pk
