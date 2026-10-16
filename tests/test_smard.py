@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from unittest.mock import Mock
 
 from crawler.smard import SmardCrawler
 from sqlalchemy import create_engine, text
@@ -33,3 +34,17 @@ def test_metadata_uses_stored_coverage_and_actual_schema():
     assert captured["temporal_start"] == "2026-09-01 00:00:00"
     assert captured["temporal_end"] == "2026-09-05 12:00:00"
     assert captured["data_date"] == pd.Timestamp.now(tz="UTC").date().isoformat()
+
+
+def test_run_repeats_weekly_passes_until_caught_up():
+    crawler = object.__new__(SmardCrawler)
+    crawler.logger = Mock()
+    crawler.create_table = lambda: None
+    crawler.update_metadata = lambda: None
+    passes = iter([96, 96, 12, 0])
+    calls = []
+    crawler.feed = lambda: calls.append(1) or next(passes)
+
+    crawler.run()
+
+    assert len(calls) == 4

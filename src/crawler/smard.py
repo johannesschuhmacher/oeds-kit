@@ -112,7 +112,7 @@ class SmardCrawler(BaseCrawler):
     ) -> None:
         rows = data_to_write.to_dict(orient="records")
         if not rows:
-            return
+            return 0
 
         statement = self._build_upsert_statement(
             self._get_table(table_name),
@@ -121,6 +121,7 @@ class SmardCrawler(BaseCrawler):
         )
         with self.engine.begin() as conn:
             conn.execute(statement)
+        return len(rows)
 
     def get_data_per_commodity(self):
         keys = {
@@ -200,7 +201,9 @@ class SmardCrawler(BaseCrawler):
         monday = local.normalize() - pd.Timedelta(days=local.weekday())
         return monday.tz_localize("Europe/Berlin").tz_convert("UTC")
 
-    def feed(self):
+    def feed(self) -> int:
+        """Load the next weekly chart file of every commodity; return the rows written."""
+        written = 0
         for data_for_commodity in self.get_data_per_commodity():
             if data_for_commodity.empty:
                 log.debug(f"No data for commodity {data_for_commodity}")
@@ -223,14 +226,17 @@ class SmardCrawler(BaseCrawler):
             # log.debug(df_for_commodity)
             # check if commodity_id is == 4169 then it isprice data
             if df_for_commodity.index.get_level_values("commodity_id")[0] == 4169:
-                self._write_rows("prices", data_to_write, ("price",))
+                written += self._write_rows("prices", data_to_write, ("price",))
             else:
-                self._write_rows("smard", data_to_write, ("commodity_name", "mwh"))
+                written += self._write_rows("smard", data_to_write, ("commodity_name", "mwh"))
+        return written
 
     def run(self):
         self.logger.info("SMARD crawler started.")
         self.create_table()
-        self.feed()
+        # Each pass loads one weekly file per commodity; repeat until caught up.
+        while self.feed():
+            pass
         self.update_metadata()
         self.logger.info("SMARD crawler finished successfully.")
 
