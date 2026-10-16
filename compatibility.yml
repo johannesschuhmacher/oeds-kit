@@ -7,7 +7,7 @@ components:
   oeds-crawler-pack:
     path: "../oeds-crawler-pack"
     repository: "https://github.com/johannesschuhmacher/oeds-crawler-pack.git"
-    commit: "2f778989d2750e5cc90a8b157ef48aea520b2e82"
+    commit: "d713596d77beaf8c70c10badf5e48a6702f3dfc4"
   oeds-scheduler-ui:
     path: "../oeds-scheduler-ui"
     repository: "https://github.com/johannesschuhmacher/oeds-scheduler-ui.git"
@@ -15,7 +15,7 @@ components:
   oeds-post-scripts:
     path: "../oeds-post-scripts"
     repository: "https://github.com/johannesschuhmacher/oeds-post-scripts.git"
-    commit: "e1622ff538565ef92ff1300d85b9933f047f2ae2"
+    commit: "e88e1e0db601c1ad6420af737633462871a8425d"
   oeds-deployment:
     path: "."
     repository: "https://github.com/johannesschuhmacher/oeds-deployment.git"
