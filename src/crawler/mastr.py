@@ -9,6 +9,8 @@ from xml.etree import ElementTree
 import pandas as pd
 import requests
 from remotezip import RemoteZip
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from sqlalchemy import bindparam, inspect, text
 
 from crawler.common.base_crawler import BaseCrawler
@@ -38,8 +40,18 @@ class MastrCrawler(BaseCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
 
+    @staticmethod
+    def _download_session() -> requests.Session:
+        # The export server occasionally resets connections; each ZIP member is
+        # fetched with its own range request, so retrying it is safe.
+        retry = Retry(total=5, backoff_factor=5, status_forcelist=(429, 500, 502, 503, 504),
+                      allowed_methods=("GET", "HEAD"))
+        session = requests.Session()
+        session.mount("https://", HTTPAdapter(max_retries=retry))
+        return session
+
     def get_data_from_mastr(self, data_url):
-        with RemoteZip(data_url, headers={"Accept-Encoding": "identity"},
+        with RemoteZip(data_url, session=self._download_session(), headers={"Accept-Encoding": "identity"},
                        timeout=int(self.config.get("request_timeout_seconds", 90))) as archive:
             for info in archive.infolist():
                 table = info.filename.removesuffix(".xml").split("_")[0]
@@ -91,6 +103,32 @@ class MastrCrawler(BaseCrawler):
         end = html_site.find('"', begin)
         return html_site[begin:end]
 
+    @staticmethod
+    def _align_table(conn, table_name: str, df: pd.DataFrame) -> None:
+        """Let an existing table accept df: add new columns, store numeric columns that now hold text as TEXT.
+
+        Later export files of the same table can contain columns or values the first file lacked.
+        """
+        inspector = inspect(conn)
+        if not inspector.has_table(table_name):
+            return
+        quote = conn.dialect.identifier_preparer.quote
+        existing = {column["name"]: column["type"] for column in inspector.get_columns(table_name)}
+        for col in df.columns:
+            holds_numbers = pd.api.types.is_numeric_dtype(df[col])
+            if col not in existing:
+                sql_type = "DOUBLE PRECISION" if holds_numbers else "TEXT"
+                conn.execute(text(f"ALTER TABLE {quote(table_name)} ADD COLUMN {quote(col)} {sql_type}"))
+                continue
+            try:
+                stored_as_number = existing[col].python_type in (int, float)
+            except NotImplementedError:
+                stored_as_number = False
+            if stored_as_number and not holds_numbers and df[col].notna().any():
+                conn.execute(text(
+                    f"ALTER TABLE {quote(table_name)} ALTER COLUMN {quote(col)} TYPE TEXT USING {quote(col)}::text"
+                ))
+
     def set_index(self, data_):
         # Mastr should always be lowercase to avoid confusion
         new_cols = list(data_.columns.copy())
@@ -125,34 +163,14 @@ class MastrCrawler(BaseCrawler):
                 pk = self.set_index(df)
                 row_counts[table_name] = row_counts.get(table_name, 0) + len(df)
 
-                try:
-                    # this will fail if there is a new column
-                    with self.engine.begin() as conn:
-                        if pk and inspect(conn).has_table(table_name, schema=self.get("schema_name")):
-                            quote = conn.dialect.identifier_preparer.quote
-                            statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
-                            conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
-                                         {"ids": df[pk].dropna().tolist()})
-                        df.to_sql(table_name, conn, if_exists="append", index=False)
-                except Exception as e:
-                    self.logger.info(repr(e))
-                    with self.engine.begin() as conn:
-                        data = pd.read_sql(f'SELECT * FROM "{table_name}"', conn)
-                    if "level_0" in data.columns:
-                        del data["level_0"]
-                    if "index" in data.columns:
-                        del data["index"]
-                    pk = self.set_index(data)
-                    df2 = pd.concat([data, df])
-                    if pk:
-                        df2 = df2.drop_duplicates(subset=pk, keep="last")
-                    with self.engine.begin() as conn:
-                        df2.to_sql(
-                            name=table_name,
-                            con=conn,
-                            if_exists="replace",
-                            index=False,
-                        )
+                with self.engine.begin() as conn:
+                    self._align_table(conn, table_name, df)
+                    if pk and inspect(conn).has_table(table_name):
+                        quote = conn.dialect.identifier_preparer.quote
+                        statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
+                        conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
+                                     {"ids": df[pk].dropna().tolist()})
+                    df.to_sql(table_name, conn, if_exists="append", index=False)
 
                 if table_name not in tables.keys():
                     tables[table_name] = pk
