@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from crawler.common.base_crawler import BaseCrawler
 from crawler.common.crawler_utils import (
+    CrawlerSkipped,
     build_session,
     compact_json,
     config_or_env,
@@ -239,10 +240,10 @@ class GieAgsiAlsiCrawler(BaseCrawler):
 
     def run(self):
         self._prepare_schema()
+        failures: list[str] = []
         api_key = self._api_key()
         if not api_key:
-            self.logger.info("GIE API key missing; wrote access status only.")
-            return
+            raise CrawlerSkipped("GIE API key missing; wrote access status only.")
 
         date_from, date_to = self._date_window()
         fetched_at = utc_now()
@@ -254,6 +255,7 @@ class GieAgsiAlsiCrawler(BaseCrawler):
                 frames.append(self._normalize_rows(query, rows, fetched_at))
             except Exception as exc:
                 self.logger.error("GIE query %s failed: %s", query, exc)
+                failures.append(str(query))
         if frames:
             combined = pd.concat(frames, ignore_index=True)
             self._replace_window(combined, date_from, date_to)
@@ -273,6 +275,8 @@ class GieAgsiAlsiCrawler(BaseCrawler):
             }
         )
         self.logger.info("GIE AGSI/ALSI crawler wrote %s rows.", len(combined))
+        if failures:
+            raise RuntimeError(f"GIE queries failed: {', '.join(failures)}")
 
 
 def main(schema_name: str = "gie_agsi_alsi"):

@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from crawler.common.base_crawler import BaseCrawler
 from crawler.common.crawler_utils import (
+    CrawlerSkipped,
     compact_json,
     config_or_env,
     has_credential,
@@ -223,8 +224,7 @@ class CopernicusCdsCrawler(BaseCrawler):
                 message="Set COPERNICUS_CDS_URL and COPERNICUS_CDS_KEY or provide a standard CDS API configuration.",
                 docs_url=DOCS_URL,
             )
-            self.logger.info("Copernicus CDS credentials missing; wrote access status only.")
-            return
+            raise CrawlerSkipped("Copernicus CDS credentials missing; wrote access status only.")
 
         write_access_status(
             self.engine,

@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from crawler.common.base_crawler import BaseCrawler
 from crawler.common.crawler_utils import (
+    CrawlerSkipped,
     build_session,
     compact_json,
     config_or_env,
@@ -247,8 +248,7 @@ class EiaCrawler(BaseCrawler):
                 message="Set EIA_API_KEY in crawler/.env for production access.",
                 docs_url=DOCS_URL,
             )
-            self.logger.info("EIA API key missing; wrote access status only.")
-            return
+            raise CrawlerSkipped("EIA API key missing; wrote access status only.")
 
         write_access_status(
             self.engine,

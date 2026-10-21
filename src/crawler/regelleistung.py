@@ -271,6 +271,7 @@ class RegelleistungCrawler(BaseCrawler):
 
     def run(self):
         self._prepare_schema()
+        failures: list[str] = []
         write_access_status(
             self.engine,
             source_name="regelleistung.net Datacenter",
@@ -301,6 +302,7 @@ class RegelleistungCrawler(BaseCrawler):
                     downloaded += 1
                 except Exception as exc:
                     self.logger.error("Failed to download or parse %s: %s", file_name, exc)
+                    failures.append(str(file_name))
 
         self.set_metadata(
             {
@@ -315,6 +317,8 @@ class RegelleistungCrawler(BaseCrawler):
             }
         )
         self.logger.info("Regelleistung crawler discovered %s files and imported %s.", len(files), downloaded)
+        if failures:
+            raise RuntimeError(f"Regelleistung files failed: {', '.join(failures)}")
 
 
 def main(schema_name: str = "regelleistung"):

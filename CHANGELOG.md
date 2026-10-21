@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- ENTSO-E FMS: read the incremental watermark once per data item instead of
+  after every file; the per-file re-read dropped rows of the next file.
+- ENTSO-E FMS: refresh `powersystemdata` with TRUNCATE + INSERT. Dropping the
+  table failed because availability-map views depend on it, so it stopped
+  updating.
+- Add `crawler.common.crawler_utils.CrawlerSkipped`; crawlers without
+  credentials (Copernicus, EIA, GIE, Netztransparenz, PRISMA) raise it so the
+  scheduler reports the run as skipped instead of succeeded.
+- GIE, Netztransparenz, PRISMA, Regelleistung and Trading Hub fail the run at
+  the end when single queries, endpoints, resources, files or reports failed.
 - ENTSO-E FMS: resolve every data item to the newest File Library version
   (`_r3`, `_r3.1`, `_r3.2`, ...) at run time; old versioned names in
   `target_data_items` keep working.

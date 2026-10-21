@@ -668,7 +668,12 @@ class EntsoeFMSCrawler(BaseCrawler):
         file_end = file_start + pd.DateOffset(months=1)
         return file_start < end_time and file_end > start_time
 
-    def _get_table_state(self, table_name: str) -> dict:
+    def _get_table_state(self, table_name: str, include_watermarks: bool = True) -> dict:
+        """Table existence and column names; with include_watermarks also MAX(UpdateTime)/MAX(DateTime).
+
+        The MAX queries scan the whole table, so callers that only need to know whether
+        the table exists (package-refresh mode, right after creating it) skip them.
+        """
         state = {
             "table_exists": False,
             "update_time_column": None,
@@ -719,12 +724,12 @@ class EntsoeFMSCrawler(BaseCrawler):
             ).fetchone()
             state["datetime_column_name"] = result[0] if result else None
 
-            if state["update_time_column"]:
+            if include_watermarks and state["update_time_column"]:
                 state["last_update_time"] = conn.execute(
                     text(f'SELECT MAX("{state["update_time_column"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
 
-            if state["datetime_column_name"]:
+            if include_watermarks and state["datetime_column_name"]:
                 state["last_date_time"] = conn.execute(
                     text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
@@ -1015,9 +1020,11 @@ class EntsoeFMSCrawler(BaseCrawler):
             # -------------------------------------------------------------------------
             # Pre-check logic: Determine effective start time for this specific table
             # -------------------------------------------------------------------------
+            # The watermark is read once per data item. Re-reading it after every file
+            # would drop rows of the next file whose UpdateTime lies below the new maximum.
             effective_start_time = start_time
             try:
-                table_state = self._get_table_state(table_name)
+                table_state = self._get_table_state(table_name, include_watermarks=not full_package_upsert)
                 if full_package_upsert:
                     self.logger.info(
                         "Table '%s' uses package-refresh mode. Processing package files from %s.",
@@ -1032,7 +1039,9 @@ class EntsoeFMSCrawler(BaseCrawler):
                         effective_start_time,
                     )
             except Exception as e:
-                self.logger.warning(f"Pre-check failed: {e}")
+                self.logger.error(f"Pre-check failed for {table_name}: {e}", exc_info=True)
+                failures.append(f"{data_item}: pre-check")
+                continue
 
             for meta in metas:
                 fname: str = meta["name"]
@@ -1065,14 +1074,13 @@ class EntsoeFMSCrawler(BaseCrawler):
 
                 # ---------------- CSV Parsing & DB Logic (Stream-Processing) ----------------
                 try:
-                    table_state = self._get_table_state(table_name)
                     if not table_state["table_exists"]:
                         create = True
                         if not do_not_create_again:
                             self.logger.info("Table '%s' not found, creating it.", table_name)
                             self._create_table_with_unique_constraint(table_name)
                             do_not_create_again = True
-                        table_state = self._get_table_state(table_name)
+                            table_state = self._get_table_state(table_name, include_watermarks=False)
 
                     chunk_size = 50000
                     total_file_inserts = 0
@@ -1245,8 +1253,16 @@ class EntsoeFMSCrawler(BaseCrawler):
             df = df.dropna(axis=0, subset=["lon", "lat"])  # Drop rows that cannot be shown on a map.
             dropped_count = original_count - len(df)
 
-            with self.engine.begin() as conn:
-                df.to_sql("powersystemdata", conn, if_exists="replace", index=False)  # Replace the snapshot on refresh.
+            # Views in entsoe_availability_map depend on this table, so it must not be
+            # dropped (to_sql replace). Keep it and swap its rows instead.
+            if self._table_columns("powersystemdata"):
+                self._add_missing_columns("powersystemdata", df)
+                with self.engine.begin() as conn:
+                    conn.execute(text('TRUNCATE TABLE "entsoe_fms"."powersystemdata"'))
+                    df.to_sql("powersystemdata", conn, if_exists="append", index=False)
+            else:
+                with self.engine.begin() as conn:
+                    df.to_sql("powersystemdata", conn, if_exists="fail", index=False)
 
             self.logger.info(f"Finish updating 'powersystemdata',  {len(df)} records")
             print(f"Finish updating 'powersystemdata',  {len(df)} records")

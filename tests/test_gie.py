@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from crawler.common.crawler_utils import CrawlerSkipped
 from crawler.gie_agsi_alsi import GieAgsiAlsiCrawler
 
 
@@ -32,3 +33,17 @@ def test_legacy_alsi_volume_is_not_interpreted_as_energy():
     assert actual.lng_inventory_thousand_m3 == 853.42
     assert actual.lng_storage_capacity_thousand_m3 == 900
     assert pd.isna(actual.lng_inventory_gwh)
+
+
+def test_missing_api_key_marks_run_as_skipped():
+    from unittest.mock import Mock
+
+    import pytest
+
+    crawler = object.__new__(GieAgsiAlsiCrawler)
+    crawler.logger = Mock()
+    crawler._prepare_schema = Mock()
+    crawler._api_key = Mock(return_value=None)
+
+    with pytest.raises(CrawlerSkipped):
+        crawler.run()

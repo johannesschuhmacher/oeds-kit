@@ -227,6 +227,7 @@ class TradingHubCrawler(BaseCrawler):
 
     def run(self):
         self._prepare_schema()
+        failures: list[str] = []
         write_access_status(
             self.engine,
             source_name="Trading Hub Europe XML Interface",
@@ -248,6 +249,7 @@ class TradingHubCrawler(BaseCrawler):
                 total_rows += len(records)
             except Exception as exc:
                 self.logger.error("Trading Hub Europe report %s failed: %s", report_id, exc)
+                failures.append(str(report_id))
         self.set_metadata(
             {
                 "schema_name": self.schema_name,
@@ -261,6 +263,8 @@ class TradingHubCrawler(BaseCrawler):
             }
         )
         self.logger.info("Trading Hub Europe crawler wrote %s report rows.", total_rows)
+        if failures:
+            raise RuntimeError(f"Trading Hub Europe reports failed: {', '.join(failures)}")
 
 
 def main(schema_name: str = "tradinghub"):
