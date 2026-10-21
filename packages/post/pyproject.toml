@@ -21,6 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# `oeds-post backfill entsoe-unavailability` imports the pack's ENTSO-E FMS crawler.
+backfill = ["oeds-crawler-pack"]
 price-forecast = [
     "da-price-forecasting @ git+https://github.com/philipprisk/DA_Price_Forecasting_Pipeline_DE_LU.git@c3f8a270cbeff328a30609f9b66e96ced693b676",
     "holidays",
