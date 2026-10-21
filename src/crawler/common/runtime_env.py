@@ -4,18 +4,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import os
 from urllib.parse import quote, urlsplit, urlunsplit
 
-from crawler.common.local_env import get_repo_root, load_crawler_dotenv
-
-__all__ = ["get_repo_root", "load_local_crawler_env", "resolve_database_uri"]
-
-
-def load_local_crawler_env(repo_root: Path | None = None) -> None:
-    """Alias kept for ``crawler_core.runtime_env``; use ``local_env.load_crawler_dotenv``."""
-    load_crawler_dotenv(repo_root)
+__all__ = ["resolve_database_uri"]
 
 
 def resolve_database_uri(database_uri: str) -> str:
