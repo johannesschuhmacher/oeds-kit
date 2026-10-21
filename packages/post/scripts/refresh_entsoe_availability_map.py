@@ -20,6 +20,11 @@ REQUIRED_SOURCE_TABLES = (
     ("entsoe_fms", "UnavailabilityOfProductionAndGenerationUnits"),
     ("entsoe_fms", "InstalledGenerationCapacityPerProductionUnit"),
 )
+# Refresh order matters: the country aggregate reads mv_availability_next_24h.
+MATERIALIZED_VIEWS = (
+    "mv_availability_next_24h",
+    "mv_availability_country_unknown_agg_next_24h",
+)
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -77,8 +82,14 @@ def main() -> None:
         return
 
     logging.info("Refreshing ENTSO-E availability map objects...")
+    # The SQL file only (re)defines the objects; the materialized views are
+    # created IF NOT EXISTS. Each REFRESH runs in its own transaction so the
+    # exclusive lock on a view is held only while that view is rebuilt.
     with engine.begin() as conn:
         conn.exec_driver_sql(sql)
+    for view in MATERIALIZED_VIEWS:
+        with engine.begin() as conn:
+            conn.execute(text(f"REFRESH MATERIALIZED VIEW entsoe_availability_map.{view}"))
     logging.info("ENTSO-E availability map objects refreshed.")
 
 
