@@ -17,10 +17,10 @@ This module contains the KIT-enhanced crawler implementations and their shared
 base class `crawler.common.kit_base.KitCrawler`. It does not contain the
 scheduler, post-run scripts, or deployment.
 
-The generic parts of `crawler_core`, `BaseCrawler`, database URI handling, and
-the crawler contract are intended for an upstream contribution to OEDS. Until
-that contribution is accepted, the compatibility code is kept here so the
-published modules work without the KIT monorepository.
+The generic parts of `KitCrawler` (per-crawler logging, database URI
+handling) are intended for an upstream contribution to OEDS. Until that
+contribution is accepted, they are kept here so the published modules work
+without the KIT monorepository.
 
 This package exists to prevent functionality loss while improved KIT crawlers
 are prepared for upstream OEDS or kept as extension crawlers.
@@ -28,7 +28,6 @@ are prepared for upstream OEDS or kept as extension crawlers.
 ## Current Behavior
 
 - ships all current KIT crawler implementations as importable `crawler.*`
-- ships the temporary `crawler_core` and BaseCrawler compatibility API
 - registers its crawlers as `oeds.crawlers` entry points such as
   `crawler.smard:SmardCrawler` (`oeds-crawl --list` shows them)
 - gives KIT crawler specs priority over upstream OEDS when the deployment stack
@@ -51,9 +50,9 @@ config access `self.get("a.b")`, and `set_metadata` with
 `concave_hull_geometry`. Constructors take `(crawler_name, config)`; the
 `database_uri` config key (ending in `?options=--search_path=`) stays valid,
 `kit_db_uri` turns it into the `{DBNAME}` form upstream expects.
-Crawlers subclass `KitCrawler` directly. `crawler.common.base_crawler.BaseCrawler`
-is a deprecated alias kept for `crawler_core`, which oeds-scheduler-ui and
-oeds-deployment still import; alias and `crawler_core` are removed together.
+Crawlers subclass `KitCrawler` directly; there is no other base-class import
+path. Other modules use `crawler.common.local_env` (dotenv, email overrides)
+and `crawler.common.runtime_env.resolve_database_uri`.
 
 ## Local Development
 

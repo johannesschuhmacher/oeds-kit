@@ -8,12 +8,13 @@
 - The pack's crawlers now run on upstream's `oeds.base_crawler.BaseCrawler`
   through `crawler.common.kit_base.KitCrawler`, which adds only what the pack
   needs on top (per-crawler file log and critical-error mails, dotted `get`,
-  metadata with `concave_hull_geometry`). `crawler.common.base_crawler.BaseCrawler`
-  is an alias of `KitCrawler`. `oeds` is pulled in as a direct git dependency
-  on the fork.
-- The crawlers subclass `crawler.common.kit_base.KitCrawler` directly. The
-  `crawler.common.base_crawler.BaseCrawler` alias is deprecated and stays only
-  for `crawler_core`, which oeds-scheduler-ui and oeds-deployment still import.
+  metadata with `concave_hull_geometry`). `oeds` is pulled in as a direct git
+  dependency on the fork.
+- Removed the `crawler_core` facade and the `crawler.common.base_crawler`
+  alias; import `KitCrawler` from `crawler.common.kit_base`. oeds-scheduler-ui
+  and oeds-post-scripts no longer import either, and `runtime_env` keeps only
+  `resolve_database_uri` (dotenv loading lives in `crawler.common.local_env`).
+- The crawlers subclass `crawler.common.kit_base.KitCrawler` directly.
   Redundant `self.schema_name = self.get("schema_name")` lines in the crawler
   constructors are gone; `KitCrawler` sets `schema_name` (config value, else
   the crawler name).
@@ -30,8 +31,6 @@
   constructor style from parameter names and passed the schema name instead
   of the crawler name, so `energy_forecast_crawler` logged as
   `energy_forecast` and its alert mails were lost.
-- `runtime_env.load_local_crawler_env` and `get_repo_root` delegate to
-  `local_env`; the dotenv loading is no longer duplicated.
 - New `oeds-crawl` command: run one crawler by hand with the config the
   scheduler would use (`oeds-crawl smard --config CRAWLER_CONFIG.yml [--job ...]`,
   `--list`). Exit codes 0 ok, 1 failed, 3 skipped. Crawlers are found through

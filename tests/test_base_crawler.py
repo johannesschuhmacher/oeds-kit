@@ -1,17 +1,12 @@
 import logging
 from unittest.mock import patch
 
-from crawler.common.base_crawler import BaseCrawler
 from crawler.common.kit_base import KitCrawler
 
 
-class _Crawler(BaseCrawler):
+class _Crawler(KitCrawler):
     def run(self):
         pass
-
-
-def test_base_crawler_alias_is_kit_crawler():
-    assert BaseCrawler is KitCrawler
 
 
 def test_unwritable_log_file_does_not_abort_construction(tmp_path, monkeypatch):
