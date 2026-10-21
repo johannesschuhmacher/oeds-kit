@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import shlex
+import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -142,43 +145,98 @@ class SchedulerAdminConfigTest(unittest.TestCase):
         self.assertEqual(form["schedule"], "30 2 * * *")
 
 
+# Stands in for ``oeds-crawl``: parses its arguments and exits with $OEDS_TEST_EXIT_CODE.
+CRAWL_STUB = """\
+import argparse, os, sys
+parser = argparse.ArgumentParser()
+parser.add_argument("crawler")
+parser.add_argument("--config", required=True)
+parser.add_argument("--job")
+args = parser.parse_args()
+print(f"stub run {args.crawler} config={os.path.basename(args.config)}", flush=True)
+code = int(os.environ["OEDS_TEST_EXIT_CODE"])
+if code == 1:
+    print("RuntimeError: boom", file=sys.stderr)
+if code == 3:
+    print("Skipped stub: ENTSOE_API_KEY is not configured", file=sys.stderr)
+sys.exit(code)
+"""
+
+
+@contextmanager
+def _environment(**values: str):
+    previous = {name: os.environ.get(name) for name in values}
+    os.environ.update(values)
+    try:
+        yield
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
 class CrawlerRunServiceTest(unittest.TestCase):
+    def _execute(self, service: CrawlerRunService, executor) -> object:
+        prepared = PreparedAction(
+            crawler_name="entsoe_fms",
+            action_id="run_now",
+            action_label="Run once",
+            description="Run once.",
+            effective_config={},
+            config_overrides={},
+            action_payload={},
+            run_post_scripts=False,
+            executor=executor,
+            requires_crawler=False,
+        )
+        run_id = service._create_run_record(prepared, trigger_source="manual")
+        service._execute_run(run_id, prepared)
+        return service.get_run(run_id)
+
     def test_skipped_crawler_run_is_recorded_as_skipped(self) -> None:
         class CrawlerSkipped(Exception):
             """Stands in for crawler.common.crawler_utils.CrawlerSkipped."""
 
-        def skip_run(_crawler: object) -> str | None:
+        def skip_run(_crawler: object, _log: object) -> str | None:
             raise CrawlerSkipped("ENTSOE_API_KEY is not configured")
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            previous_state_dir = os.environ.get("OEDS_ADMIN_STATE_DIR")
-            os.environ["OEDS_ADMIN_STATE_DIR"] = temp_dir
-            try:
-                service = CrawlerRunService(repo_root=Path(temp_dir))
-                prepared = PreparedAction(
-                    crawler_name="entsoe_fms",
-                    action_id="run",
-                    action_label="Run once",
-                    description="Run once.",
-                    effective_config={},
-                    config_overrides={},
-                    action_payload={},
-                    run_post_scripts=False,
-                    executor=skip_run,
-                    requires_crawler=False,
-                )
-                run_id = service._create_run_record(prepared, trigger_source="manual")
-                service._execute_run(run_id, prepared)
-                record = service.get_run(run_id)
-            finally:
-                if previous_state_dir is None:
-                    os.environ.pop("OEDS_ADMIN_STATE_DIR", None)
-                else:
-                    os.environ["OEDS_ADMIN_STATE_DIR"] = previous_state_dir
+        with tempfile.TemporaryDirectory() as temp_dir, _environment(OEDS_ADMIN_STATE_DIR=temp_dir):
+            record = self._execute(CrawlerRunService(repo_root=Path(temp_dir)), skip_run)
 
         self.assertEqual(record.status, "skipped")
         self.assertEqual(record.summary, "ENTSOE_API_KEY is not configured")
         self.assertIsNone(record.error_message)
+
+    def test_run_now_maps_oeds_crawl_exit_codes(self) -> None:
+        cases = [(0, "succeeded"), (1, "failed"), (3, "skipped")]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stub = Path(temp_dir) / "crawl_stub.py"
+            stub.write_text(CRAWL_STUB, encoding="utf-8")
+            command = shlex.join([Path(sys.executable).as_posix(), stub.as_posix()])
+            for exit_code, expected_status in cases:
+                with self.subTest(exit_code=exit_code), _environment(
+                    OEDS_ADMIN_STATE_DIR=temp_dir,
+                    OEDS_CRAWL_COMMAND=command,
+                    OEDS_TEST_EXIT_CODE=str(exit_code),
+                ):
+                    service = CrawlerRunService(repo_root=Path(temp_dir))
+                    record = self._execute(
+                        service,
+                        lambda _crawler, log: service._run_oeds_crawl("entsoe_fms", log),
+                    )
+                    log_text = Path(record.log_path).read_text(encoding="utf-8")
+
+                    self.assertEqual(record.status, expected_status)
+                    self.assertIn("stub run entsoe_fms config=CRAWLER_CONFIG.yml", log_text)
+                    if expected_status == "failed":
+                        self.assertIn("exited with code 1: RuntimeError: boom", record.error_message)
+                    elif expected_status == "skipped":
+                        self.assertIn("ENTSOE_API_KEY", record.summary)
+                        self.assertIsNone(record.error_message)
+                    else:
+                        self.assertEqual(record.summary, "Run completed successfully.")
 
 
 if __name__ == "__main__":

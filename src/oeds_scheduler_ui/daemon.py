@@ -22,6 +22,7 @@ class SchedulerDaemon:
         application: SchedulerApplication,
         *,
         poll_seconds: float = 60.0,
+        busy_poll_seconds: float = 5.0,
         now_func: Callable[[], datetime] = datetime.now,
         sleep_func: Callable[[float], None] = time.sleep,
         stop_event: Event | None = None,
@@ -30,6 +31,9 @@ class SchedulerDaemon:
             raise ValueError("poll_seconds must be positive")
         self.application = application
         self.poll_seconds = poll_seconds
+        # While runs are active, tick this often to report finished runs and
+        # start jobs that were waiting for a slot or a lock.
+        self.busy_poll_seconds = busy_poll_seconds
         self._now_func = now_func
         self._sleep_func = sleep_func
         self._stop_event = stop_event or Event()
@@ -49,11 +53,14 @@ class SchedulerDaemon:
 
     def seconds_until_next_tick(self, now: datetime | None = None) -> float:
         ref_time = now or self._now_func()
+        wait_seconds = self.poll_seconds
+        if self.application.service.active_run_count:
+            wait_seconds = min(wait_seconds, self.busy_poll_seconds)
         next_run_time = self.application.service.next_run_time
-        if next_run_time is None:
-            return self.poll_seconds
-        seconds_until_job = max(0.0, (next_run_time - ref_time).total_seconds())
-        return min(self.poll_seconds, seconds_until_job)
+        if next_run_time is not None:
+            seconds_until_job = max(0.0, (next_run_time - ref_time).total_seconds())
+            wait_seconds = min(wait_seconds, seconds_until_job)
+        return wait_seconds
 
     def run_forever(self) -> None:
         while not self.stopped:
@@ -74,21 +81,28 @@ class SchedulerDaemon:
             if self._stop_event.wait(wait_seconds):
                 break
 
+        # Runs are child processes; let the ones still active finish and
+        # report them instead of leaving them unaccounted for.
+        for result in self.application.service.wait_for_runs():
+            _log_run_result(result)
+
 
 def _log_run_result(result: CrawlerRunResult) -> None:
     if result.status == "failed":
         logger.error(
-            "Scheduled run of %s failed: %s",
+            "Scheduled run of %s failed: %s (log: %s)",
             result.display_name,
             _failure_detail(result),
+            result.log_path,
         )
     elif result.status == "skipped":
         logger.info("Scheduled run of %s skipped: %s", result.display_name, result.error)
     else:
         logger.info(
-            "Scheduled run of %s succeeded in %.1fs",
+            "Scheduled run of %s succeeded in %.1fs (log: %s)",
             result.display_name,
             result.duration_seconds,
+            result.log_path,
         )
 
 
