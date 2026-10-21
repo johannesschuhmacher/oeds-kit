@@ -1,15 +1,14 @@
 # oeds-crawler-pack
 
-Installable repository for the KIT crawler extensions while upstream OEDS
+Installable package for the KIT crawler extensions while upstream OEDS
 remains the base project.
 
-This repository is part of the modular OEDS stack. The shared crawler and
-database core remains in
-[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
-while deployment, scheduling/UI, and post-processing live in
-[oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment),
-[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
-and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts).
+This package is part of the [oeds-kit](../../README.md) workspace. The shared
+crawler and database core remains in
+[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server)
+(installed as the `oeds` dependency); scheduling/UI, post-processing and the
+deployment live in `packages/scheduler`, `packages/post` and `deploy/` of the
+same repository.
 
 ## Responsibility
 
@@ -19,8 +18,7 @@ scheduler, post-run scripts, or deployment.
 
 The generic parts of `KitCrawler` (per-crawler logging, database URI
 handling) are intended for an upstream contribution to OEDS. Until that
-contribution is accepted, they are kept here so the published modules work
-without the KIT monorepository.
+contribution is accepted, they are kept here.
 
 This package exists to prevent functionality loss while improved KIT crawlers
 are prepared for upstream OEDS or kept as extension crawlers.
@@ -56,22 +54,20 @@ and `crawler.common.runtime_env.resolve_database_uri`.
 
 ## Local Development
 
-Install and test this repository directly:
+From the repository root (one `uv.lock` for the whole workspace):
 
 ```powershell
-uv sync
-uv run --with pytest pytest tests
+uv sync --all-packages
+uv run --package oeds-crawler-pack pytest packages/crawler-pack/tests
 uv run oeds-crawl --list
 ```
 
-No checkout of `open-energy-data-server-KIT` is required.
-
 ## Live Validation
 
-Run credentialed source checks through the deployment repository's
-`tools/test_live_crawlers.sh`, not through unit tests. It uses isolated databases
-and can exercise both KIT and upstream implementations. See the
-[live crawler report](https://github.com/johannesschuhmacher/oeds-deployment/blob/main/docs/crawler-live-tests.md)
+Run credentialed source checks through `deploy/tools/test_live_crawlers.sh`,
+not through unit tests. It uses isolated databases and can exercise both KIT
+and upstream implementations. See the
+[live crawler report](../../deploy/docs/crawler-live-tests.md)
 for commands, measured results and known failures. Registry availability does
 not mean that every remote source is operational.
 

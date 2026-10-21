@@ -2,8 +2,8 @@
 #
 # Use only for disposable local tests:
 #
-#   docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml up -d open-data
-#   docker compose -f compose.yml -f compose.modular.yml -f compose.test.yml down -v
+#   docker compose -f compose.yml -f compose.test.yml up -d open-data
+#   docker compose -f compose.yml -f compose.test.yml down -v
 #
 # Requires a Docker Compose version that supports the `!override` merge tag.
 

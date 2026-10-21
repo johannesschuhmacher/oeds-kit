@@ -6,13 +6,13 @@ not yet verified; do not treat a CentOS test as an Ubuntu certification.
 
 ## 1. Prepare
 
-Install Git, Python 3.12 or newer, and Ansible. Clone `oeds-deployment` and
-assemble its pinned dependencies (see the main README). Keep secrets outside
-the checkout and installation directory. SSH into the VM; all commands below
-run in the VM's Linux terminal, not Windows PowerShell.
+Install Git, Python 3.12 or newer, and Ansible. Clone oeds-kit (see the main
+README); the commands below assume the clone is `$HOME/oeds-kit`. Keep secrets
+outside the checkout and installation directory. SSH into the VM; all commands
+below run in the VM's Linux terminal, not Windows PowerShell.
 
 ```bash
-cd "$HOME/oeds-assembled/modular_repos/modules/oeds-deployment/playbooks"
+cd "$HOME/oeds-kit/deploy/playbooks"
 # Change ansible_user in this file if your Linux username is not oeds.
 nano inventory.local.yml
 ansible-galaxy collection install -r requirements.yml
@@ -43,38 +43,36 @@ are retained. Save crawler credentials separately before this command.
 ansible-playbook -i inventory.local.yml -K oeds-install-host-prep.yml
 ansible-playbook -i inventory.local.yml -K oeds-install-core.yml \
   -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-assembled" \
+  -e oeds_repo_local_src="$HOME/oeds-kit" \
   -e oeds_crawler_env_file="$HOME/crawler.env"
 ```
 
 The supplied environment file is optional. This installs PostgreSQL/TimescaleDB,
 PostGIS, Grafana, pgAdmin and PostgREST, with no scheduled crawler runs.
 
-## 4. Install and check Python modules in order
+## 4. Build and check the Python runtime image
 
-Docker targets make each dependency boundary independently buildable. The
-`core` target installs the pinned OEDS core only, `crawlers` adds the crawler pack,
-`post` adds post-processing, and `runtime` adds scheduler/UI. Cached layers
-are reused. These stages verify installation order, not independent services.
+The image installs the three packages and their locked dependencies from the
+root `uv.lock` (`uv sync --frozen`); `oeds` itself is one of those
+dependencies. Check that the layers import before installing the services:
 
 ```bash
 cd /open_energy_data_server/repo
-for stage in core crawlers post runtime; do
-  docker build --target "$stage" -t "oeds-test:$stage" \
-    -f modular_repos/modules/oeds-deployment/docker/Dockerfile.crawler-modular .
-  docker run --rm "oeds-test:$stage" python -c 'import oeds; print("OEDS import OK")'
-done
+docker build --target runtime -t oeds-test:runtime \
+  -f deploy/docker/Dockerfile.crawler-modular .
+docker run --rm oeds-test:runtime python -c 'import oeds, crawler, oeds_scheduler_ui, oeds_post_scripts; print("imports OK")'
+docker run --rm oeds-test:runtime oeds-crawl --list --config /app/CRAWLER_CONFIG.yml
 ```
 
 Install post-processing database functions explicitly. They are not a
 dependency of database initialization:
 
 ```bash
-cd "$HOME/oeds-assembled/modular_repos/modules/oeds-deployment/playbooks"
+cd "$HOME/oeds-kit/deploy/playbooks"
 ansible-playbook -i inventory.local.yml -K oeds-install-post.yml
 ansible-playbook -i inventory.local.yml -K oeds-install-crawlers.yml \
   -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-assembled" \
+  -e oeds_repo_local_src="$HOME/oeds-kit" \
   -e oeds_crawler_env_file="$HOME/crawler.env"
 ```
 
@@ -84,7 +82,7 @@ Run from the installed deployment directory. These commands write sample data
 into the installed test database. Never run them on production.
 
 ```bash
-cd /open_energy_data_server/repo/modular_repos/modules/oeds-deployment
+cd /open_energy_data_server/repo/deploy
 sudo bash tools/load_sample_data.sh --include-entsoe-fms
 sudo bash tools/test_installation.sh
 ```
@@ -124,10 +122,10 @@ that opt-in check contacts all selected providers and may download large archive
 ## 6. Check an update
 
 ```bash
-cd "$HOME/oeds-assembled/modular_repos/modules/oeds-deployment/playbooks"
+cd "$HOME/oeds-kit/deploy/playbooks"
 ansible-playbook -i inventory.local.yml -K oeds-update.yml \
   -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-assembled" -e oeds_enable_crawlers=true
+  -e oeds_repo_local_src="$HOME/oeds-kit" -e oeds_enable_crawlers=true
 ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
   -e oeds_expect_crawler_admin=true
 ```

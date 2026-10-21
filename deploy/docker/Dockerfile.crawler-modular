@@ -1,59 +1,56 @@
 # SPDX-FileCopyrightText: OEDS Contributors
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Build context: the repository root (compose.yml sets `context: ..`).
+#   docker build -f deploy/docker/Dockerfile.crawler-modular --target runtime .
 
-FROM python:3.13-slim AS core
+FROM python:3.13-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+
+WORKDIR /app
+
+# git: uv fetches `oeds` (and the price-forecast pipeline) from Git. Every
+# other locked dependency ships a Linux wheel, so no compiler is needed.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Third-party dependencies first (from uv.lock only), so a source change does
+# not reinstall them.
+COPY pyproject.toml uv.lock README.md ./
+COPY packages/crawler-pack/pyproject.toml packages/crawler-pack/README.md packages/crawler-pack/
+COPY packages/scheduler/pyproject.toml packages/scheduler/README.md packages/scheduler/
+COPY packages/post/pyproject.toml packages/post/README.md packages/post/
+RUN uv sync --frozen --no-dev --all-packages --all-extras --no-install-workspace
+
+# Then the three workspace packages, installed as regular (non-editable)
+# packages so the runtime stage only needs /app/.venv.
+COPY packages/ packages/
+RUN uv sync --frozen --no-dev --all-packages --all-extras --no-editable
+
+FROM python:3.13-slim AS runtime
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=0 \
-    UV_CONSTRAINT=/app/constraints.txt \
     PYTHONPATH=/app \
     PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
+# libeccodes: runtime library for the cfgrib/eccodes GRIB readers.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        git \
-        libeccodes-dev && \
+    apt-get install -y --no-install-recommends libeccodes0 && \
     rm -rf /var/lib/apt/lists/*
 
-# All third-party dependencies come from the lock file (see
-# tools/update_requirements_lock.sh); the module installs below never resolve
-# dependencies themselves. Keep this layer before any source so that source
-# changes do not reinstall dependencies.
-COPY modular_repos/modules/oeds-deployment/docker/constraints.txt ./constraints.txt
-COPY modular_repos/modules/oeds-deployment/docker/requirements.lock ./requirements.lock
-RUN uv venv /app/.venv --python /usr/local/bin/python && \
-    uv pip sync --python /app/.venv/bin/python /app/requirements.lock
-
-COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
-RUN uv pip install --python /app/.venv/bin/python --no-deps \
-        -e /app/modular_repos/sources/oeds-core
-
-FROM core AS crawlers
-COPY modular_repos/modules/oeds-crawler-pack ./modular_repos/modules/oeds-crawler-pack
-RUN uv pip install --python /app/.venv/bin/python --no-deps \
-        -e /app/modular_repos/modules/oeds-crawler-pack
-
-FROM crawlers AS post
-COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-scripts
-RUN uv pip install --python /app/.venv/bin/python --no-deps \
-        -e /app/modular_repos/modules/oeds-post-scripts
-
-FROM post AS runtime
-COPY modular_repos/modules/oeds-scheduler-ui ./modular_repos/modules/oeds-scheduler-ui
-RUN uv pip install --python /app/.venv/bin/python --no-deps \
-        -e /app/modular_repos/modules/oeds-scheduler-ui
-
-COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
-COPY crawler/data ./crawler/data
+COPY --from=builder /app/.venv /app/.venv
+COPY deploy/CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
+COPY packages/crawler-pack/src/crawler/data ./crawler/data
 
 # /app itself must be writable: the admin UI writes CRAWLER_CONFIG.yml.tmp
 # next to the bind-mounted config before falling back to an in-place write.

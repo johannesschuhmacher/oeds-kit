@@ -13,6 +13,7 @@ dependencies = [
     "cron-converter",
     "fastapi",
     "jinja2",
+    "oeds-crawler-pack",
     "pandas",
     "pyyaml",
     "python-multipart",
