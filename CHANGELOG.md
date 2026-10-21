@@ -24,6 +24,12 @@
   `skipped` instead of `failed` in the scheduler runtime and the admin UI.
 - Apply `OEDS_EMAIL_*` environment overrides when the scheduler daemon loads
   its config, matching the admin UI.
+- Make `oeds-post-scripts` optional: the admin UI starts without it (the
+  Gapfill Tests page, gapfill/price-forecast panels and actions are absent),
+  and a post-run command whose executable is not installed is skipped with a
+  warning instead of failing the run.
+- Import `crawler.common.local_env` directly instead of the deprecated
+  `crawler_core` facade.
 
 ## 0.1.0
 

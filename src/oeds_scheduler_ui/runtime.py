@@ -33,12 +33,18 @@ DEFAULT_KEEP_RUN_LOGS = 200
 
 @dataclass(frozen=True)
 class PostRunCommandResult:
-    """Result of one scheduler-owned post-run command."""
+    """Result of one scheduler-owned post-run command.
+
+    ``skipped`` means the command's executable (for example ``oeds-post`` from
+    the optional post-processing package) is not installed; such a command
+    counts as successful so the run is not marked failed.
+    """
 
     command: str
     returncode: int | None
     success: bool
     error: str | None = None
+    skipped: bool = False
 
 
 @dataclass(frozen=True)
@@ -101,6 +107,12 @@ def is_crawler_skipped(exc: BaseException) -> bool:
     return any(cls.__name__ == "CrawlerSkipped" for cls in type(exc).__mro__)
 
 
+def find_executable(name: str) -> str | None:
+    """Path of ``name`` next to the current interpreter or on ``PATH``, else None."""
+
+    return shutil.which(name, path=str(Path(sys.executable).parent)) or shutil.which(name)
+
+
 def resolve_crawl_command() -> list[str]:
     """argv prefix that starts ``oeds-crawl``.
 
@@ -111,10 +123,7 @@ def resolve_crawl_command() -> list[str]:
     configured = os.environ.get("OEDS_CRAWL_COMMAND")
     if configured:
         return shlex.split(configured)
-    found = shutil.which(
-        "oeds-crawl", path=str(Path(sys.executable).parent)
-    ) or shutil.which("oeds-crawl")
-    return [found or "oeds-crawl"]
+    return [find_executable("oeds-crawl") or "oeds-crawl"]
 
 
 def crawl_command(
@@ -394,7 +403,8 @@ def execute_post_command(
 
     ``*.py`` paths run with the current interpreter and the working directory
     on ``PYTHONPATH`` (legacy scripts import workspace modules). Anything else,
-    such as ``oeds-post gapfill entsoe-fms``, is executed as given.
+    such as ``oeds-post gapfill entsoe-fms``, is executed as given; if its
+    executable is not installed the command is skipped with a warning.
     """
 
     argv = shlex.split(command)
@@ -407,6 +417,15 @@ def execute_post_command(
         )
     if argv[0].endswith(".py"):
         argv = [sys.executable, *argv]
+    else:
+        executable = find_executable(argv[0])
+        if executable is None:
+            logger.warning("post-processing command not installed; skipped: %s", command)
+            log.write(f"# post-run skipped (not installed): {command}\n")
+            return PostRunCommandResult(
+                command=command, returncode=None, success=True, skipped=True
+            )
+        argv[0] = executable
 
     log.write(f"# post-run: {command}\n")
     log.flush()
