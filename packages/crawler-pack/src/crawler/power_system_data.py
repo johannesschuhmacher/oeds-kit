@@ -2,10 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import io
 import os
 from datetime import datetime
 
 import pandas as pd
+import requests
 import yaml
 from sqlalchemy import Column, Float, MetaData, String, Table
 from sqlalchemy.dialects.postgresql import insert
@@ -78,7 +80,9 @@ class PowerSystemDataCrawler(KitCrawler):
         url = "https://raw.githubusercontent.com/PyPSA/powerplantmatching/master/powerplants.csv"
 
         try:
-            df = pd.read_csv(url)
+            response = requests.get(url, timeout=120)
+            response.raise_for_status()
+            df = pd.read_csv(io.BytesIO(response.content))
             self.logger.info(f"Done downloading {len(df)} records")
 
             column_mapping = {

@@ -113,6 +113,13 @@ WITH ranked AS (
                 o."UpdateTime(UTC)" DESC
         ) AS version_rank
     FROM entsoe_fms."UnavailabilityOfProductionAndGenerationUnits" o
+    -- "EndTimeSeries(UTC)" is part of the PARTITION BY (NULLs form one partition),
+    -- so this predicate is constant within every partition and only drops whole
+    -- partitions that the COALESCE(...) > now() filter in "latest" would drop
+    -- anyway. It is not pushed down for the EndOutage fallback, which varies
+    -- between versions of the same event.
+    WHERE o."EndTimeSeries(UTC)" IS NULL
+       OR o."EndTimeSeries(UTC)" > now()
 ),
 latest AS (
     SELECT *
@@ -190,11 +197,14 @@ LEFT JOIN entsoe_availability_map.v_area_to_country_map map
     ON map.map_key = a.area_display_name
     OR map.map_key = a.area_map_code;
 
-DROP VIEW IF EXISTS entsoe_availability_map.v_availability_map_points_next_24h;
-DROP MATERIALIZED VIEW IF EXISTS entsoe_availability_map.mv_availability_country_unknown_agg_next_24h;
-DROP MATERIALIZED VIEW IF EXISTS entsoe_availability_map.mv_availability_next_24h;
-
-CREATE MATERIALIZED VIEW entsoe_availability_map.mv_availability_next_24h AS
+-- The materialized views are created once and refreshed by the Python script
+-- (REFRESH MATERIALIZED VIEW); dropping and recreating them every hour held
+-- exclusive locks that blocked Grafana. After changing one of the definitions
+-- below, drop the two materialized views (and v_availability_map_points_next_24h,
+-- which depends on them) by hand once; the next refresh recreates them.
+-- No unique index exists because an asset_code may appear with several
+-- names/areas per snapshot, so REFRESH ... CONCURRENTLY is not possible.
+CREATE MATERIALIZED VIEW IF NOT EXISTS entsoe_availability_map.mv_availability_next_24h AS
 WITH hours AS (
     SELECT
         generate_series(
@@ -351,7 +361,7 @@ SELECT
     reasons AS reason
 FROM layered;
 
-CREATE MATERIALIZED VIEW entsoe_availability_map.mv_availability_country_unknown_agg_next_24h AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS entsoe_availability_map.mv_availability_country_unknown_agg_next_24h AS
 SELECT
     v.snapshot_utc,
     v.layer,

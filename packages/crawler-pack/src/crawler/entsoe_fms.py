@@ -10,9 +10,12 @@ them into PostgreSQL. Active file-library items and their target tables are
 defined in one place so that new extracts can be added without touching the
 download loop in multiple spots.
 """
+import csv
+import io
 import os
 import logging
 import re
+import time
 from typing import List, Dict
 
 import gc
@@ -28,8 +31,10 @@ from sqlalchemy import (
     String,
     Float,
     DateTime,
+    Index,
     MetaData,
     UniqueConstraint,
+    or_,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
@@ -446,6 +451,12 @@ class EntsoeFMSCrawler(KitCrawler):
         self._access_token: str | None = None
         self.session: requests.Session | None = None
         self._available_folders: list[str] | None = None
+        # Per-run caches: reflected tables for the upsert statement, the column set
+        # of the table currently being loaded (reset per file) and the tables whose
+        # UpdateTime index has been checked.
+        self._reflected_tables: dict[str, Table] = {}
+        self._known_columns: dict[str, set[str]] = {}
+        self._update_time_index_checked: set[str] = set()
         configured_start = self.config.get("default_start_date", DEFAULT_START_DATE)
         self.default_start_time = pd.Timestamp(configured_start)
         if self.default_start_time.tzinfo is None:
@@ -589,8 +600,9 @@ class EntsoeFMSCrawler(KitCrawler):
             "topLevelFolder": "TP_export",
             "downloadAsZip": False,
         }
+        # Stream the body to disk; monthly extracts reach hundreds of MB.
         try:
-            r = self.session.post(f"{self.FMS_BASEURL}/downloadFileContent", json=payload, timeout=120)
+            r = self.session.post(f"{self.FMS_BASEURL}/downloadFileContent", json=payload, timeout=120, stream=True)
             r.raise_for_status()
         except requests.HTTPError as exc:
             # Re-authenticate when the current access token has expired.
@@ -603,13 +615,14 @@ class EntsoeFMSCrawler(KitCrawler):
                 self._authenticate()
                 self.logger.info("Re-authentication successful. Retrying download for %s...", target)
 
-                r = self.session.post(f"{self.FMS_BASEURL}/downloadFileContent", json=payload, timeout=120)
+                r = self.session.post(f"{self.FMS_BASEURL}/downloadFileContent", json=payload, timeout=120, stream=True)
                 r.raise_for_status()
             else:
                 raise exc
 
-        with open(target, "wb") as f:
-            f.write(r.content)
+        with r, open(target, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 20):
+                f.write(chunk)
 
     def _get_target_data_items(self) -> List[str]:
         target_data_items = self.config.get("target_data_items")
@@ -765,6 +778,39 @@ class EntsoeFMSCrawler(KitCrawler):
                 if old in columns and new not in columns:
                     conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" RENAME COLUMN "{old}" TO "{new}"'))
                     self.logger.info("Renamed column %s.%s to %s.", table_name, old, new)
+                    self._known_columns.pop(table_name, None)
+                    self._reflected_tables.pop(table_name, None)
+
+    @staticmethod
+    def _update_time_index_name(table_name: str) -> str:
+        # PostgreSQL truncates identifiers to 63 bytes; truncate here so the
+        # name matches on repeated IF NOT EXISTS checks.
+        return f"ix_{table_name}_updatetime"[:63]
+
+    def _ensure_update_time_index(self, table_name: str) -> None:
+        """Index "UpdateTime(UTC)" of an existing table once per run.
+
+        MAX("UpdateTime(UTC)") (incremental watermark) and the gapfill change
+        detection otherwise scan the whole table.
+        """
+        if table_name in self._update_time_index_checked:
+            return
+        self._update_time_index_checked.add(table_name)
+        if "UpdateTime(UTC)" not in self._table_columns(table_name):
+            return
+        index_name = self._update_time_index_name(table_name)
+        with self.engine.begin() as conn:
+            exists = conn.execute(
+                text("SELECT to_regclass(:name)"), {"name": f'"entsoe_fms"."{index_name}"'}
+            ).scalar()
+            if exists:
+                return
+            self.logger.info("Creating index %s on %s; this takes a while on large tables.", index_name, table_name)
+            started = time.monotonic()
+            conn.execute(
+                text(f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "entsoe_fms"."{table_name}" ("UpdateTime(UTC)")')
+            )
+        self.logger.info("Index %s created in %.0f s.", index_name, time.monotonic() - started)
 
     def _ensure_nulls_not_distinct(self, table_name: str) -> None:
         """Recreate the unique constraint of an existing table with NULLS NOT DISTINCT."""
@@ -792,8 +838,15 @@ class EntsoeFMSCrawler(KitCrawler):
         self.logger.info("Unique constraint %s of %s now treats NULLs as equal.", constraint, table_name)
 
     def _add_missing_columns(self, table_name: str, df: pd.DataFrame) -> None:
-        """Add columns that ENTSO-E introduced after the table was created."""
-        existing = set(self._table_columns(table_name))
+        """Add columns that ENTSO-E introduced after the table was created.
+
+        The column set is cached in self._known_columns (callers reset it per file),
+        so information_schema is not queried for every chunk.
+        """
+        existing = self._known_columns.get(table_name)
+        if existing is None:
+            existing = set(self._table_columns(table_name))
+            self._known_columns[table_name] = existing
         missing = [col for col in df.columns if col not in existing]
         if not missing:
             return
@@ -807,12 +860,19 @@ class EntsoeFMSCrawler(KitCrawler):
                     sql_type = "TEXT"
                 conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" ADD COLUMN IF NOT EXISTS "{col}" {sql_type}'))
                 self.logger.info("Added column %s.%s (%s).", table_name, col, sql_type)
+                existing.add(col)
+        self._reflected_tables.pop(table_name, None)
 
     @staticmethod
     def _normalize_timestamp_columns(df: pd.DataFrame) -> pd.DataFrame:
         for col_name in FMS_DATETIME_COLUMNS + FMS_UPDATE_TIME_COLUMNS:
             if col_name in df.columns:
-                df[col_name] = pd.to_datetime(df[col_name], format="mixed")
+                try:
+                    # ENTSO-E writes "YYYY-MM-DD HH:MM:SS[.fff]"; the vectorised ISO
+                    # parser is much faster than per-value "mixed" parsing.
+                    df[col_name] = pd.to_datetime(df[col_name], format="ISO8601")
+                except (ValueError, TypeError):
+                    df[col_name] = pd.to_datetime(df[col_name], format="mixed")
                 if df[col_name].dt.tz is None:
                     df[col_name] = df[col_name].dt.tz_localize("UTC")
                 else:
@@ -845,20 +905,40 @@ class EntsoeFMSCrawler(KitCrawler):
 
         # NaT and NaN must reach PostgreSQL as NULL, not as the strings 'NaT'/'NaN'.
         data = df.astype(object).where(df.notna(), None).to_dict(orient="records")
-        metadata = MetaData()
-        table_obj = Table(table_name, metadata, autoload_with=self.engine, schema="entsoe_fms")
+        table_obj = self._reflected_table(table_name)
         batch_size = 5000
+
+        stmt = insert(table_obj)
+        update_dict = {c.name: stmt.excluded[c.name] for c in table_obj.columns}
+        # Only rewrite a row when the file carries a newer UpdateTime; the hourly
+        # package refresh re-upserts the whole month and would otherwise rewrite
+        # every unchanged row (WAL and bloat). Rows whose stored UpdateTime is NULL
+        # are always updated.
+        update_time_column = next(
+            (col for col in FMS_UPDATE_TIME_COLUMNS if col in table_obj.c and col in df.columns), None
+        )
+        where = None
+        if update_time_column:
+            stored = table_obj.c[update_time_column]
+            where = or_(stored.is_(None), stored < stmt.excluded[update_time_column])
+        stmt = stmt.on_conflict_do_update(
+            constraint=self.UNIQUE_KEY_DICT[table_name],
+            set_=update_dict,
+            where=where,
+        )
 
         for i in range(0, len(data), batch_size):
             batch = data[i : i + batch_size]
-            stmt = insert(table_obj).values(batch)
-            update_dict = {c.name: stmt.excluded[c.name] for c in table_obj.columns}
-            stmt = stmt.on_conflict_do_update(
-                constraint=self.UNIQUE_KEY_DICT[table_name],
-                set_=update_dict,
-            )
             with self.engine.begin() as conn:
-                conn.execute(stmt)
+                conn.execute(stmt, batch)
+
+    def _reflected_table(self, table_name: str) -> Table:
+        """Reflect the table once per run; _add_missing_columns and renames invalidate it."""
+        table_obj = self._reflected_tables.get(table_name)
+        if table_obj is None:
+            table_obj = Table(table_name, MetaData(), autoload_with=self.engine, schema="entsoe_fms")
+            self._reflected_tables[table_name] = table_obj
+        return table_obj
 
     def _insert_dataframe(self, table_name: str, df: pd.DataFrame) -> None:
         """Insert new rows in batches and fall back to upsert if a conflict appears."""
@@ -1000,6 +1080,7 @@ class EntsoeFMSCrawler(KitCrawler):
             try:
                 self._migrate_renamed_columns(table_name)
                 self._ensure_nulls_not_distinct(table_name)
+                self._ensure_update_time_index(table_name)
             except Exception as exc:
                 self.logger.error(f"Column migration failed for {table_name}: {exc}", exc_info=True)
                 failures.append(f"{data_item}: column migration")
@@ -1085,8 +1166,12 @@ class EntsoeFMSCrawler(KitCrawler):
                     chunk_size = 50000
                     total_file_inserts = 0
                     total_file_updates = 0
+                    # Column set is re-read once per file (see _add_missing_columns).
+                    self._known_columns.pop(table_name, None)
 
-                    with pd.read_csv(local_path, sep=r"\t", engine="python", chunksize=chunk_size) as reader:
+                    # Plain "\t" keeps the fast C parser; the previous regex separator
+                    # forced the Python engine. QUOTE_NONE: ENTSO-E's TSV is unquoted.
+                    with pd.read_csv(local_path, sep="\t", quoting=csv.QUOTE_NONE, chunksize=chunk_size) as reader:
                         for chunk_idx, df in enumerate(reader):
                             df.columns = df.columns.str.strip()
                             df = self._normalize_timestamp_columns(df)
@@ -1222,7 +1307,9 @@ class EntsoeFMSCrawler(KitCrawler):
         url = "https://raw.githubusercontent.com/PyPSA/powerplantmatching/master/powerplants.csv"
 
         try:
-            df = pd.read_csv(url)
+            response = requests.get(url, timeout=120)
+            response.raise_for_status()
+            df = pd.read_csv(io.BytesIO(response.content))
             self.logger.info(f"Done downloading {len(df)} records")
 
             column_mapping = {
@@ -2167,6 +2254,8 @@ class EntsoeFMSCrawler(KitCrawler):
                 )
 
         if table is not None:
+            if "UpdateTime(UTC)" in table.c:
+                Index(self._update_time_index_name(table_name), table.c["UpdateTime(UTC)"])
             try:
                 metadata.create_all(self.engine, tables=[table])
                 self.logger.info(f"Table '{table_name}' created successfully.")
@@ -2389,6 +2478,8 @@ class EntsoeFMSCrawler(KitCrawler):
 
             self._migrate_renamed_columns(table_name)
             self._ensure_nulls_not_distinct(table_name)
+            self._ensure_update_time_index(table_name)
+            self._known_columns.pop(table_name, None)
             self._add_missing_columns(table_name, df)
 
             if last_update_time is None:

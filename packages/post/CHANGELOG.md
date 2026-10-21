@@ -13,6 +13,13 @@
   credentials and ran uselessly after every SMARD run.
 - Use ENTSO-E's harmonised r3.1 column names (`AreaMapCode`,
   `ValidityPeriodStart(UTC)`, `InstalledCapacity[MW]`, `Comment`, ...).
+- Gapfill: target tables created by `to_sql` get an index on their time column
+  (`CREATE INDEX IF NOT EXISTS`).
+- ENTSO-E availability map: the materialized views are created `IF NOT
+  EXISTS` and refreshed with `REFRESH MATERIALIZED VIEW` (one transaction per
+  view) instead of being dropped and recreated every hour. After editing a
+  materialized view definition, drop it once by hand. `v_outage_event_latest`
+  drops closed `EndTimeSeries(UTC)` partitions before ranking versions.
 
 ## 0.1.0
 

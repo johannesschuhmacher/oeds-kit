@@ -65,6 +65,16 @@
 - Normalize current ALSI LNG values with explicit units and compatible schema upgrades.
 - Derive SMARD metadata coverage from stored timestamps.
 - Stream MaStR ZIP members and support small, repeatable table samples.
+- ENTSO-E FMS performance: parse extracts with pandas' C engine and the
+  vectorised ISO8601 timestamp parser; stream downloads to disk; upsert in
+  executemany batches against a reflected table cached per run and only
+  rewrite rows whose `UpdateTime(UTC)` is newer than the stored one; read the
+  column set once per file instead of per 50k-row chunk.
+- ENTSO-E FMS: index `UpdateTime(UTC)` (`ix_<table>_updatetime`) on new tables
+  and, once per run, on existing tables that lack it. The first run after this
+  release builds the index on large tables and logs how long it took.
+- ENTSO-E FMS `powersystemdata`, Ninja and `power_system_data`: fetch the
+  remote CSV/ZIP with `requests` and an explicit timeout.
 
 ## 0.1.0
 
