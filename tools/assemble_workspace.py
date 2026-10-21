@@ -312,7 +312,6 @@ def _verify_workspace(workspace: Path) -> None:
         "modular_repos/sources/oeds-core/oeds/base_crawler.py",
         "modular_repos/modules/oeds-deployment/compose.modular.yml",
         "modular_repos/modules/oeds-crawler-pack/pyproject.toml",
-        "modular_repos/modules/oeds-crawler-pack/src/crawler/common/base_crawler.py",
         "modular_repos/modules/oeds-crawler-pack/src/crawler/common/kit_base.py",
         "modular_repos/modules/oeds-scheduler-ui/pyproject.toml",
         "modular_repos/modules/oeds-post-scripts/pyproject.toml",
