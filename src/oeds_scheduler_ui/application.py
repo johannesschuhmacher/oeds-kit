@@ -29,6 +29,11 @@ from oeds_scheduler_ui.service import (
     cron_schedule_factory,
 )
 
+try:
+    from crawler.common.local_env import apply_email_env_overrides
+except ImportError:  # pragma: no cover - crawler pack is optional for the core.
+    apply_email_env_overrides = None
+
 
 ConfigLoader = Callable[[Path], Mapping[str, Any]]
 
@@ -115,6 +120,12 @@ class SchedulerApplication:
         merged_registry = merge_crawler_registries(registries)
         factory = CrawlerFactory(merged_registry)
         raw_config = self._config_loader(self.config_path)
+        if apply_email_env_overrides is not None:
+            # Same OEDS_EMAIL_* overrides the admin UI applies; the config file
+            # lives in the repo root that also holds crawler/.env.
+            raw_config = apply_email_env_overrides(
+                dict(raw_config), self.config_path.parent
+            )
         plan_result = build_scheduler_job_plans(raw_config, factory)
         runner = CrawlerJobRunner(
             factory,

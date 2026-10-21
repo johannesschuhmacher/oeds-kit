@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import os
 import shlex
@@ -43,6 +44,7 @@ class CrawlerRunResult:
     crawler_success: bool
     post_run_success: bool
     success: bool
+    status: str  # "succeeded" | "failed" | "skipped"
     crawler_result: Any = None
     error: str | None = None
     post_run_results: tuple[PostRunCommandResult, ...] = ()
@@ -76,6 +78,17 @@ class QueuedCrawlerJob:
 PostRunExecutor = Callable[[str, SchedulerJobPlan], PostRunCommandResult]
 
 
+def is_crawler_skipped(exc: BaseException) -> bool:
+    """Return whether ``exc`` is a crawler's ``CrawlerSkipped``.
+
+    Matched by class name so the scheduler does not depend on crawler-pack
+    internals (``crawler.common.crawler_utils.CrawlerSkipped`` today, possibly
+    ``oeds.CrawlerSkipped`` later).
+    """
+
+    return any(cls.__name__ == "CrawlerSkipped" for cls in type(exc).__mro__)
+
+
 class CrawlerJobRunner:
     """Construct and run crawler instances through the shared factory."""
 
@@ -92,14 +105,32 @@ class CrawlerJobRunner:
         crawler_success = False
         crawler_result: Any = None
         error: str | None = None
+        status = "succeeded"
         post_run_results: tuple[PostRunCommandResult, ...] = ()
 
         try:
             crawler = self._factory.construct(plan.crawler_name, plan.crawler_config)
             crawler_result = run_crawler_instance(crawler)
             crawler_success = True
-        except Exception as exc:  # pragma: no cover - exact crawler failures vary.
-            error = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:
+            # BaseCrawler attaches the SMTP alert handler to the crawler's own
+            # logger, so a CRITICAL record there is what sends the failure mail.
+            crawler_logger = logging.getLogger(plan.crawler_name)
+            if is_crawler_skipped(exc):
+                status = "skipped"
+                error = str(exc) or type(exc).__name__
+                crawler_logger.info(
+                    "Scheduled run of %s skipped: %s", plan.display_name, error
+                )
+            else:
+                status = "failed"
+                error = f"{type(exc).__name__}: {exc}"
+                crawler_logger.critical(
+                    "Scheduled run of %s failed: %s",
+                    plan.display_name,
+                    exc,
+                    exc_info=True,
+                )
 
         if crawler_success and plan.run_post_scripts and plan.post_run_scripts:
             post_run_results = tuple(
@@ -108,6 +139,8 @@ class CrawlerJobRunner:
             )
 
         post_run_success = all(result.success for result in post_run_results)
+        if not post_run_success:
+            status = "failed"
         finished_at = datetime.now()
         duration_seconds = (finished_at - started_at).total_seconds()
         return CrawlerRunResult(
@@ -121,6 +154,7 @@ class CrawlerJobRunner:
             crawler_success=crawler_success,
             post_run_success=post_run_success,
             success=crawler_success and post_run_success,
+            status=status,
             crawler_result=crawler_result,
             error=error,
             post_run_results=post_run_results,

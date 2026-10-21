@@ -1,4 +1,7 @@
+import logging
 from datetime import datetime, timedelta
+from threading import Event
+from types import SimpleNamespace
 
 from oeds_scheduler_ui.interfaces import (
     CrawlerRegistry,
@@ -522,6 +525,74 @@ def test_runtime_executes_planned_job_and_post_run_hook():
     ]
 
 
+def _run_raising_crawler(exc):
+    class RaisingCrawler:
+        def __init__(self, crawler_name, config):
+            pass
+
+        def run(self):
+            raise exc
+
+    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RaisingCrawler})
+    factory = CrawlerFactory(merge_crawler_registries([registry]))
+    plan = build_scheduler_job_plans(
+        {
+            "default": {
+                "enable": True,
+                "schedule": "0 4 * * *",
+                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
+            },
+            "runtime_crawler": {
+                "schema_name": "runtime_schema",
+                "post_run_scripts": ["scripts/after_runtime.py"],
+            },
+        },
+        factory,
+    ).plans[0]
+    post_run_commands = []
+
+    def fake_post_run(command, plan):
+        post_run_commands.append(command)
+        return PostRunCommandResult(command, 0, True)
+
+    result = CrawlerJobRunner(factory, fake_post_run).run(plan)
+    return result, post_run_commands
+
+
+def test_runtime_marks_crawler_skipped_without_post_run(caplog):
+    class CrawlerSkipped(Exception):
+        """Stands in for crawler.common.crawler_utils.CrawlerSkipped."""
+
+    with caplog.at_level(logging.INFO, logger="runtime_crawler"):
+        result, post_run_commands = _run_raising_crawler(
+            CrawlerSkipped("ENTSOE_API_KEY is not configured")
+        )
+
+    assert result.status == "skipped"
+    assert result.success is False
+    assert result.error == "ENTSOE_API_KEY is not configured"
+    assert post_run_commands == []
+    assert "skipped" in caplog.text
+    assert all(record.levelno < logging.ERROR for record in caplog.records)
+
+
+def test_runtime_marks_crawler_failure_and_logs_critical(caplog):
+    with caplog.at_level(logging.INFO, logger="runtime_crawler"):
+        result, post_run_commands = _run_raising_crawler(RuntimeError("boom"))
+
+    assert result.status == "failed"
+    assert result.success is False
+    assert result.error == "RuntimeError: boom"
+    assert post_run_commands == []
+    critical_records = [
+        record for record in caplog.records if record.levelno == logging.CRITICAL
+    ]
+    assert len(critical_records) == 1
+    assert critical_records[0].name == "runtime_crawler"
+    assert critical_records[0].exc_info is not None
+    assert "boom" in critical_records[0].getMessage()
+
+
 def test_execute_post_command_adds_workspace_to_pythonpath_for_legacy_scripts(
     tmp_path,
     monkeypatch,
@@ -778,3 +849,32 @@ def test_scheduler_daemon_runs_one_tick_and_reports_next_wait():
     assert len(results) == 1
     assert results[0].crawler_result == "runtime_crawler"
     assert daemon.seconds_until_next_tick(reference_time) == 1.0
+
+
+def test_scheduler_daemon_survives_failing_tick(caplog):
+    stop_event = Event()
+    ticks = []
+
+    class App:
+        service = SimpleNamespace(next_run_time=None)
+
+        def tick(self, now):
+            ticks.append(now)
+            if len(ticks) == 1:
+                raise ValueError("while parsing a block mapping")
+            stop_event.set()
+            return ()
+
+    daemon = SchedulerDaemon(
+        App(),
+        poll_seconds=0.01,
+        now_func=lambda: datetime(2026, 1, 1, 0, 0, 0),
+        stop_event=stop_event,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="oeds_scheduler_ui.daemon"):
+        daemon.run_forever()
+
+    assert len(ticks) == 2
+    assert "Scheduler tick failed" in caplog.text
+    assert "while parsing a block mapping" in caplog.text

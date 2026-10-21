@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import signal
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,10 @@ from oeds_scheduler_ui.daemon import SchedulerDaemon
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     parser = argparse.ArgumentParser(prog="oeds-scheduler")
     parser.add_argument(
         "--config",
