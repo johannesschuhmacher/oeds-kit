@@ -41,7 +41,7 @@ class NinjaCrawler(KitCrawler):
         dataframes = {k: [] for k in datafiles_dict}
         for key in datafiles_dict:
             url = self.get(f'datafiles.{key}.download_url')
-            response = requests.get(url)
+            response = requests.get(url, timeout=300)
             if not response.ok:
                 self.logger.error(f'cannot download file {url}: status code: {response.status_code}')
                 continue
