@@ -24,7 +24,7 @@ REQUIRED_SOURCE_TABLES = (
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from crawler_core.runtime_env import resolve_database_uri
+from oeds_post_scripts.runtime_env import resolve_database_uri
 
 
 def load_database_uri() -> str:
