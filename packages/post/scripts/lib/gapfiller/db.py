@@ -627,6 +627,16 @@ def replace_target_window(
             index=False,
             chunksize=10_000,
         )
+        # to_sql creates the table without indexes; the DELETE above and Grafana
+        # queries filter on the time column. PostgreSQL identifiers are limited
+        # to 63 bytes, so the name is truncated to keep IF NOT EXISTS stable.
+        index_name = f"ix_{table_name}_{time_column}"[:63]
+        conn.execute(
+            text(
+                f"CREATE INDEX IF NOT EXISTS {quote_identifier(index_name)} "
+                f"ON {qualified(target_schema, table_name)} ({quote_identifier(time_column)})"
+            )
+        )
 
 
 def ensure_target_columns(engine: Engine, target_schema: str, table_name: str, dataframe: pd.DataFrame) -> None:
