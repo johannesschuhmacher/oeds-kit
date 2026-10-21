@@ -34,11 +34,20 @@ ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
   -e oeds_expect_crawler_admin=true
 ```
 
-An update backs up the database, replaces source code, preserves crawler
-settings and Compose passwords/ports, and restarts services. It does not
-replace existing Docker volumes. `oeds_update_docker_packages=true` also
-updates Docker packages; normal updates leave them alone. PostgreSQL major
+Re-running the installer updates an existing installation the same way.
+Both paths first dump the running database (`pg_dump -Fc` plus the globals)
+into `/home/oeds/backups/<timestamp>/` (`oeds_backup_dir`) and keep only the
+newest `oeds_backup_keep` (default 3) directories there; skip the dump with
+`-e oeds_backup_before_update=false`. The update then replaces source code,
+preserves crawler settings and Compose passwords/ports, and restarts services.
+It does not replace existing Docker volumes. `oeds_update_docker_packages=true`
+also updates Docker packages; normal updates leave them alone. PostgreSQL major
 version changes require a separate migration, not an ordinary update.
+
+The crawler image installs exactly `docker/requirements.lock`. When you bump
+the pins in `compatibility.yml` or a module changes its dependencies,
+regenerate the lock with `tools/update_requirements_lock.sh` in the same
+change (the script header explains the steps).
 
 Advanced source modes: `git` clones deployment and assembles its pinned
 dependencies on the target (requires Git access there); `local_worktree`
@@ -56,8 +65,10 @@ ansible-playbook -i inventory.local.yml -K oeds-db-migrate.yml \
 ```
 
 The first command stores a private logical backup and runtime settings under
-`/open_energy_data_server/backups`. The second restores into a separate staging
-database on port 6543. Compare row counts and query results before continuing.
+`/home/oeds/backups/<timestamp>` (`oeds_backup_dir`), the same directory the
+update backups use, so it is subject to the same `oeds_backup_keep` pruning.
+The second restores into a separate staging database on port 6543. Compare
+row counts and query results before continuing.
 The port is bound to localhost. The target bootstrap administrator must match
 the source bootstrap role (normally `opendata`); role ownership and grants are
 restored from the private globals dump.
@@ -94,10 +105,11 @@ Optional flags `oeds_uninstall_remove_backups=true` and
 
 Crawler API keys belong in `runtime/crawler/.env`. Service passwords and port
 overrides belong in the installed deployment module's `.env`. Ansible protects
-these files with `root:docker` and mode `0640`. Runtime data/log directories are
-writable by the container's UID 1000 and trusted Docker operators; they are not
-world-writable. The admin container currently uses root to edit the bound
-configuration file. Keep the admin port behind SSH or authenticated access.
+these files with `root:docker` and mode `0640`. Both crawler containers run as
+UID 1000; the runtime config file and the data/log/admin-state directories are
+owned by that UID (group `docker`, not world-writable), and every update
+re-applies this ownership recursively. Keep the admin port behind SSH or
+authenticated access.
 
 The password rotation feature requires the Bitwarden `bw` CLI on the target
 and `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` in the control environment.
@@ -137,7 +149,7 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
 | `oeds-install-crawlers.yml` | Complete stack including scheduler/admin |
 | `oeds-update.yml`, `oeds-update-crawlers.yml` | Source update and database backup |
-| `oeds-smoke-test.yml` | Service/database health checks |
+| `oeds-smoke-test.yml` | Service/database health checks and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |
 | `oeds-rotate-passwords.yml` | Bitwarden-backed credential rotation |
 | `oeds-uninstall.yml` | Conservative removal or explicitly confirmed reset |

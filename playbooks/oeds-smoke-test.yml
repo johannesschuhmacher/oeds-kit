@@ -2,6 +2,7 @@
   hosts: oeds
   become: true
   vars:
+    oeds_default_root: /open_energy_data_server
     oeds_default_db_container_name: open-data
     oeds_default_db_name: opendata
     oeds_default_db_user: opendata
@@ -20,6 +21,10 @@
     oeds_pgadmin_url_effective: "{{ oeds_pgadmin_url | default(oeds_default_pgadmin_url) }}"
     oeds_expect_crawler_admin_effective: "{{ oeds_expect_crawler_admin | default(oeds_default_expect_crawler_admin) | bool }}"
     oeds_crawler_admin_url_effective: "{{ oeds_crawler_admin_url | default(oeds_default_crawler_admin_url) }}"
+    oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
+    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
+    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
   tasks:
     - name: Wait until the PostgreSQL TCP port is reachable
       ansible.builtin.wait_for:
@@ -122,6 +127,37 @@
       until: oeds_smoke_crawler_admin.status == 200
       when: oeds_expect_crawler_admin_effective
 
+    # Runs the ninja crawler from the built scheduler image against a local
+    # ZIP fixture (tests/integration.py), so a broken image fails here instead
+    # of at the first scheduled crawl. Writes only the oeds_test_crawlers
+    # schema, which is dropped again below.
+    - name: Run the offline ninja crawler test in the scheduler image
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers run --rm --no-deps -T
+        -v {{ (oeds_compose_dir_effective ~ '/tests:/tests:ro') | quote }}
+        scheduler python /tests/integration.py crawlers
+      args:
+        chdir: "{{ oeds_compose_dir_effective }}"
+      register: oeds_smoke_crawler_test
+      when: oeds_expect_crawler_admin_effective
+
+    - name: Drop the crawler test schema
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_db_container_name_effective }}"
+          - psql
+          - -U
+          - "{{ oeds_db_user_effective }}"
+          - -d
+          - "{{ oeds_db_name_effective }}"
+          - -c
+          - DROP SCHEMA IF EXISTS oeds_test_crawlers CASCADE;
+      when: oeds_expect_crawler_admin_effective
+
     - name: Write the smoke test summary
       ansible.builtin.debug:
         msg:
@@ -129,3 +165,4 @@
           - "non_system_tables={{ oeds_smoke_table_count.stdout | trim }}"
           - "postgrest={{ oeds_postgrest_url_effective }}"
           - "grafana={{ oeds_grafana_health_url_effective }}"
+          - "crawler_test={{ (oeds_smoke_crawler_test.stdout_lines | default(['skipped']))[-1] }}"

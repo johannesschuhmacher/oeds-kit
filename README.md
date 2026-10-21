@@ -24,8 +24,9 @@ Ubuntu host preparation has not been validated. You need Git, Python 3.12+,
 sudo access and network access to GitHub/container registries.
 
 All five repositories are public. Cloning and assembling them requires no
-GitHub account or token. Provider API keys for credentialed crawlers are separate;
-keep those in your private environment file, never in Git.
+GitHub account or token (`OEDS_GIT_TOKEN` is only needed for private forks).
+Provider API keys for credentialed crawlers are separate; keep those in your
+private environment file, never in Git.
 
 ```bash
 git clone https://github.com/johannesschuhmacher/oeds-deployment.git
@@ -86,8 +87,13 @@ The managed installation lives in `/open_energy_data_server`:
 | `runtime/crawler/.env` | Source API keys; never commit this file |
 | `runtime/crawler/data/` | Downloads and crawler working files |
 | `runtime/logs/`, `runtime/crawler_admin_state/` | Logs and admin run history |
-| `docker_data/` | Persistent PostgreSQL, Grafana and pgAdmin data |
-| `backups/` | Private backups |
+
+Persistent data lives on the data partition (`oeds_data_root`, default `/home`):
+
+| Path | Purpose |
+| --- | --- |
+| `/home/oeds/docker_data/` | Persistent PostgreSQL, Grafana and pgAdmin data |
+| `/home/oeds/backups/<timestamp>/` | Database dumps taken before each update; the newest three are kept |
 
 One Compose definition lives at `repo/modular_repos/modules/oeds-deployment/compose.yml`.
 The old `compose.modular.yml` is an empty compatibility file, not a second

@@ -22,15 +22,19 @@
     oeds_enable_crawlers_effective: "{{ oeds_enable_crawlers | default(oeds_default_enable_crawlers) }}"
     oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
     oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
+    oeds_backup_before_update_effective: "{{ oeds_backup_before_update | default(true) }}"
+    oeds_backup_dir_effective: "{{ oeds_backup_dir | default(oeds_data_root_effective ~ '/oeds/backups') }}"
+    oeds_backup_keep_effective: "{{ oeds_backup_keep | default(3) }}"
+    oeds_db_container_name_effective: "{{ oeds_db_container_name | default('open-data') }}"
+    oeds_db_name_effective: "{{ oeds_db_name | default('opendata') }}"
+    oeds_db_user_effective: "{{ oeds_db_user | default('opendata') }}"
     oeds_runtime_crawler_data_files:
       - crawler/data/mapping_eic_to_location.py
       - crawler/data/mapping_p_to_g.json
       - crawler/data/mapping_g_to_p.json
     oeds_update_docker_packages: false
-    oeds_backup_database: true
     oeds_allow_pg_major_upgrade: false
     oeds_target_pg_major: 18
-    oeds_backup_run_dir: "{{ oeds_root_effective }}/backups/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
   tasks:
   - name: Add the deployment user to the Docker operator group
     ansible.builtin.user:
@@ -101,38 +105,6 @@
       - (oeds_open_data_running.stdout | trim) != ""
       - (oeds_current_pg_major.stdout | trim) != (oeds_target_pg_major | string)
       - not oeds_allow_pg_major_upgrade
-  - name: Create a dedicated backup directory for this update run
-    ansible.builtin.file:
-      path: "{{ oeds_backup_run_dir }}"
-      state: directory
-      owner: root
-      group: root
-      mode: "0700"
-    when:
-      - oeds_backup_database | bool
-      - (oeds_open_data_running.stdout | trim) != ""
-  - name: Capture extension versions before the update
-    ansible.builtin.shell: >-
-      docker exec open-data psql -U opendata -d opendata -tAc
-      "SELECT extname || ':' || extversion FROM pg_extension ORDER BY 1;"
-      > {{ oeds_backup_run_dir }}/extensions.txt
-    when:
-      - oeds_backup_database | bool
-      - (oeds_open_data_running.stdout | trim) != ""
-  - name: Create globals backup before the update
-    ansible.builtin.shell: >-
-      docker exec open-data pg_dumpall -U opendata --globals-only
-      > {{ oeds_backup_run_dir }}/globals.sql
-    when:
-      - oeds_backup_database | bool
-      - (oeds_open_data_running.stdout | trim) != ""
-  - name: Create logical OEDS database backup before the update
-    ansible.builtin.shell: >-
-      docker exec open-data pg_dump -U opendata -d opendata -Fc
-      > {{ oeds_backup_run_dir }}/opendata.bak
-    when:
-      - oeds_backup_database | bool
-      - (oeds_open_data_running.stdout | trim) != ""
   - name: Check whether a legacy compose project exists
     ansible.builtin.stat:
       path: "{{ oeds_root_effective }}/compose.yml"
@@ -147,6 +119,8 @@
     register: oeds_selected_compose
   - name: Prepare repo source before any downtime
     ansible.builtin.import_tasks: tasks/oeds-repo-prepare.yml
+  - name: Back up the database before any downtime
+    ansible.builtin.import_tasks: tasks/oeds-db-backup-before-update.yml
   - name: Stop legacy compose project before update
     ansible.builtin.shell: docker compose down --remove-orphans
     args:
@@ -167,8 +141,8 @@
       src: "{{ oeds_repo_dir_effective }}/{{ item }}"
       dest: "{{ oeds_runtime_dir_effective }}/crawler/data/{{ item | basename }}"
       remote_src: true
-      owner: root
-      group: root
+      owner: "1000"
+      group: docker
       mode: "u=rw,g=rw,o=r"
     loop: "{{ oeds_runtime_crawler_data_files }}"
   - name: Seed runtime crawler config if it does not exist yet
@@ -180,9 +154,9 @@
       src: "{{ oeds_repo_dir_effective }}/CRAWLER_CONFIG.yml"
       dest: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
       remote_src: true
-      owner: root
-      group: root
-      mode: "u=rw,g=rw,o=r"
+      owner: "1000"
+      group: docker
+      mode: "0660"
     when: not oeds_runtime_config.stat.exists
   - name: Check whether the runtime crawler env file exists
     ansible.builtin.stat:
@@ -203,6 +177,8 @@
       owner: root
       group: docker
       mode: "0640"
+  - name: Give runtime files to the container user
+    ansible.builtin.import_tasks: tasks/oeds-runtime-permissions.yml
   - name: Restore Compose settings
     ansible.builtin.import_tasks: tasks/oeds-compose-env.yml
   - name: Run docker compose pull

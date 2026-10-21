@@ -171,8 +171,9 @@ services:
     container_name: oeds-crawler-admin
     profiles:
       - crawlers
-    # The admin UI must update the bind-mounted runtime config on the host.
-    user: "0:0"
+    # Runs as the image user (UID 1000) like the scheduler; Ansible gives the
+    # bind-mounted runtime config and directories to that UID. A root admin
+    # left root-owned log files that broke every scheduled crawl.
     command: ["oeds-crawler-admin"]
     environment:
       <<: *oeds-python-environment
