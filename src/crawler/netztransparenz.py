@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from crawler.common.base_crawler import BaseCrawler
 from crawler.common.crawler_utils import (
+    CrawlerSkipped,
     build_session,
     compact_json,
     config_or_env,
@@ -438,10 +439,10 @@ class NetztransparenzCrawler(BaseCrawler):
 
     def run(self):
         self._prepare_schema()
+        failures: list[str] = []
         token = self._access_token()
         if not token:
-            self.logger.info("Netztransparenz credentials are missing; wrote access status only.")
-            return
+            raise CrawlerSkipped("Netztransparenz credentials are missing; wrote access status only.")
 
         health = self.session.get(HEALTH_URL, timeout=self.timeout_seconds)
         health.raise_for_status()
@@ -454,6 +455,7 @@ class NetztransparenzCrawler(BaseCrawler):
                 total_rows += self._fetch_endpoint(endpoint, token, date_from, date_to)
             except Exception as exc:
                 self.logger.error("Netztransparenz endpoint %s failed: %s", endpoint.get("id"), exc)
+                failures.append(str(endpoint.get("id")))
                 self._write_run(endpoint, utc_now(), date_from, date_to, None, 0, self._endpoint_url(endpoint, date_from, date_to), str(exc))
             if self.request_pause_seconds > 0:
                 time.sleep(self.request_pause_seconds)
@@ -471,6 +473,8 @@ class NetztransparenzCrawler(BaseCrawler):
             }
         )
         self.logger.info("Netztransparenz crawler finished with %s raw rows.", total_rows)
+        if failures:
+            raise RuntimeError(f"Netztransparenz endpoints failed: {', '.join(failures)}")
 
 
 def main(schema_name: str = "netztransparenz"):

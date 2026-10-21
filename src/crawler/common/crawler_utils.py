@@ -49,6 +49,13 @@ def has_credential(value: Any) -> bool:
     return value not in (None, "", "your_token", "your_client_id", "your_client_secret")
 
 
+class CrawlerSkipped(Exception):
+    """Raised when a run has nothing to do, for example because credentials are missing.
+
+    The scheduler reports such runs as "skipped" instead of "succeeded" or "failed".
+    """
+
+
 def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
 

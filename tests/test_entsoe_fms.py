@@ -67,3 +67,41 @@ def test_every_active_table_has_matching_unique_key_and_constraint(monkeypatch):
 
         assert constraint.name == EntsoeFMSCrawler.UNIQUE_KEY_DICT[table_name]
         assert {c.name for c in constraint.columns} == set(EntsoeFMSCrawler.UNIQUE_KEY_COLUMNS[table_name]), table_name
+
+
+def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
+    """Re-reading MAX(UpdateTime) after every file dropped rows of the next file."""
+    header = "\t".join([
+        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaDisplayName", "AreaTypeCode", "AreaMapCode",
+        "ContractType", "Sequence", "Price[Currency/MWh]", "Currency", "UpdateTime(UTC)",
+    ])
+    row = "\t".join(["2026-09-15 00:00:00", "PT60M", "10Y", "DE-LU", "BZN", "DE_LU", "DA", "1", "10.0", "EUR",
+                     "2026-09-16 00:00:00"])
+
+    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler.logger = Mock()
+    crawler.config = {"target_data_items": ["EnergyPrices_12.1.D"]}
+    crawler._authenticate = Mock()
+    crawler._migrate_renamed_columns = Mock()
+    crawler._ensure_nulls_not_distinct = Mock()
+    files = ["2026_09_EnergyPrices_12.1.D_r3.1.csv", "2026_10_EnergyPrices_12.1.D_r3.1.csv"]
+    crawler._list_metadata = Mock(return_value=[{"name": name, "fileId": name} for name in files])
+    crawler._get_table_state = Mock(return_value={
+        "table_exists": True,
+        "update_time_column": "UpdateTime(UTC)",
+        "datetime_column_name": "DateTime(UTC)",
+        "last_update_time": pd.Timestamp("2026-09-01"),
+        "last_date_time": pd.Timestamp("2026-09-01"),
+    })
+    crawler._download_file = Mock(side_effect=lambda file_id, target: open(target, "w").write(header + "\n" + row + "\n"))
+    crawler._add_missing_columns = Mock()
+    crawler._flush_to_database = Mock()
+
+    crawler._download_files_and_write_into_database(
+        str(tmp_path),
+        pd.Timestamp("2026-09-01", tz="Europe/Berlin"),
+        pd.Timestamp("2026-10-20", tz="Europe/Berlin"),
+    )
+
+    assert crawler._get_table_state.call_count == 1
+    assert crawler._flush_to_database.call_count == len(files)

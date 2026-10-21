@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from crawler.common.base_crawler import BaseCrawler
 from crawler.common.crawler_utils import (
+    CrawlerSkipped,
     build_session,
     compact_json,
     config_or_env,
@@ -125,11 +126,11 @@ class PrismaCapacityCrawler(BaseCrawler):
 
     def run(self):
         self._prepare_schema()
+        failures: list[str] = []
         api_base_url, api_token = self._credentials()
         if not has_credential(api_base_url) or not has_credential(api_token):
             self._write_missing_status()
-            self.logger.info("PRISMA API credentials missing; wrote access status only.")
-            return
+            raise CrawlerSkipped("PRISMA API credentials missing; wrote access status only.")
 
         write_access_status(
             self.engine,
@@ -149,6 +150,7 @@ class PrismaCapacityCrawler(BaseCrawler):
                 frames.append(self._fetch_resource(str(api_base_url), str(api_token), resource))
             except Exception as exc:
                 self.logger.error("PRISMA resource %s failed: %s", resource.get("id"), exc)
+                failures.append(str(resource.get("id")))
 
         if frames:
             frame = pd.concat(frames, ignore_index=True)
@@ -168,6 +170,8 @@ class PrismaCapacityCrawler(BaseCrawler):
             }
         )
         self.logger.info("PRISMA crawler wrote %s rows.", len(frame))
+        if failures:
+            raise RuntimeError(f"PRISMA resources failed: {', '.join(failures)}")
 
 
 def main(schema_name: str = "prisma_capacity"):
