@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- BaseCrawler no longer aborts a run when its log file cannot be opened; it
+  warns and continues without a file log. On intern every scheduled run had
+  failed for five days because the admin container had created the log files
+  as root.
 - ENTSO-E FMS: read the incremental watermark once per data item instead of
   after every file; the per-file re-read dropped rows of the next file.
 - ENTSO-E FMS: refresh `powersystemdata` with TRUNCATE + INSERT. Dropping the

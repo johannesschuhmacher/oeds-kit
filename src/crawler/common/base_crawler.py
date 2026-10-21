@@ -215,18 +215,25 @@ class BaseCrawler(ABC):
         if not os.path.isfile(log_file_name):
             os.makedirs(os.path.dirname(log_file_name), exist_ok=True)
 
-        fileHandler = RotatingFileHandler(
-            log_file_name,
-            maxBytes=_log_file_max_bytes(self.config),
-            backupCount=_log_file_backup_count(self.config),
-        )
-        if logging.root.handlers: # if basicConfig was called before, use the same formatter
-            fileHandler.setFormatter(logging.root.handlers[0].formatter) # use the same formatter as defined in basic config in server.py
-        _add_unique_handler(
-            self.logger,
-            fileHandler,
-            ("file", str(Path(log_file_name).resolve())),
-        )
+        try:
+            fileHandler = RotatingFileHandler(
+                log_file_name,
+                maxBytes=_log_file_max_bytes(self.config),
+                backupCount=_log_file_backup_count(self.config),
+            )
+        except OSError as exc:
+            # Logging must never stop a run. The admin UI and the scheduler share
+            # the logs directory; a file created by one container as another user
+            # is not writable here, so continue with the root logger only.
+            self.logger.warning("Cannot open %s (%s); continuing without a file log.", log_file_name, exc)
+        else:
+            if logging.root.handlers: # if basicConfig was called before, use the same formatter
+                fileHandler.setFormatter(logging.root.handlers[0].formatter) # use the same formatter as defined in basic config in server.py
+            _add_unique_handler(
+                self.logger,
+                fileHandler,
+                ("file", str(Path(log_file_name).resolve())),
+            )
 
         try:
             email_config = self.config['email']
