@@ -1,20 +1,20 @@
-# Modular OEDS
+# OEDS deployment
 
-Start here to install OEDS. You do not need to install the repositories by hand.
+Installation, Docker Compose, Ansible and Grafana provisioning for the
+[oeds-kit](../README.md) stack. The parts it installs live in this
+repository:
 
-| Repository | What it does |
+| Part | What it does |
 | --- | --- |
-| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; current tests use the [core test branch](https://github.com/johannesschuhmacher/oeds-core) with fixes intended for upstream review |
-| [Crawler pack](https://github.com/johannesschuhmacher/oeds-crawler-pack) | Our enhanced/new crawlers and temporary BaseCrawler compatibility |
-| [Scheduler/UI](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | Scheduled jobs (each run is an `oeds-crawl` subprocess), post-run commands and browser administration |
-| [Post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts) | Gapfilling, backfill, forecasts and derived database views |
-| This repository | Installation, Docker Compose, Ansible and Grafana provisioning |
+| [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; installed from the [core test branch](https://github.com/johannesschuhmacher/oeds-core) at the revision pinned in the root `pyproject.toml` |
+| [Crawler pack](../packages/crawler-pack/README.md) | KIT crawlers, `oeds-crawl`, the `KitCrawler` base class |
+| [Scheduler/UI](../packages/scheduler/README.md) | Scheduled jobs (each run is an `oeds-crawl` subprocess), post-run commands and browser administration |
+| [Post-scripts](../packages/post/README.md) | Gapfilling, backfill, forecasts and derived database views |
+| This directory | Installation, Docker Compose, Ansible and Grafana provisioning |
 
-There is no separate distribution module. `compatibility.yml` lists compatible
-Git revisions. Assembly checks out those revisions; it does not copy the KIT
-monorepository. Shared crawler improvements can later be contributed upstream.
-The test core retains upstream history and licensing. It is not an official
-OEDS release; `compatibility.yml` identifies the exact tested revision.
+All Python dependencies come from the root `uv.lock`; the runtime image is
+built with `uv sync --frozen` from it (`docker/Dockerfile.crawler-modular`,
+build context is the repository root).
 
 ## Install on a Linux VM
 
@@ -23,15 +23,15 @@ SSH from Windows. Automated host preparation currently targets CentOS Stream;
 Ubuntu host preparation has not been validated. You need Git, Python 3.12+,
 sudo access and network access to GitHub/container registries.
 
-All five repositories are public. Cloning and assembling them requires no
-GitHub account or token (`OEDS_GIT_TOKEN` is only needed for private forks).
-Provider API keys for credentialed crawlers are separate; keep those in your
-private environment file, never in Git.
+The repository is public; cloning it requires no GitHub account or token
+(`OEDS_GIT_TOKEN` is only needed for private forks). Provider API keys for
+credentialed crawlers are separate; keep those in your private environment
+file, never in Git.
 
 ```bash
-git clone https://github.com/johannesschuhmacher/oeds-deployment.git
-cd oeds-deployment
-bash tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
+git clone https://github.com/johannesschuhmacher/oeds-kit.git
+cd oeds-kit
+bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
 ```
 
 The environment file is optional; omit that option for sources without API
@@ -43,7 +43,7 @@ the sources you need in the admin UI before enabling a schedule.
 To load a small real sample after installation, run inside the test VM:
 
 ```bash
-cd /open_energy_data_server/repo/modular_repos/modules/oeds-deployment
+cd /open_energy_data_server/repo/deploy
 sudo bash tools/load_sample_data.sh --include-entsoe-fms
 sudo bash tools/test_installation.sh
 ```
@@ -51,7 +51,7 @@ sudo bash tools/test_installation.sh
 This uses your ENTSO-E credentials and writes test data to the installed database.
 The recent SMARD week is visible in the dashboard's default time range.
 
-For a guided, module-by-module installation and test, follow
+For a guided, step-by-step installation and test, follow
 [Testing a fresh installation](docs/testing.md). For backup, update, migration,
 password rotation and removal, see [Operations](playbooks/README.md).
 
@@ -82,8 +82,9 @@ The managed installation lives in `/open_energy_data_server`:
 
 | Path | Purpose |
 | --- | --- |
-| `repo/` | Installed source code; replaced by an update |
-| `runtime/CRAWLER_CONFIG.yml` | Crawler settings, enable switches, schedules and `default.max_parallel_runs` |
+| `repo/` | Installed copy of this repository; replaced by an update |
+| `repo/deploy/.env` | Compose project name, `OEDS_RUNTIME_DIR`, service passwords and port overrides (written by Ansible) |
+| `runtime/CRAWLER_CONFIG.yml` | Crawler settings, enable switches, schedules and `default.max_parallel_runs`; seeded from `deploy/CRAWLER_CONFIG.yml` on the first install |
 | `runtime/crawler/.env` | Source API keys; never commit this file |
 | `runtime/crawler/data/` | Downloads and crawler working files |
 | `runtime/logs/`, `runtime/crawler_admin_state/` | Logs (`logs/runs/` has one file per scheduled run) and admin run history |
@@ -95,27 +96,22 @@ Persistent data lives on the data partition (`oeds_data_root`, default `/home`):
 | `/home/oeds/docker_data/` | Persistent PostgreSQL, Grafana and pgAdmin data |
 | `/home/oeds/backups/<timestamp>/` | Database dumps taken before each update; the newest three are kept |
 
-One Compose definition lives at `repo/modular_repos/modules/oeds-deployment/compose.yml`.
-The old `compose.modular.yml` is an empty compatibility file, not a second
-configuration to maintain. Docker uses its built-in volume driver for new
-installations; existing volumes are not replaced on update.
+The Compose definition is `repo/deploy/compose.yml`. Docker uses its built-in
+volume driver for new installations; existing volumes are not replaced on update.
 
 ## Develop locally
 
 ```bash
-python3 tools/assemble_workspace.py --output "$HOME/oeds-assembled"
-python3 -m unittest discover -s tests -v
-python3 tools/verify_deployment.py --local-only
+uv sync --all-packages --all-extras            # repository root
+uv run pytest deploy/tests
+uv run python deploy/tools/verify_deployment.py
+docker build -f deploy/docker/Dockerfile.crawler-modular --target runtime -t oeds-runtime:dev .
 ```
 
-The assembler needs only Python's standard library. `--dry-run` prints the
-plan without changing files. `--clean` explicitly replaces an existing output
-directory. Never put output inside the deployment checkout.
-
-Each module has its own README and focused tests. For container commands,
-change to `oeds-assembled/modular_repos/modules/oeds-deployment` first. For
-Ansible, use its `playbooks` directory. Historical migration reports are kept
-in Git history, not copied into every assembled installation.
+For container commands, change to `deploy/` first (`docker compose --profile
+crawlers -f compose.yml ...` with `OEDS_RUNTIME_DIR` pointing at a runtime
+directory); for Ansible, use `deploy/playbooks`. Historical migration reports
+are kept in Git history.
 
 ## Dashboards and tests
 

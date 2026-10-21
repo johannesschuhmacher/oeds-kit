@@ -1,14 +1,9 @@
 # oeds-post-scripts
 
-Post-run processing module for the modular OEDS stack.
-
-This repository is part of the modular OEDS stack. The shared crawler and
-database core remains in
-[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
-while crawler extensions, scheduling/UI, and installation live in
-[oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
-[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
-and [oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment).
+Post-run processing package of the [oeds-kit](../../README.md) workspace.
+Crawler extensions, scheduling/UI and the installation live in
+`packages/crawler-pack`, `packages/scheduler` and `deploy/` of the same
+repository.
 
 ## Responsibility
 
@@ -80,7 +75,7 @@ from oeds_post_scripts.migration import migrate_post_run_scripts
 
 ## Included Implementation
 
-This module repository contains the current post-processing implementation:
+This package contains the current post-processing implementation:
 
 ```text
 oeds_gapfill/
@@ -94,15 +89,15 @@ behavioral source of truth. Scripts with a safe `main()` entry point can be
 called directly in-process; scripts with import-time side effects would run
 through the subprocess fallback.
 These packages and their SQL files are included in both source distributions
-and wheels. The repository can therefore be installed independently of the KIT
-monorepository and of `oeds-crawler-pack`. Database connection overrides
+and wheels. The package installs without `oeds-crawler-pack`; the optional
+extra `backfill` pulls it in. Database connection overrides
 (`OEDS_DB_HOST`, `OEDS_DB_PORT`, `OEDS_DB_PASSWORD`) and the optional
 `crawler/.env` file (or the file named by `OEDS_CRAWLER_ENV`) are handled by
 `oeds_post_scripts.runtime_env`. Only `oeds-post backfill entsoe-unavailability`
-imports the pack's ENTSO-E FMS crawler; the deployment installs it before this
-module.
+imports the pack's ENTSO-E FMS crawler (extra `backfill`; the deployment image
+installs all extras).
 Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
-the post-scripts repository root. The modular deployment sets this variable to
+the working directory. The deployment sets this variable to
 `/app/CRAWLER_CONFIG.yml` inside its Python containers.
 For ENTSO-E backfill downloads, `OEDS_CRAWLER_DATA_DIR` selects the writable
 crawler data directory; the modular deployment uses `/app/crawler/data`.
@@ -118,10 +113,10 @@ Current direct-call candidates:
 
 ## Local Development
 
-List stable commands:
+From the repository root:
 
 ```powershell
-uv sync
+uv sync --all-packages
 uv run oeds-post --list
 ```
 
@@ -139,15 +134,13 @@ uv run oeds-post --print-command gapfill entsoe-fms
 
 ## Test Coverage
 
-Run the focused command tests from this repository:
+Run the focused command tests:
 
 ```powershell
-uv run --with pytest pytest tests
+uv run --package oeds-post-scripts pytest packages/post/tests
 ```
 
-The repository includes a starter GitHub Actions workflow for compile and unit
-test checks. Database-backed post-processing remains covered by the
-deployment repository's `tools/test_installation.sh`. That suite uses a real
+Database-backed post-processing is covered by `deploy/tools/test_installation.sh`. That suite uses a real
 database, deterministic gapfill/forecast cases and actual scheduler post-runs.
 Live backfill needs ENTSO-E credentials and an explicitly bounded date range.
 

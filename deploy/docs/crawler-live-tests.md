@@ -263,7 +263,8 @@ installation test, a repeat of scheduler/post-script tests or a Grafana audit.
 The test core is based on official OEDS, with focused corrections
 in `johannesschuhmacher/oeds-core` at `8a53778` (runtime fixes at `113a6f2`,
 followed by a CI-only dependency correction). It is not an upstream release.
-The crawler pack is `2f77898`. Their revisions are pinned in `compatibility.yml`.
+The crawler pack is `2f77898`. Their revisions were pinned in the deployment's former
+compatibility file (now: the oeds-kit workspace and its `uv.lock`).
 All follow-up workers used UID:GID 1000:1000. Large checks used one worker,
 6 GB and six CPUs on the 12-GB/eight-CPU intern-test host. The database was
 isolated from the installed stack. Full national archives are not certified.
