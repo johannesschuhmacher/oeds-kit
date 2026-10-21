@@ -1,0 +1,958 @@
+{
+    "__inputs": [],
+    "__requires": [
+        {
+            "type": "datasource",
+            "id": "grafana-postgresql-datasource",
+            "name": "OPENDATA",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "stat",
+            "name": "Stat",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "geomap",
+            "name": "Geomap",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "table",
+            "name": "Table",
+            "version": "11.3.1"
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 100
+                            },
+                            {
+                                "color": "red",
+                                "value": 200
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \"DateTime(UTC)\" AS \"time\", \"Price[Currency/MWh]\" AS \"value\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND \"DateTime(UTC)\" >= now() - interval '3 days' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') ORDER BY \"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Latest Home Price",
+            "type": "stat",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 25
+                            },
+                            {
+                                "color": "red",
+                                "value": 50
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), latest_home AS (SELECT \"Price[Currency/MWh]\" AS home_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1), latest_nb AS (SELECT DISTINCT ON (\"AreaDisplayName\") \"AreaDisplayName\" AS neighbour, \"Price[Currency/MWh]\" AS price_mwh FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"AreaDisplayName\", \"DateTime(UTC)\" DESC) SELECT now() AS \"time\", MAX(ABS(h.home_price - n.price_mwh)) AS \"value\" FROM latest_home h CROSS JOIN latest_nb n",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Max Absolute Spread",
+            "type": "stat",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})) SELECT now() AS \"time\", AVG(\"ForecastTransferCapacity[MW]\") AS \"value\" FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"OutAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours'",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Avg Import Capacity (Next 24h)",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})) SELECT now() AS \"time\", AVG(\"ForecastTransferCapacity[MW]\") AS \"value\" FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"InAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours'",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Avg Export Capacity (Next 24h)",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 14,
+                "x": 0,
+                "y": 4
+            },
+            "id": 5,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), home_prices AS (SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS home_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)), neighbour_prices AS (SELECT \"DateTime(UTC)\" AS ts, \"AreaDisplayName\" AS neighbour, \"Price[Currency/MWh]\" AS neighbour_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT $__timeGroupAlias(ts, $__interval), neighbour AS metric, AVG(spread_mwh) AS \"value\" FROM (SELECT h.ts, n.neighbour, h.home_price - n.neighbour_price AS spread_mwh FROM home_prices h JOIN neighbour_prices n ON n.ts = h.ts) s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Price Spread vs Selected Markets",
+            "type": "timeseries",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 10,
+                "x": 14,
+                "y": 4
+            },
+            "id": 6,
+            "options": {
+                "cellHeight": "sm",
+                "footer": {
+                    "countRows": false,
+                    "fields": "",
+                    "reducer": [
+                        "sum"
+                    ],
+                    "show": false
+                },
+                "showHeader": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), latest_home AS (SELECT \"Price[Currency/MWh]\" AS home_price, \"DateTime(UTC)\" AS ts FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1), latest_nb AS (SELECT DISTINCT ON (\"AreaDisplayName\") \"AreaDisplayName\" AS neighbour, \"Price[Currency/MWh]\" AS neighbour_price, \"DateTime(UTC)\" AS ts FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"AreaDisplayName\", \"DateTime(UTC)\" DESC) SELECT n.neighbour, ROUND(h.home_price::numeric, 2) AS home_price_eur_mwh, ROUND(n.neighbour_price::numeric, 2) AS neighbour_price_eur_mwh, ROUND((h.home_price - n.neighbour_price)::numeric, 2) AS spread_eur_mwh, ROUND(ABS(h.home_price - n.neighbour_price)::numeric, 2) AS abs_spread_eur_mwh, n.ts AS price_time FROM latest_home h CROSS JOIN latest_nb n ORDER BY abs_spread_eur_mwh DESC, neighbour",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Latest Selected Market Spreads",
+            "type": "table",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineStyle": {
+                            "fill": "solid"
+                        },
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byRegexp",
+                            "options": "/^Import .*/"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#1F78C1",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byRegexp",
+                            "options": "/^Export .*/"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#F28E2B",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 14,
+                "x": 0,
+                "y": 12
+            },
+            "id": 7,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), pairs AS (SELECT \"DateTime(UTC)\" AS ts, 'Import ' || \"OutAreaDisplayName\" AS metric, \"ForecastTransferCapacity[MW]\" AS value FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"OutAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) UNION ALL SELECT \"DateTime(UTC)\" AS ts, 'Export ' || \"InAreaDisplayName\" AS metric, \"ForecastTransferCapacity[MW]\" AS value FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"InAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT $__timeGroupAlias(ts, $__interval), metric, AVG(value) AS \"value\" FROM pairs GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Cross-Border Capacity by Direction",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 10,
+                "x": 14,
+                "y": 12
+            },
+            "id": 8,
+            "options": {
+                "cellHeight": "sm",
+                "footer": {
+                    "countRows": false,
+                    "fields": "",
+                    "reducer": [
+                        "sum"
+                    ],
+                    "show": false
+                },
+                "showHeader": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), home_prices AS (SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS home_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours'), neighbour_prices AS (SELECT \"DateTime(UTC)\" AS ts, \"AreaDisplayName\" AS neighbour, \"Price[Currency/MWh]\" AS neighbour_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours'), capacities AS (SELECT \"DateTime(UTC)\" AS ts, 'Import'::text AS direction, \"OutAreaDisplayName\" AS neighbour, AVG(\"ForecastTransferCapacity[MW]\") AS capacity_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"OutAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1, 2, 3 UNION ALL SELECT \"DateTime(UTC)\" AS ts, 'Export'::text AS direction, \"InAreaDisplayName\" AS neighbour, AVG(\"ForecastTransferCapacity[MW]\") AS capacity_mw FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"InAreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"ContractType\" = '$Transfer_Contract' AND \"DateTime(UTC)\" >= now() AND \"DateTime(UTC)\" < now() + interval '24 hours' GROUP BY 1, 2, 3), paired AS (SELECT c.direction, c.neighbour, c.ts, h.home_price - n.neighbour_price AS spread_mwh, c.capacity_mw FROM capacities c JOIN home_prices h ON h.ts = c.ts JOIN neighbour_prices n ON n.ts = c.ts AND n.neighbour = c.neighbour) SELECT direction, neighbour, ROUND(AVG(spread_mwh)::numeric, 2) AS avg_spread_eur_mwh, ROUND(MAX(ABS(spread_mwh))::numeric, 2) AS max_abs_spread_eur_mwh, ROUND(AVG(capacity_mw)::numeric, 1) AS avg_capacity_mw, ROUND(MIN(capacity_mw)::numeric, 1) AS min_capacity_mw, ROUND(MAX(capacity_mw)::numeric, 1) AS max_capacity_mw FROM paired GROUP BY 1, 2 ORDER BY max_abs_spread_eur_mwh DESC, avg_capacity_mw ASC",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Top Bottlenecks (Next 24h)",
+            "type": "table",
+            "description": "Source: ENTSO-E."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-YlRd"
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "currencyEUR"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 20
+            },
+            "id": 9,
+            "options": {
+                "basemap": {
+                    "config": {
+                        "showLabels": true,
+                        "theme": "auto"
+                    },
+                    "name": "Layer 0",
+                    "type": "carto"
+                },
+                "controls": {
+                    "mouseWheelZoom": true,
+                    "showAttribution": true,
+                    "showDebug": false,
+                    "showMeasure": false,
+                    "showScale": false,
+                    "showZoom": true
+                },
+                "layers": [
+                    {
+                        "config": {
+                            "showLegend": true,
+                            "style": {
+                                "color": {
+                                    "field": "abs_spread_eur_mwh"
+                                },
+                                "opacity": 0.85,
+                                "rotation": {
+                                    "fixed": 0,
+                                    "max": 360,
+                                    "min": -360,
+                                    "mode": "mod"
+                                },
+                                "size": {
+                                    "field": "abs_spread_eur_mwh",
+                                    "fixed": 10,
+                                    "max": 22,
+                                    "min": 6
+                                },
+                                "symbol": {
+                                    "field": "",
+                                    "fixed": "img/icons/marker/circle.svg",
+                                    "mode": "fixed"
+                                },
+                                "symbolAlign": {
+                                    "horizontal": "center",
+                                    "vertical": "center"
+                                },
+                                "textConfig": {
+                                    "fontSize": 12,
+                                    "offsetX": 0,
+                                    "offsetY": 0,
+                                    "textAlign": "center",
+                                    "textBaseline": "middle"
+                                }
+                            }
+                        },
+                        "location": {
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "mode": "coords"
+                        },
+                        "name": "Layer 1",
+                        "tooltip": true,
+                        "type": "markers"
+                    }
+                ],
+                "tooltip": {
+                    "mode": "details"
+                },
+                "view": {
+                    "allLayers": true,
+                    "id": "europe",
+                    "lat": 50,
+                    "lon": 10,
+                    "zoom": 3
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH val_map (grafana_label, db_name) AS (VALUES ('Albania (AL)', 'Albania'), ('Austria (AT)', 'Austria'), ('Belgium (BE)', 'Belgium'), ('Bosnia and Herz. (BA)', 'Bosnia and Herzegovina'), ('Bulgaria (BG)', 'Bulgaria'), ('Croatia (HR)', 'Croatia'), ('Cyprus (CY)', 'Cyprus'), ('Czech Republic (CZ)', 'Czechia'), ('Denmark (DK)', 'Denmark'), ('DK', 'Denmark'), ('DK1', 'Denmark'), ('DK2', 'Denmark'), ('Estonia (EE)', 'Estonia'), ('Finland (FI)', 'Finland'), ('France (FR)', 'France'), ('Germany (DE)', 'Germany'), ('DE(50Hertz)', 'Germany'), ('DE(Amprion)', 'Germany'), ('DE(TenneT GER)', 'Germany'), ('DE(TransnetBW)', 'Germany'), ('DE-LU', 'Germany'), ('Greece (GR)', 'Greece'), ('Hungary (HU)', 'Hungary'), ('Ireland (IE)', 'Ireland'), ('IE(SEM)', 'Ireland'), ('Italy (IT)', 'Italy'), ('IT-Calabria', 'Italy'), ('IT-Centre-North', 'Italy'), ('IT-Centre-South', 'Italy'), ('IT-North', 'Italy'), ('IT-Sardinia', 'Italy'), ('IT-Sicily', 'Italy'), ('IT-South', 'Italy'), ('Kosovo (XK)', 'Kosovo'), ('Latvia (LV)', 'Latvia'), ('Lithuania (LT)', 'Lithuania'), ('Luxembourg (LU)', 'Luxembourg'), ('Moldova (MD)', 'Moldova'), ('Montenegro (ME)', 'Montenegro'), ('Netherlands (NL)', 'Netherlands'), ('North Macedonia (MK)', 'North Macedonia'), ('Norway (NO)', 'Norway'), ('NO1', 'Norway'), ('NO2', 'Norway'), ('NO3', 'Norway'), ('NO4', 'Norway'), ('NO5', 'Norway'), ('Poland (PL)', 'Poland'), ('Portugal (PT)', 'Portugal'), ('Romania (RO)', 'Romania'), ('Serbia (RS)', 'Serbia'), ('Slovakia (SK)', 'Slovakia'), ('Slovenia (SI)', 'Slovenia'), ('Spain (ES)', 'Spain'), ('Sweden (SE)', 'Sweden'), ('SE1', 'Sweden'), ('SE2', 'Sweden'), ('SE3', 'Sweden'), ('SE4', 'Sweden'), ('Switzerland (CH)', 'Switzerland'), ('United Kingdom (UK)', 'United Kingdom'), ('GB', 'United Kingdom'), ('Ukraine (UA)', 'Ukraine')), latest_home AS (SELECT \"Price[Currency/MWh]\" AS home_price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1), connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country'), neighbours AS (SELECT neighbour FROM connected_neighbours WHERE neighbour IN (${Neighbour:sqlstring})), latest_nb AS (SELECT DISTINCT ON (\"AreaDisplayName\") \"AreaDisplayName\" AS neighbour, \"Price[Currency/MWh]\" AS neighbour_price, \"DateTime(UTC)\" AS ts FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" IN (SELECT neighbour FROM neighbours) AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= now() - interval '3 days' ORDER BY \"AreaDisplayName\", \"DateTime(UTC)\" DESC), country_centroids AS (SELECT country AS db_name, AVG(lat) AS lat, AVG(lon) AS lon FROM power_system_data.powersystemdata WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY country) SELECT 0 AS \"time\", cc.lat, cc.lon, n.neighbour AS name, n.neighbour, ROUND(h.home_price::numeric, 2) AS home_price_eur_mwh, ROUND(n.neighbour_price::numeric, 2) AS neighbour_price_eur_mwh, ROUND((h.home_price - n.neighbour_price)::numeric, 2) AS spread_eur_mwh, ROUND(ABS(h.home_price - n.neighbour_price)::numeric, 2) AS abs_spread_eur_mwh, n.ts AS price_time FROM latest_nb n JOIN latest_home h ON true JOIN val_map vm ON vm.grafana_label = n.neighbour JOIN country_centroids cc ON cc.db_name = vm.db_name ORDER BY abs_spread_eur_mwh DESC",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    }
+                }
+            ],
+            "title": "Spread Map to Selected Markets",
+            "type": "geomap",
+            "description": "Source: ENTSO-E."
+        }
+    ],
+    "refresh": "5m",
+    "schemaVersion": 40,
+    "style": "dark",
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": "DE-LU",
+                    "value": "DE-LU"
+                },
+                "definition": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\ntransfer_areas AS (\n    SELECT \"InAreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ForecastedTransferCapacities\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n    UNION\n    SELECT \"OutAreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ForecastedTransferCapacities\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN transfer_areas t ON t.area_name = p.area_name\nORDER BY 1",
+                "label": "Country / Zone",
+                "name": "Country",
+                "options": [],
+                "query": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\ntransfer_areas AS (\n    SELECT \"InAreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ForecastedTransferCapacities\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n    UNION\n    SELECT \"OutAreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ForecastedTransferCapacities\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN transfer_areas t ON t.area_name = p.area_name\nORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "type": "query",
+                "sort": 1
+            },
+            {
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                },
+                "definition": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country') SELECT neighbour FROM connected_neighbours ORDER BY 1",
+                "includeAll": true,
+                "label": "Connected Neighbour",
+                "multi": true,
+                "name": "Neighbour",
+                "options": [],
+                "query": "WITH connected_neighbours AS (SELECT DISTINCT x.neighbour FROM (SELECT \"InAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"OutAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days' UNION SELECT \"OutAreaDisplayName\" AS neighbour FROM entsoe_fms.\"ForecastedTransferCapacities\" WHERE \"InAreaDisplayName\" = '$Country' AND \"DateTime(UTC)\" >= now() - interval '30 days') x WHERE x.neighbour <> '$Country') SELECT neighbour FROM connected_neighbours ORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "sort": 1,
+                "type": "query"
+            },
+            {
+                "current": {
+                    "text": "Day-ahead",
+                    "value": "Day-ahead"
+                },
+                "definition": "Day-ahead,Week-ahead,Month-ahead,Year-ahead",
+                "label": "Transfer Contract",
+                "name": "Transfer_Contract",
+                "options": [],
+                "query": "Day-ahead,Week-ahead,Month-ahead,Year-ahead",
+                "refresh": 1,
+                "regex": "",
+                "type": "custom"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-7d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "uid": "entsoe-cross-border",
+    "version": 1,
+    "weekStart": "",
+    "title": "ENTSOE Cross-Border & Price Spread Cockpit (Internal)",
+    "description": "Variant: Internal. Sources: ENTSO-E.",
+    "tags": [
+        "entsoe",
+        "oeds",
+        "cross-border",
+        "price-spread",
+        "internal"
+    ]
+}

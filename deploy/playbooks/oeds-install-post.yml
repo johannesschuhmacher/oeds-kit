@@ -1,0 +1,12 @@
+---
+- name: Install or update post-processing SQL functions
+  hosts: oeds
+  become: true
+  vars:
+    oeds_root_effective: "{{ oeds_root | default('/open_energy_data_server') }}"
+    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
+  tasks:
+    - name: Apply the post-scripts module SQL
+      ansible.builtin.shell: >-
+        docker exec -i open-data psql -U opendata -d opendata -v ON_ERROR_STOP=1
+        < {{ (oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-post-scripts/scripts/lib/postgres_functions.sql') | quote }}

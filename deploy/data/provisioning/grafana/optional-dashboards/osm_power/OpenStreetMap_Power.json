@@ -1,0 +1,269 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Access Status",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT status, access_model, credentials_required, configured_credentials, message, docs_url, checked_at FROM osm_power.access_status WHERE source_name = 'OpenStreetMap / Overpass power data' ORDER BY checked_at DESC LIMIT 1"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Power Features",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, count(*)::double precision AS value FROM osm_power.power_features"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "geomap",
+      "title": "Power Feature Map",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 0 AS time, latitude, longitude, coalesce(name, osm_type || '/' || osm_id::text) AS name, power, operator, 1::double precision AS value FROM osm_power.power_features WHERE latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 5000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "basemap": {
+          "type": "default",
+          "name": "Layer 0"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Locations",
+            "filterData": {
+              "id": "byRefId",
+              "options": "A"
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "tooltip": true,
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "value"
+                },
+                "opacity": 0.7,
+                "size": {
+                  "fixed": 7,
+                  "min": 4,
+                  "max": 14
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "id": "europe",
+          "lat": 51,
+          "lon": 10,
+          "zoom": 4
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Feature Summary",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM osm_power.power_feature_summary ORDER BY features DESC"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "energy",
+    "osm",
+    "infrastructure"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "OpenStreetMap Power",
+  "uid": "openstreetmap-power",
+  "version": 1,
+  "weekStart": ""
+}

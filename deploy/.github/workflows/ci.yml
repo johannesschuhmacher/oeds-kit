@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python helpers
+        run: python -m compileall -q oeds_ops tools
+
+      - name: Verify repository
+        run: python tools/verify_deployment.py --local-only
+
+      - name: Focused regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check shell syntax
+        run: for script in tools/*.sh docker/initdb/*.sh; do bash -n "$script"; done

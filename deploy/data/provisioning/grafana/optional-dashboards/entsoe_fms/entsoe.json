@@ -1,0 +1,2185 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "target": {
+                    "limit": 100,
+                    "matchAny": false,
+                    "tags": [],
+                    "type": "dashboard"
+                },
+                "type": "dashboard"
+            }
+        ]
+    },
+    "description": "Monitor of the open available Data from ENTSO-E FMS",
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 29,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 25,
+            "panels": [],
+            "title": "Europa",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "smooth",
+                        "lineStyle": {
+                            "fill": "solid"
+                        },
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 1
+            },
+            "id": 13,
+            "interval": "1h",
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  sum(\"TotalLoad[MW]\"/($__interval_ms/1000/3600)) AS \"actual_load\"\nFROM entsoe_fms.\"ActualTotalLoad\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"TotalLoad[MW]\" IS NOT NULL AND\n  \"AreaDisplayName\" IN ('DE-LU','Austria (AT)','France (FR)','Poland (PL)','Italy (IT)','Spain (ES)','Portugal (PT)','Switzerland (CH)','Belgium (BE)','Netherlands (NL)','GB','United Kingdom (UK)','Sweden (SE)','Norway (NO)')\nGROUP BY 1\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "actual_load/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "actual_load"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_load",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamptz",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "IN",
+                                "('DE','AT','FR','PL','IT','ES','PT','CH','BE','NL','GB','SE','NO')"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                },
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  sum(\"TotalLoad[MW]\"/($__interval_ms/1000/3600)) AS \"forecasted_load\"\nFROM entsoe_fms.\"DayAheadTotalLoadForecast\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"TotalLoad[MW]\" IS NOT NULL AND\n  \"AreaDisplayName\" IN ('DE-LU','Austria (AT)','France (FR)','Poland (PL)','Italy (IT)','Spain (ES)','Portugal (PT)','Switzerland (CH)','Belgium (BE)','Netherlands (NL)','GB','United Kingdom (UK)','Sweden (SE)','Norway (NO)')\nGROUP BY 1\nORDER BY 1",
+                    "refId": "B",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "forecasted_load/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "forecasted_load"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_load_forecast",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamptz",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "IN",
+                                "('DE','AT','FR','PL','IT','ES','PT','CH','BE','NL','GB','SE','NO')"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                },
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  sum(\"ActualGenerationOutput[MW]\"/($__interval_ms/1000/3600)) AS \"generation_sum\"\nFROM entsoe_fms.\"AggregatedGenerationPerType\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"ActualGenerationOutput[MW]\" IS NOT NULL\nGROUP BY 1\nORDER BY 1",
+                    "refId": "C",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "biomass/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "biomass"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_generation",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        }
+                    ]
+                },
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  sum(\"GenerationForecast[MW]\") AS \"forecasted_generation\",\n  sum(\"ScheduledConsumption[MW]\") AS \"forecasted_consumption\"\nFROM entsoe_fms.\"DayAheadAggregatedGeneration\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\")\nGROUP BY 1\nORDER BY 1",
+                    "refId": "D",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "actual_aggregated/10"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "forecasted_generation"
+                                ],
+                                "type": "alias"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "actual_consumption"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "forecasted_consumption"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_generation_forecast",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        }
+                    ]
+                }
+            ],
+            "title": "Actual Power Europe (sum over ${__interval})",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "fixed"
+                    },
+                    "custom": {
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        }
+                    },
+                    "mappings": [
+                        {
+                            "options": {
+                                "Hard coal": {
+                                    "color": "#3b0d0d",
+                                    "index": 1
+                                },
+                                "Hydro": {
+                                    "color": "blue",
+                                    "index": 3
+                                },
+                                "Natural gas": {
+                                    "color": "#413737",
+                                    "index": 2
+                                },
+                                "Nuclear": {
+                                    "color": "super-light-red",
+                                    "index": 0
+                                }
+                            },
+                            "type": "value"
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 1
+            },
+            "id": 21,
+            "options": {
+                "basemap": {
+                    "config": {
+                        "showLabels": true,
+                        "theme": "auto"
+                    },
+                    "name": "Layer 0",
+                    "type": "carto"
+                },
+                "controls": {
+                    "mouseWheelZoom": true,
+                    "showAttribution": true,
+                    "showDebug": false,
+                    "showMeasure": false,
+                    "showScale": true,
+                    "showZoom": true
+                },
+                "layers": [
+                    {
+                        "config": {
+                            "showLegend": true,
+                            "style": {
+                                "color": {
+                                    "field": "energy_source",
+                                    "fixed": "dark-green"
+                                },
+                                "opacity": 0.82,
+                                "rotation": {
+                                    "fixed": 0,
+                                    "max": 360,
+                                    "min": -360,
+                                    "mode": "mod"
+                                },
+                                "size": {
+                                    "field": "capacity",
+                                    "fixed": 10,
+                                    "max": 22,
+                                    "min": 6
+                                },
+                                "symbol": {
+                                    "fixed": "img/icons/marker/circle.svg",
+                                    "mode": "fixed"
+                                },
+                                "text": {
+                                    "fixed": "",
+                                    "mode": "field"
+                                },
+                                "textConfig": {
+                                    "fontSize": 12,
+                                    "offsetX": 5,
+                                    "offsetY": 5,
+                                    "textAlign": "center",
+                                    "textBaseline": "middle"
+                                }
+                            }
+                        },
+                        "location": {
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "mode": "coords"
+                        },
+                        "name": "Layer 1",
+                        "tooltip": true,
+                        "type": "markers"
+                    }
+                ],
+                "tooltip": {
+                    "mode": "details"
+                },
+                "view": {
+                    "allLayers": true,
+                    "id": "europe",
+                    "lat": 46,
+                    "lon": 14,
+                    "zoom": 4
+                }
+            },
+            "pluginVersion": "10.4.4",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "table",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  0 AS \"time\",\n  lat,\n  lon,\n  capacity,\n  country,\n  fuel_type AS energy_source\nFROM power_system_data.powersystemdata\nWHERE lat IS NOT NULL\n  AND lon IS NOT NULL\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "lat"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "lon"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "capacity"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "country"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "energy_source"
+                                ],
+                                "type": "column"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "powersystemdata",
+                    "timeColumn": "0",
+                    "timeColumnType": "int8",
+                    "where": []
+                }
+            ],
+            "title": "ENTSOE-Power systems",
+            "type": "geomap"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "max": 600,
+                    "min": -50,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "€/MWh"
+                },
+                "overrides": [
+                    {
+                        "__systemRef": "hideSeriesFrom",
+                        "matcher": {
+                            "id": "byNames",
+                            "options": {
+                                "mode": "exclude",
+                                "names": [
+                                    "Austria (AT)",
+                                    "Belgium (BE)",
+                                    "Switzerland (CH)",
+                                    "Czech Republic (CZ)",
+                                    "DE-LU",
+                                    "DK1",
+                                    "DK2",
+                                    "Estonia (EE)",
+                                    "Spain (ES)",
+                                    "France (FR)",
+                                    "GB",
+                                    "Greece (GR)",
+                                    "Croatia (HR)",
+                                    "Hungary (HU)",
+                                    "IE(SEM)",
+                                    "IT-Calabria",
+                                    "IT-Centre-North",
+                                    "IT-Centre-South",
+                                    "IT-North",
+                                    "IT-Sardinia",
+                                    "IT-Sicily",
+                                    "IT-South",
+                                    "Lithuania (LT)",
+                                    "Latvia (LV)",
+                                    "Netherlands (NL)",
+                                    "NO5",
+                                    "Poland (PL)",
+                                    "Portugal (PT)",
+                                    "Serbia (RS)",
+                                    "Slovenia (SI)",
+                                    "Slovakia (SK)",
+                                    "Ukraine (UA)",
+                                    "NO2",
+                                    "NO1"
+                                ],
+                                "prefix": "All except:",
+                                "readOnly": true
+                            }
+                        },
+                        "properties": [
+                            {
+                                "id": "custom.hideFrom",
+                                "value": {
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": true
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 12,
+                "w": 24,
+                "x": 0,
+                "y": 9
+            },
+            "id": 2,
+            "interval": "4d",
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "metricColumn": "country",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  \"AreaDisplayName\" AS metric,\n  avg(\"Price[Currency/MWh]\") AS \"\"\"0\"\"\"\nFROM entsoe_fms.\"EnergyPrices\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"Price[Currency/MWh]\" IS NOT NULL AND\n  \"AreaTypeCode\" = 'BZN' AND\n  (trim(coalesce(\"Sequence\", '')) = '' OR \"Sequence\" = '1')\nGROUP BY 1,2\nORDER BY 1,2",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "\"0\""
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "avg"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "\"0\""
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_day_ahead_prices",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        }
+                    ]
+                }
+            ],
+            "title": "ENTSOE Day-Ahead-Prices (average over ${__interval})",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 21
+            },
+            "id": 8,
+            "panels": [],
+            "title": "ENTSO-E",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": true,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 22
+            },
+            "id": 6,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  avg(\"TotalLoad[MW]\") AS \"actual_load\"\nFROM entsoe_fms.\"ActualTotalLoad\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"AreaDisplayName\" = '$country'\nGROUP BY 1\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "actual_load"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "avg"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "actual_load"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_load",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamptz",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "=",
+                                "'$country'"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                },
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  avg(\"TotalLoad[MW]\") AS \"forecasted_load\"\nFROM entsoe_fms.\"DayAheadTotalLoadForecast\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"AreaDisplayName\" = '$country'\nGROUP BY 1\nORDER BY 1",
+                    "refId": "B",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "forecasted_load"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "avg"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "forecasted_load"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_load_forecast",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamptz",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "=",
+                                "'$country'"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                }
+            ],
+            "title": "Load $country (average over ${__interval})",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisGridShow": false,
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "bars",
+                        "fillOpacity": 36,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 22
+            },
+            "hideTimeOverride": false,
+            "id": 4,
+            "interval": "1y",
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "8.5.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  make_timestamp(\"Year\"::int, 1, 1, 0, 0, 0) AS \"time\",\n  sum(CASE WHEN \"ProductionType\" = 'Biomass' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS biomass,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Hard coal' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_hard_coal,\n    sum(CASE WHEN \"ProductionType\" = 'Geothermal' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS geothermal,\n    sum(CASE WHEN \"ProductionType\" = 'Nuclear' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS nuclear,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Brown coal/Lignite' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_brown_coal/lignite\",\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Coal-derived gas' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_coal-derived_gas\",\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Run-of-river and poundage' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"hydro_run-of-river_and_poundage\",\n    sum(CASE WHEN \"ProductionType\" = 'Waste' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS waste,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Pumped Storage' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_pumped_storage,\n    sum(CASE WHEN \"ProductionType\" = 'Solar' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS solar,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Offshore' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_offshore,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Onshore' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_onshore,\n    sum(CASE WHEN \"ProductionType\" = 'Other renewable' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS other_renewable,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Water Reservoir' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_water_reservoir,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Gas' THEN coalesce(\"AggregatedInstalledCapacity[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_gas\nFROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\nWHERE\n  $__timeFilter(make_timestamp(\"Year\"::int, 1, 1, 0, 0, 0)) AND\n  \"AreaDisplayName\" = '$country'\nGROUP BY 1\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "biomass"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "fossil_hard_coal"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "geothermal"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "nuclear"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"fossil_brown_coal/lignite\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"fossil_coal-derived_gas\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"hydro_run-of-river_and_poundage\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "waste"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "solar"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_offshore"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_onshore"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "other_renewable"
+                                ],
+                                "type": "column"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_installed_generation_capacity",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "=",
+                                "'$country'"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                }
+            ],
+            "timeFrom": "7y",
+            "title": "Erzeugungsleistung $country",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisGridShow": false,
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 36,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 30
+            },
+            "hideTimeOverride": false,
+            "id": 16,
+            "interval": "15m",
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "8.5.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [],
+                    "metricColumn": "country",
+                    "rawQuery": true,
+                    "rawSql": "WITH generation AS (\n  SELECT\n    \"DateTime(UTC)\" AS ts,\n    sum(CASE WHEN \"ProductionType\" = 'Biomass' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS biomass,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Hard coal' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_hard_coal,\n    sum(CASE WHEN \"ProductionType\" = 'Geothermal' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS geothermal,\n    sum(CASE WHEN \"ProductionType\" = 'Nuclear' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS nuclear,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Brown coal/Lignite' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_brown_coal/lignite\",\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Coal-derived gas' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"fossil_coal-derived_gas\",\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Run-of-river and poundage' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS \"hydro_run-of-river_and_poundage\",\n    sum(CASE WHEN \"ProductionType\" = 'Waste' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS waste,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Pumped Storage' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_pumped_storage,\n    sum(CASE WHEN \"ProductionType\" = 'Solar' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS solar,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Offshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_offshore,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Onshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_onshore,\n    sum(CASE WHEN \"ProductionType\" = 'Other renewable' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS other_renewable,\n    sum(CASE WHEN \"ProductionType\" = 'Hydro Water Reservoir' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS hydro_water_reservoir,\n    sum(CASE WHEN \"ProductionType\" = 'Fossil Gas' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS fossil_gas\n  FROM entsoe_fms.\"AggregatedGenerationPerType\"\n  WHERE\n    $__timeFilter(\"DateTime(UTC)\") AND\n    \"AreaDisplayName\" = '$country'\n  GROUP BY 1\n)\nSELECT\n  $__timeGroupAlias(ts,$__interval),\n  avg(biomass) as biomass,\n  avg(fossil_hard_coal) as fossil_hard_coal,\n  avg(geothermal) as geothermal,\n  avg(nuclear) as nuclear,\n  avg(\"fossil_brown_coal/lignite\") as \"fossil_brown_coal/lignite\",\n  avg(\"fossil_coal-derived_gas\") as \"fossil_coal-derived_gas\",\n  avg(\"hydro_run-of-river_and_poundage\") as \"hydro_run-of-river_and_poundage\",\n  avg(waste) as waste,\n  avg(solar) as solar,\n  avg(wind_offshore) as wind_offshore,\n  avg(wind_onshore) as wind_onshore,\n  avg(other_renewable) as other_renewable,\n  avg(hydro_water_reservoir) as hydro_water_reservoir,\n  avg(fossil_gas) as fossil_gas\nFROM generation\ngroup by 1\nORDER BY 1,2\n",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "biomass"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "fossil_hard_coal"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "geothermal"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "nuclear"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"fossil_brown_coal/lignite\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"fossil_coal-derived_gas\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "\"hydro_run-of-river_and_poundage\""
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "waste"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "solar"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_offshore"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_onshore"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "other_renewable"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "hydro_water_reservoir"
+                                ],
+                                "type": "column"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "fossil_gas"
+                                ],
+                                "type": "column"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_generation",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "=",
+                                "'$country'"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                }
+            ],
+            "title": "Stromerzeugung $country (average over ${__interval})",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "€/MWh"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 12,
+                "y": 30
+            },
+            "id": 22,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  $__timeGroupAlias(\"DateTime(UTC)\",$__interval),\n  avg(\"Price[Currency/MWh]\") AS \"da_price\"\nFROM entsoe_fms.\"EnergyPrices\"\nWHERE\n  $__timeFilter(\"DateTime(UTC)\") AND\n  \"AreaDisplayName\" = '$country' AND\n  \"AreaTypeCode\" = 'BZN' AND\n  (trim(coalesce(\"Sequence\", '')) = '' OR \"Sequence\" = '1')\nGROUP BY 1\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "\"0\""
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "avg"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "da_price"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_day_ahead_prices",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        },
+                        {
+                            "datatype": "text",
+                            "name": "",
+                            "params": [
+                                "country",
+                                "=",
+                                "'$country'"
+                            ],
+                            "type": "expression"
+                        }
+                    ]
+                }
+            ],
+            "title": "ENTSOE Day-Ahead-Prices (average over ${__interval})",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "__systemRef": "hideSeriesFrom",
+                        "matcher": {
+                            "id": "byNames",
+                            "options": {
+                                "mode": "exclude",
+                                "names": [
+                                    "solar",
+                                    "solar_fc"
+                                ],
+                                "prefix": "All except:",
+                                "readOnly": true
+                            }
+                        },
+                        "properties": [
+                            {
+                                "id": "custom.hideFrom",
+                                "value": {
+                                    "legend": false,
+                                    "tooltip": false,
+                                    "viz": true
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 12,
+                "y": 40
+            },
+            "id": 23,
+            "interval": "1h",
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "WITH forecast AS (\n  SELECT\n    \"DateTime(UTC)\" AS ts,\n    sum(CASE WHEN \"ProductionType\" = 'Solar' THEN coalesce(\"DayAheadGenerationForecast[MW]\"::double precision, 0.0) ELSE 0.0 END) AS solar,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Onshore' THEN coalesce(\"DayAheadGenerationForecast[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_onshore,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Offshore' THEN coalesce(\"DayAheadGenerationForecast[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_offshore\n  FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\"\n  WHERE $__timeFilter(\"DateTime(UTC)\")\n  GROUP BY 1\n)\nSELECT\n  $__timeGroupAlias(ts,$__interval),\n  sum(solar/($__interval_ms/1000/3600)) AS \"solar_fc\",\n  sum(wind_onshore/($__interval_ms/1000/3600)) AS \"wind_onshore_fc\",\n  sum(wind_offshore/($__interval_ms/1000/3600)) AS \"wind_offshore_fc\"\nFROM forecast\nGROUP BY 1\nORDER BY 1",
+                    "refId": "A",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "solar/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "solar_fc"
+                                ],
+                                "type": "alias"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_onshore/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "wind_onshore_fc"
+                                ],
+                                "type": "alias"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_offshore/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "wind_offshore_fc"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_wind_and_solar_forecast",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamptz",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        }
+                    ]
+                },
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "P6EAA63344BCC9F38"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "group": [
+                        {
+                            "params": [
+                                "$__interval",
+                                "none"
+                            ],
+                            "type": "time"
+                        }
+                    ],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "WITH generation AS (\n  SELECT\n    \"DateTime(UTC)\" AS ts,\n    sum(CASE WHEN \"ProductionType\" = 'Solar' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS solar,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Onshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_onshore,\n    sum(CASE WHEN \"ProductionType\" = 'Wind Offshore' THEN coalesce(\"ActualGenerationOutput[MW]\"::double precision, 0.0) ELSE 0.0 END) AS wind_offshore\n  FROM entsoe_fms.\"AggregatedGenerationPerType\"\n  WHERE $__timeFilter(\"DateTime(UTC)\")\n  GROUP BY 1\n)\nSELECT\n  $__timeGroupAlias(ts,$__interval),\n  sum(solar/($__interval_ms/1000/3600)) AS \"solar\",\n  sum(wind_onshore/($__interval_ms/1000/3600)) AS \"wind_onshore\",\n  sum(wind_offshore/($__interval_ms/1000/3600)) AS \"wind_offshore\"\nFROM generation\nGROUP BY 1\nORDER BY 1",
+                    "refId": "B",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "solar/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "solar"
+                                ],
+                                "type": "alias"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_onshore/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "wind_onshore"
+                                ],
+                                "type": "alias"
+                            }
+                        ],
+                        [
+                            {
+                                "params": [
+                                    "wind_offshore/($__interval_ms/1000/3600)"
+                                ],
+                                "type": "column"
+                            },
+                            {
+                                "params": [
+                                    "sum"
+                                ],
+                                "type": "aggregate"
+                            },
+                            {
+                                "params": [
+                                    "wind_offshore"
+                                ],
+                                "type": "alias"
+                            }
+                        ]
+                    ],
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [
+                            {
+                                "property": {
+                                    "type": "string"
+                                },
+                                "type": "groupBy"
+                            }
+                        ],
+                        "limit": 50
+                    },
+                    "table": "query_generation",
+                    "timeColumn": "index",
+                    "timeColumnType": "timestamp",
+                    "where": [
+                        {
+                            "name": "$__timeFilter",
+                            "params": [],
+                            "type": "macro"
+                        }
+                    ]
+                }
+            ],
+            "title": "Compare RES forecast - with actual (average over ${__interval})",
+            "type": "timeseries"
+        }
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [
+        "open-data"
+    ],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "selected": false,
+                    "text": "France (FR)",
+                    "value": "France (FR)"
+                },
+                "datasource": {
+                    "type": "grafana-postgresql-datasource",
+                    "uid": "P6EAA63344BCC9F38"
+                },
+                "definition": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '730 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\nload_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '730 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN load_areas l ON l.area_name = p.area_name\nORDER BY 1",
+                "description": "",
+                "hide": 0,
+                "includeAll": false,
+                "multi": false,
+                "name": "country",
+                "options": [],
+                "query": "WITH price_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"EnergyPrices\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '730 days'\n      AND \"AreaTypeCode\" = 'BZN'\n),\nload_areas AS (\n    SELECT DISTINCT \"AreaDisplayName\" AS area_name\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '730 days'\n)\nSELECT p.area_name\nFROM price_areas p\nJOIN load_areas l ON l.area_name = p.area_name\nORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false,
+                "sort": 1,
+                "type": "query"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-90d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "ENTSOE-Monitor",
+    "uid": "FEg9kde7z",
+    "version": 12,
+    "weekStart": ""
+}

@@ -1,0 +1,62 @@
+# Logical PostgreSQL backup taken right before an update stops the compose
+# project. Imported by oeds-docker-config.yml and oeds-update.yml, which define
+# oeds_backup_before_update_effective, oeds_backup_dir_effective,
+# oeds_backup_keep_effective and oeds_db_{container_name,name,user}_effective.
+- name: Check whether the database container is running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - ps
+      - --filter
+      - "name=^/{{ oeds_db_container_name_effective }}$"
+      - --filter
+      - status=running
+      - -q
+  register: oeds_backup_db_container
+  changed_when: false
+  failed_when: false
+  when: oeds_backup_before_update_effective | bool
+
+- name: Back up the database before the update
+  vars:
+    oeds_backup_run_dir: "{{ oeds_backup_dir_effective }}/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+  when:
+    - oeds_backup_before_update_effective | bool
+    - (oeds_backup_db_container.stdout | default('') | trim) != ""
+  block:
+    - name: Create the backup directory for this update
+      ansible.builtin.file:
+        path: "{{ oeds_backup_run_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Dump roles and other global objects
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_db_container_name_effective | quote }}
+        pg_dumpall -U {{ oeds_db_user_effective | quote }} --globals-only
+        > {{ (oeds_backup_run_dir ~ '/globals.sql') | quote }}
+      args:
+        executable: /bin/bash
+
+    - name: Dump the database in custom format
+      ansible.builtin.shell: >-
+        docker exec {{ oeds_db_container_name_effective | quote }}
+        pg_dump -U {{ oeds_db_user_effective | quote }} -d {{ oeds_db_name_effective | quote }} -Fc
+        > {{ (oeds_backup_run_dir ~ '/' ~ oeds_db_name_effective ~ '.bak') | quote }}
+      args:
+        executable: /bin/bash
+
+    - name: List the backup directories
+      ansible.builtin.find:
+        paths: "{{ oeds_backup_dir_effective }}"
+        file_type: directory
+        recurse: false
+      register: oeds_backup_dirs
+
+    - name: Keep only the newest backups
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ (oeds_backup_dirs.files | map(attribute='path') | sort(reverse=true) | list)[(oeds_backup_keep_effective | int):] }}"

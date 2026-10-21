@@ -1,0 +1,219 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Access Status",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT status, access_model, credentials_required, configured_credentials, message, docs_url, checked_at FROM prisma_capacity.access_status WHERE source_name = 'PRISMA Capacity Platform API' ORDER BY checked_at DESC LIMIT 1"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Imported Rows",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, count(*)::double precision AS value FROM prisma_capacity.raw_resources"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Resource Summary",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM prisma_capacity.resource_summary ORDER BY resource_id"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Latest Raw Resources",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT resource_id, source_url, fetched_at, row_number, payload_json FROM prisma_capacity.raw_resources ORDER BY fetched_at DESC, resource_id LIMIT 200"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "energy",
+    "gas",
+    "capacity"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PRISMA Capacity API",
+  "uid": "prisma-capacity-api",
+  "version": 1,
+  "weekStart": ""
+}

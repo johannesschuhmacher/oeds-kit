@@ -1,0 +1,870 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "13.0.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "rgba(120, 120, 120, 0.45)",
+        "name": "Non-heatwave periods",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamptz '2026-06-01 00:00:00+02' AS time,\n  timestamptz '2026-06-13 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags\nUNION ALL\nSELECT\n  timestamptz '2026-06-30 00:00:00+02' AS time,\n  timestamptz '2026-07-01 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags",
+          "refId": "NonHeatwave"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": true,
+      "title": "Static HTML report",
+      "type": "link",
+      "url": "http://127.0.0.1:8765/dashboards/index.html"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9000,
+      "options": {
+        "mode": "markdown",
+        "content": "Ziel: Last- und Temperaturmuster in Frankreich, Deutschland/Luxemburg, Spanien und Italien auswerten und gegen den gleichen Kalenderzeitraum 2025 spiegeln.\n\nHauptmessage: Der Cooling-Load-Kanal ist in Frankreich und Italien deutlich sichtbar, in Spanien zwar hoch, aber im gleichen Kalenderfenster 2025 ebenfalls stark, und in Deutschland/Luxemburg moderater.\n\n**Datenbasis:** Datenfluss: Rohdaten wurden mit `scripts/research_heatwave_2026.py` aus ENTSO-E Transparency, Energy-Charts/SMARD-Fallback fuer DE_LU-Preise und Open-Meteo geladen. Preise bleiben als `prices_qh` in 15-Minuten-Aufloesung erhalten; Last, Erzeugung, Fluesse und Wetter werden als Stundenkontext in `Europe/Brussels` normalisiert, als CSV gecacht und mit `scripts/load_heatwave_2026_to_postgres.py` in das OEDS-Postgres-Schema `heatwave_2026` geladen. Grafana fragt diese Tabellen direkt per SQL ab; Zeitbereich und Variablen werden live in der Query angewendet. Standard-Zeitfenster: 2026-06-01 00:00 bis 2026-06-30 23:00 Europe/Brussels; Hitzewellenfenster: 2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels; Baseline fuer voraggregierte Delta-Metriken: 2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels."
+      },
+      "pluginVersion": "13.0.1",
+      "title": "Ziel und Hauptmessage",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_h`. ENTSO-E Actual Total Load wurde stundenweise gemittelt und mit Open-Meteo 2m-Temperatur fuer Paris, Berlin, Madrid und Rom verbunden. Angezeigt werden 2026-Stundenwerte fuer den Grafana-Zeitbereich und `load_country`.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time,\n       label || ' load GW' AS metric,\n       load_mw / 1000.0 AS value\nFROM heatwave_2026.load_temperature_h\nWHERE $__timeFilter(timestamp)\n  AND year = 2026\n  AND country IN (${load_country:sqlstring})\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Hourly load",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_daily`. Berechnung: Tagesmittel der Open-Meteo-2m-Temperatur fuer eine repraesentative Stadt je Land. Das ist ein Cooling-Load-Proxy, keine flaechengenaue nationale Temperatur.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       label || ' temp C' AS metric,\n       temp_avg_c AS value\nFROM heatwave_2026.load_temperature_daily\nWHERE year = 2026\n  AND date >= ($__timeFrom()::date)\n  AND date < ($__timeTo()::date)\n  AND country IN (${load_country:sqlstring})\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily average temperature",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_daily`. Berechnung: Tagesmittel der stundenweisen ENTSO-E-Last je Land. Die Zeitreihe zeigt die Juni-2026-Last und reagiert auf `load_country`.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       label || ' daily load GW' AS metric,\n       load_avg_mw / 1000.0 AS value\nFROM heatwave_2026.load_temperature_daily\nWHERE year = 2026\n  AND date >= ($__timeFrom()::date)\n  AND date < ($__timeTo()::date)\n  AND country IN (${load_country:sqlstring})\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily average load",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_h`. Berechnung: lokale Stundenmittel nach Land, Jahr und Fenster. 2026 Hitzewelle = 13.-29.06.; 2026 Nicht-Hitzewelle = 01.-12.06. plus 30.06.; 2025 = gleicher Kalenderzeitraum 13.-29.06.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT make_timestamptz(2026, 6, 1, hour::int, 0, 0, 'Europe/Brussels') AS time,\n       label || ' ' || year::text || ' ' ||\n       CASE WHEN period = 'event_window' THEN 'event' ELSE 'baseline' END AS metric,\n       avg(load_mw) / 1000.0 AS value\nFROM heatwave_2026.load_temperature_h\nWHERE country IN (${load_country:sqlstring})\n  AND (\n      (year = 2026 AND period IN ('event_window', 'non_heatwave'))\n      OR (year = 2025 AND period = 'event_window')\n  )\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Load profile heatwave baseline previous year",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_deltas`. Berechnung: Eventfenster minus Nicht-Hitzewellen-Baseline je Jahr und Daypart. Dayparts: all day, midday 11:00-15:00, evening 18:00-22:00.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "id": 5,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       max(delta_load_avg_mw) FILTER (WHERE year = 2026 AND daypart = 'all_day') / 1000.0 AS \"2026 all-day GW\",\n       max(delta_load_avg_mw) FILTER (WHERE year = 2026 AND daypart = 'midday_11_15') / 1000.0 AS \"2026 midday GW\",\n       max(delta_load_avg_mw) FILTER (WHERE year = 2026 AND daypart = 'evening_18_22') / 1000.0 AS \"2026 evening GW\",\n       max(delta_load_avg_mw) FILTER (WHERE year = 2025 AND daypart = 'all_day') / 1000.0 AS \"2025 all-day GW\",\n       max(delta_load_avg_mw) FILTER (WHERE year = 2025 AND daypart = 'midday_11_15') / 1000.0 AS \"2025 midday GW\",\n       max(delta_load_avg_mw) FILTER (WHERE year = 2025 AND daypart = 'evening_18_22') / 1000.0 AS \"2025 evening GW\"\nFROM heatwave_2026.load_temperature_deltas\nWHERE country IN (${load_country:sqlstring})\nGROUP BY 1\nORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Load delta by daypart",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_yoy`. Berechnung: mittlere Last 13.-29.06.2026 minus mittlere Last 13.-29.06.2025 je Land und Daypart, als Prozent und MW. Kontrolliert grob fuer Saison, nicht fuer Feiertage, Wochentage oder Strukturwandel.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "id": 6,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       max(delta_yoy_pct) FILTER (WHERE daypart = 'all_day') AS \"all-day %\",\n       max(delta_yoy_pct) FILTER (WHERE daypart = 'midday_11_15') AS \"midday %\",\n       max(delta_yoy_pct) FILTER (WHERE daypart = 'evening_18_22') AS \"evening %\"\nFROM heatwave_2026.load_temperature_yoy\nWHERE country IN (${load_country:sqlstring})\nGROUP BY 1\nORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Year-on-year load comparison",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_temperature_deltas`. Berechnung: 2026 Hitzewelle minus Nicht-Hitzewellen-Baseline fuer Last, Temperatur und Cooling-degree-hours ueber 22 C. Fokus auf all-day, midday und evening.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       year,\n       daypart,\n       round((delta_load_avg_mw / 1000.0)::numeric, 2) AS delta_load_gw,\n       round(delta_load_pct::numeric, 1) AS delta_load_pct,\n       round(delta_temp_avg_c::numeric, 1) AS delta_temp_c,\n       round(delta_cdd22_sum::numeric, 1) AS delta_cdd22_sum,\n       round((event_load_avg_mw / 1000.0)::numeric, 2) AS event_load_gw,\n       round(event_temp_avg_c::numeric, 1) AS event_temp_c\nFROM heatwave_2026.load_temperature_deltas\nWHERE country IN (${load_country:sqlstring})\nORDER BY label, year, daypart",
+          "refId": "A"
+        }
+      ],
+      "title": "Cooling-load summary",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quellen: `heatwave_2026.load_temperature_summary`, `load_temperature_deltas` und `load_temperature_yoy`. Die Tabellen sind aus ENTSO-E Actual Total Load und Open-Meteo-Stadtproxytemperaturen abgeleitet.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       daypart,\n       round((load_2025_mw / 1000.0)::numeric, 2) AS load_2025_gw,\n       round((load_2026_mw / 1000.0)::numeric, 2) AS load_2026_gw,\n       round((delta_yoy_mw / 1000.0)::numeric, 2) AS delta_yoy_gw,\n       round(delta_yoy_pct::numeric, 1) AS delta_yoy_pct,\n       round(temp_2025_c::numeric, 1) AS temp_2025_c,\n       round(temp_2026_c::numeric, 1) AS temp_2026_c,\n       round(delta_temp_yoy_c::numeric, 1) AS delta_temp_yoy_c\nFROM heatwave_2026.load_temperature_yoy\nWHERE country IN (${load_country:sqlstring})\nORDER BY label, daypart",
+          "refId": "A"
+        }
+      ],
+      "title": "Load-temperature metrics",
+      "type": "table"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "oeds",
+    "heatwave-2026",
+    "interactive",
+    "load",
+    "temperature",
+    "cooling"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU"
+          ],
+          "value": [
+            "FR",
+            "DE_LU"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Country",
+        "multi": true,
+        "name": "country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Price Country",
+        "multi": true,
+        "name": "price_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "FR",
+          "value": "FR"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Base",
+        "multi": false,
+        "name": "base",
+        "options": [],
+        "query": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ],
+          "value": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Neighbor",
+        "multi": true,
+        "name": "neighbor",
+        "options": [],
+        "query": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Load Country",
+        "multi": true,
+        "name": "load_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-06-01T00:00:00+02:00",
+    "to": "2026-07-01T00:00:00+02:00"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Heatwave 2026 - Load and Temperature Interactive",
+  "uid": "heatwave2026-load-temperature",
+  "version": 2,
+  "weekStart": ""
+}
