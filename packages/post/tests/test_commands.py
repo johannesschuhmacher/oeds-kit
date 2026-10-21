@@ -1,0 +1,129 @@
+import os
+import subprocess
+import sys
+from types import ModuleType
+from pathlib import Path
+
+from oeds_post_scripts.commands import (
+    command_to_legacy_argv,
+    resolve_post_command,
+    script_to_post_command,
+)
+from oeds_post_scripts.migration import migrate_post_run_scripts
+from oeds_post_scripts import runner
+
+
+def test_backfill_config_path_can_be_set_by_environment(tmp_path):
+    config_path = tmp_path / "crawler.yml"
+    crawler_data_path = tmp_path / "crawler-data"
+    env = dict(
+        os.environ,
+        OEDS_CRAWLER_CONFIG=str(config_path),
+        OEDS_CRAWLER_DATA_DIR=str(crawler_data_path),
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from scripts.backfill_entsoe_unavailability import CONFIG_FILE, CRAWLER_DATA_DIR; "
+            "print(CONFIG_FILE); print(CRAWLER_DATA_DIR)",
+        ],
+        capture_output=True,
+        check=False,
+        env=env,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    output_lines = result.stdout.splitlines()
+    assert Path(output_lines[0]) == config_path
+    assert Path(output_lines[1]) == crawler_data_path
+
+
+def test_backfill_help_does_not_require_crawler_package():
+    script = Path(__file__).resolve().parents[1] / "scripts" / "backfill_entsoe_unavailability.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Backfill ENTSO-E unavailability" in result.stdout
+
+
+def test_direct_post_command_keeps_runtime_working_directory(monkeypatch, tmp_path):
+    observed_cwds = []
+    module = ModuleType("test_direct_post_module")
+    module.main = lambda _args: observed_cwds.append(Path.cwd())
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setitem(
+        runner._DIRECT_MAIN_SCRIPTS,
+        "scripts/test_direct.py",
+        (module.__name__, "main", True),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    returncode = runner._run_direct_main_if_available(
+        "scripts/test_direct.py",
+        Path(__file__).resolve().parents[1],
+        (),
+    )
+
+    assert returncode == 0
+    assert observed_cwds == [tmp_path]
+
+
+def test_resolve_entsoe_gapfill_command():
+    command = resolve_post_command(["gapfill", "entsoe-fms", "--self-test"])
+
+    assert command.spec.legacy_script == "scripts/gapfill_timeseries.py"
+    assert command_to_legacy_argv(command) == (
+        str(Path("scripts/gapfill_timeseries.py")),
+        "--job",
+        "entsoe_fms",
+        "--self-test",
+    )
+
+
+def test_script_to_post_command_maps_legacy_paths():
+    assert script_to_post_command("scripts/backfill_entsoe_unavailability.py") == (
+        "oeds-post backfill entsoe-unavailability"
+    )
+    assert script_to_post_command("scripts/run_price_forecast.py") == (
+        "oeds-post forecast day-ahead-price"
+    )
+
+
+def test_migrate_post_run_scripts_replaces_known_legacy_paths():
+    migrated, replacements = migrate_post_run_scripts(
+        {
+            "smard": {
+                "post_run_scripts": ["scripts/backfill_entsoe_unavailability.py"],
+            },
+            "entsoe_fms": {
+                "jobs": {
+                    "latest": {
+                        "post_run_scripts": [
+                            "scripts/gapfill_timeseries.py",
+                            "scripts/refresh_entsoe_availability_map.py",
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    assert migrated["smard"]["post_run_scripts"] == ["oeds-post backfill entsoe-unavailability"]
+    assert migrated["entsoe_fms"]["jobs"]["latest"]["post_run_scripts"] == [
+        "oeds-post gapfill entsoe-fms",
+        "oeds-post refresh entsoe-availability-map",
+    ]
+    assert [replacement.old_command for replacement in replacements] == [
+        "scripts/backfill_entsoe_unavailability.py",
+        "scripts/gapfill_timeseries.py",
+        "scripts/refresh_entsoe_availability_map.py",
+    ]
