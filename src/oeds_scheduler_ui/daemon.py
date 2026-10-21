@@ -98,10 +98,12 @@ def _log_run_result(result: CrawlerRunResult) -> None:
     elif result.status == "skipped":
         logger.info("Scheduled run of %s skipped: %s", result.display_name, result.error)
     else:
+        skipped = [post_run.command for post_run in result.post_run_results if post_run.skipped]
         logger.info(
-            "Scheduled run of %s succeeded in %.1fs (log: %s)",
+            "Scheduled run of %s succeeded in %.1fs%s (log: %s)",
             result.display_name,
             result.duration_seconds,
+            f"; post-run skipped (not installed): {', '.join(skipped)}" if skipped else "",
             result.log_path,
         )
 

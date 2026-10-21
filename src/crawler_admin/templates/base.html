@@ -15,7 +15,9 @@
         </div>
         <nav class="topnav" aria-label="Primary">
           <a href="/admin" class="{% if page_name == 'dashboard' %}is-active{% endif %}">Dashboard</a>
-          <a href="/admin/gapfill" class="{% if page_name == 'gapfill' %}is-active{% endif %}">Gapfill Tests</a>
+          {% if post_installed %}
+            <a href="/admin/gapfill" class="{% if page_name == 'gapfill' %}is-active{% endif %}">Gapfill Tests</a>
+          {% endif %}
           <a href="/admin/editor" class="{% if page_name == 'editor' %}is-active{% endif %}">YAML Editor</a>
         </nav>
       </header>
