@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from crawler_admin import POST_INSTALLED
 from crawler_admin.config_service import (
     build_cron_preview,
     build_dashboard_state,
@@ -49,6 +50,7 @@ from crawler_admin.runtime_service import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["post_installed"] = POST_INSTALLED
 run_service = CrawlerRunService()
 latest_gapfill_selftest_view: GapfillSelfTestView | None = None
 latest_gapfill_holdout_view: GapfillHoldoutView | None = None
@@ -126,12 +128,20 @@ def dashboard(
     )
 
 
+def _require_post() -> None:
+    """The gapfill pages exist only when oeds-post-scripts is installed."""
+
+    if not POST_INSTALLED:
+        raise HTTPException(status_code=404, detail="Post-processing package is not installed.")
+
+
 @app.get("/admin/gapfill", response_class=HTMLResponse)
 def gapfill_dashboard(
     request: Request,
     self_tested: int | None = Query(default=None),
     holdout_tested: int | None = Query(default=None),
 ) -> HTMLResponse:
+    _require_post()
     message_kind = None
     message_text = None
     if holdout_tested and latest_gapfill_holdout_view:
@@ -162,6 +172,7 @@ def gapfill_dashboard(
 async def run_gapfill_self_tests(request: Request) -> HTMLResponse:
     global latest_gapfill_selftest_view
 
+    _require_post()
     form = await request.form()
     selected_names = [str(value) for value in form.getlist("test_names")]
 
@@ -186,6 +197,7 @@ async def run_gapfill_self_tests(request: Request) -> HTMLResponse:
 async def run_gapfill_holdout_test(request: Request) -> HTMLResponse:
     global latest_gapfill_holdout_view
 
+    _require_post()
     form = await request.form()
     dataset_name = str(form.get("dataset_name") or "").strip()
     fault_type = str(form.get("fault_type") or "value_gap").strip()
@@ -344,6 +356,7 @@ def crawler_detail(
 
 @app.post("/admin/crawlers/{crawler_name}/gapfill", response_class=HTMLResponse)
 async def save_crawler_gapfill(request: Request, crawler_name: str) -> HTMLResponse:
+    _require_post()
     form = await request.form()
     overview = get_crawler_overview(crawler_name)
     if overview.card is None:
@@ -843,20 +856,22 @@ def _render_crawler_detail(
     runtime_benchmarks = run_service.get_runtime_benchmarks(crawler_name)
     action_values = _build_action_values(actions, submitted_action_id, submitted_values)
     email_state = _build_email_alert_state(overview)
-    gapfill_view = build_gapfill_runtime_view(
-        crawler_name,
-        overview.raw_config,
-        overview.effective_config,
-        check_database_tables=check_gapfill_db,
-    )
-    gapfill_form_values = gapfill_values or _build_gapfill_form_defaults_from_view(
-        gapfill_view
-    )
-    price_forecast_view = (
-        build_price_forecast_runtime_view(overview.effective_config)
-        if crawler_name == "entsoe_api"
-        else None
-    )
+    # The gapfill and price-forecast panels are absent without oeds-post-scripts.
+    gapfill_view = None
+    gapfill_form_values = gapfill_values or {}
+    price_forecast_view = None
+    if POST_INSTALLED:
+        gapfill_view = build_gapfill_runtime_view(
+            crawler_name,
+            overview.raw_config,
+            overview.effective_config,
+            check_database_tables=check_gapfill_db,
+        )
+        gapfill_form_values = gapfill_values or _build_gapfill_form_defaults_from_view(
+            gapfill_view
+        )
+        if crawler_name == "entsoe_api":
+            price_forecast_view = build_price_forecast_runtime_view(overview.effective_config)
     config_hash = compute_content_hash(read_config_text())
 
     return templates.TemplateResponse(
@@ -890,7 +905,7 @@ def _render_crawler_detail(
             "check_gapfill_db": check_gapfill_db,
             "gapfill_errors": gapfill_errors or [],
             "gapfill_values": gapfill_form_values,
-            "gapfill_methods": gapfill_method_options(),
+            "gapfill_methods": gapfill_method_options() if POST_INSTALLED else [],
             "base_hash": config_hash,
             "submitted_action_id": submitted_action_id,
             "time_label": get_local_time_label(),

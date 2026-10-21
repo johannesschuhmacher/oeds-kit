@@ -17,22 +17,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB
 from oeds_scheduler_ui.factory import load_crawler_class
 from oeds_scheduler_ui.locks import CrawlerLock, lock_engine
 from oeds_scheduler_ui.runtime import (
     crawl_command,
+    find_executable,
     is_crawler_skipped,
     last_log_line,
     run_status_from_returncode,
 )
 
+from crawler_admin import POST_INSTALLED
 from crawler_admin.config_service import (
     CrawlerOverview,
     get_config_path,
     get_crawler_overview,
     get_repo_root,
 )
+
+logger = logging.getLogger(__name__)
 
 FMS_ACTIVE_DATA_ITEMS = (
     (
@@ -634,6 +637,8 @@ class CrawlerRunService:
             )
 
         if action_id == "gapfill_backfill":
+            from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB
+
             supported_tables = BUILTIN_GAPFILL_TABLES_BY_JOB.get(crawler_name, ())
             if not supported_tables:
                 raise ActionValidationError(
@@ -911,7 +916,8 @@ class CrawlerRunService:
                 )
             )
 
-        if overview.crawler_name == "entsoe_api":
+        # The price forecast and gapfill actions shell out to ``oeds-post``.
+        if POST_INSTALLED and overview.crawler_name == "entsoe_api":
             actions.append(
                 ActionDefinition(
                     action_id="price_forecast",
@@ -981,9 +987,13 @@ class CrawlerRunService:
                 )
             )
 
-        supported_gapfill_tables = BUILTIN_GAPFILL_TABLES_BY_JOB.get(
-            overview.crawler_name, ()
-        )
+        supported_gapfill_tables = ()
+        if POST_INSTALLED:
+            from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB
+
+            supported_gapfill_tables = BUILTIN_GAPFILL_TABLES_BY_JOB.get(
+                overview.crawler_name, ()
+            )
         if supported_gapfill_tables:
             gapfill_config = effective_config.get("gapfill")
             configured_tables = []
@@ -1372,6 +1382,11 @@ class CrawlerRunService:
             argv = shlex.split(command)
             if argv and argv[0].endswith(".py"):
                 argv.insert(0, sys.executable)
+            elif argv and find_executable(argv[0]) is None:
+                logger.warning(
+                    "post-processing command not installed; skipped: %s", command
+                )
+                continue
             print(f"[POST] {command}")
             completed = subprocess.run(
                 argv,

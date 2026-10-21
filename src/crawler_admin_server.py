@@ -7,11 +7,11 @@ from __future__ import annotations
 import os
 
 import uvicorn
-from crawler_core.runtime_env import load_local_crawler_env
+from crawler.common.local_env import load_crawler_dotenv
 
 
 def main() -> None:
-    load_local_crawler_env()
+    load_crawler_dotenv()
 
     host = os.getenv("OEDS_ADMIN_HOST", "127.0.0.1")
     port = int(os.getenv("OEDS_ADMIN_PORT", "3010"))

@@ -3,20 +3,16 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from crawler.common.runtime_env import resolve_database_uri
-from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB, DEFAULT_POSTRUN_TABLES
-from oeds_gapfill.core import GAPFILL_METHODS
-from oeds_gapfill.selftest import (
-    HoldoutTestResult,
-    SelfTestResult,
-    list_holdout_datasets,
-    list_self_test_cases,
-    run_holdout_test,
-    run_self_tests,
-)
 from sqlalchemy import bindparam, create_engine, text
+
+# ``oeds_gapfill`` (oeds-post-scripts) is optional for the admin, so it is
+# imported inside the functions that need it; see ``crawler_admin.POST_INSTALLED``.
+if TYPE_CHECKING:
+    from oeds_gapfill.selftest import HoldoutTestResult, SelfTestResult
 
 GAPFILL_POSTRUN_SCRIPT = "scripts/gapfill_timeseries.py"
 GAPFILL_DASHBOARD_NAME = "OEDS Gapfilling Quality"
@@ -159,6 +155,8 @@ class GapfillRuntimeView:
 
 
 def build_gapfill_selftest_catalog() -> list[GapfillSelfTestCatalogItem]:
+    from oeds_gapfill.selftest import list_self_test_cases
+
     catalog = []
     for test_case in list_self_test_cases():
         catalog.append(
@@ -180,6 +178,8 @@ def build_gapfill_selftest_catalog() -> list[GapfillSelfTestCatalogItem]:
 
 
 def build_gapfill_holdout_catalog() -> list[GapfillHoldoutDatasetItem]:
+    from oeds_gapfill.selftest import list_holdout_datasets
+
     catalog = []
     for dataset in list_holdout_datasets():
         catalog.append(
@@ -204,6 +204,8 @@ def build_gapfill_holdout_catalog() -> list[GapfillHoldoutDatasetItem]:
 def build_gapfill_selftest_view(
     selected_names: Sequence[str] | None = None,
 ) -> GapfillSelfTestView:
+    from oeds_gapfill.selftest import run_self_tests
+
     run_id, results, series = run_self_tests(selected_names)
     charts = _build_charts(series)
     passed_count = sum(1 for result in results if result.status == "passed")
@@ -228,6 +230,8 @@ def build_gapfill_holdout_view(
     fault_type: str = "value_gap",
     method: str | None = None,
 ) -> GapfillHoldoutView:
+    from oeds_gapfill.selftest import run_holdout_test
+
     run_id, result, series = run_holdout_test(
         dataset_name,
         gap_length_periods,
@@ -246,6 +250,8 @@ def build_gapfill_holdout_view(
 
 
 def gapfill_method_options() -> list[str]:
+    from oeds_gapfill.core import GAPFILL_METHODS
+
     return list(GAPFILL_METHODS)
 
 
@@ -256,6 +262,8 @@ def build_gapfill_runtime_view(
     *,
     check_database_tables: bool = False,
 ) -> GapfillRuntimeView:
+    from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB, DEFAULT_POSTRUN_TABLES
+
     raw = raw_config if isinstance(raw_config, dict) else {}
     effective = effective_config if isinstance(effective_config, dict) else {}
     raw_gapfill = raw.get("gapfill") if isinstance(raw.get("gapfill"), dict) else {}
