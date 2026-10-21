@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     CrawlerSkipped,
     build_session,
@@ -31,7 +31,7 @@ log.setLevel(logging.INFO)
 DOCS_URL = "https://help.prisma-capacity.eu/solutions/shipper-hub-prisma-api-business-information"
 
 
-class PrismaCapacityCrawler(BaseCrawler):
+class PrismaCapacityCrawler(KitCrawler):
     """Generic PRISMA API collector.
 
     PRISMA's public documentation describes paid API packages rather than an
@@ -43,7 +43,6 @@ class PrismaCapacityCrawler(BaseCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.session = build_session(self.config.get("user_agent"))
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 90))
 

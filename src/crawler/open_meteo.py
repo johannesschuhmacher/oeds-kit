@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     config_or_env,
@@ -48,11 +48,10 @@ DEFAULT_HOURLY_VARIABLES = [
 ]
 
 
-class OpenMeteoCrawler(BaseCrawler):
+class OpenMeteoCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.session = build_session(self.config.get("user_agent"))
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 90))
 

@@ -36,7 +36,7 @@ from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
 from urllib3.util.retry import Retry
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 from datetime import datetime
 
@@ -203,7 +203,7 @@ def data_item_version(name: str) -> tuple[int, ...]:
 DEFAULT_START_DATE = "2014-01-01"
 
 
-class EntsoeFMSCrawler(BaseCrawler):
+class EntsoeFMSCrawler(KitCrawler):
     """Crawler for the selected ENTSO-E FMS extracts."""
 
     DATA_ITEM_TABLE_MAP = dict(FMS_ACTIVE_DATA_ITEMS)

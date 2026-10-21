@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     CrawlerSkipped,
     build_session,
@@ -99,11 +99,10 @@ METADATA_COLUMN_KEYS = {
 }
 
 
-class NetztransparenzCrawler(BaseCrawler):
+class NetztransparenzCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.session = build_session(self.config.get("user_agent"))
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 60))
         self.request_pause_seconds = float(self.config.get("request_pause_seconds", 0.6))

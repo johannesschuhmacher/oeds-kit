@@ -29,7 +29,7 @@ from dotenv import load_dotenv
 from sqlalchemy import Column, Date, DateTime, Float, MetaData, String, Table, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
 
@@ -66,7 +66,7 @@ IDA_PRODUCT_COLUMN_RE = re.compile(
 )
 
 
-class EpexSpotCrawler(BaseCrawler):
+class EpexSpotCrawler(KitCrawler):
     """Crawler for German EPEX SPOT intraday market data."""
 
     def __init__(self, crawler_name: str, config: dict):
@@ -74,7 +74,6 @@ class EpexSpotCrawler(BaseCrawler):
         load_dotenv(override=False)
         super().__init__(crawler_name, config)
 
-        self.schema_name = self.get("schema_name")
         self.metadata = MetaData(schema=self.schema_name)
         self.tables: dict[str, Table] = {}
         self.sftp: paramiko.SFTPClient | None = None

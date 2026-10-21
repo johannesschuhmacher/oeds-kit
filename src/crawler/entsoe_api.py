@@ -34,7 +34,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
 API_BASE_URL = "https://web-api.tp.entsoe.eu/api"
@@ -63,7 +63,7 @@ LOAD_CONSTRAINT = "unique_entsoe_api_load_forecasts"
 WIND_SOLAR_CONSTRAINT = "unique_entsoe_api_wind_solar_forecasts"
 
 
-class EntsoeApiCrawler(BaseCrawler):
+class EntsoeApiCrawler(KitCrawler):
     """Crawler for selected ENTSO-E Web API time series."""
 
     def __init__(self, crawler_name: str, config: dict[str, Any]):
@@ -71,7 +71,6 @@ class EntsoeApiCrawler(BaseCrawler):
         load_dotenv(override=False)
         super().__init__(crawler_name, config)
 
-        self.schema_name = self.get("schema_name")
         self.metadata = MetaData(schema=self.schema_name)
         self.tables: dict[str, Table] = {}
         self._define_tables()

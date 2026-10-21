@@ -9,8 +9,18 @@
   through `crawler.common.kit_base.KitCrawler`, which adds only what the pack
   needs on top (per-crawler file log and critical-error mails, dotted `get`,
   metadata with `concave_hull_geometry`). `crawler.common.base_crawler.BaseCrawler`
-  is an alias of `KitCrawler`; crawler imports are unchanged. `oeds` is pulled
-  in as a direct git dependency on the fork.
+  is an alias of `KitCrawler`. `oeds` is pulled in as a direct git dependency
+  on the fork.
+- The crawlers subclass `crawler.common.kit_base.KitCrawler` directly. The
+  `crawler.common.base_crawler.BaseCrawler` alias is deprecated and stays only
+  for `crawler_core`, which oeds-scheduler-ui and oeds-deployment still import.
+  Redundant `self.schema_name = self.get("schema_name")` lines in the crawler
+  constructors are gone; `KitCrawler` sets `schema_name` (config value, else
+  the crawler name).
+- Removed the `oeds_crawler_pack` registry facade, which discovered crawler
+  classes by parsing the source tree. The `oeds.crawlers` entry points in
+  `pyproject.toml` are the registry; `tests/test_entry_points.py` loads every
+  registered class.
 - `database_uri` configs keep working: `kit_db_uri` appends upstream's
   `{DBNAME}` placeholder so the schema is still appended to
   `?options=--search_path=`. Upstream additionally sets `search_path` on every

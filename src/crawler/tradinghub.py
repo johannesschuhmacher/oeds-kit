@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 from sqlalchemy import text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     compact_json,
@@ -51,10 +51,9 @@ def local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
-class TradingHubCrawler(BaseCrawler):
+class TradingHubCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         user_agent = self.config.get("user_agent") or "OEDS crawler/0.1 (+https://open-energy-data-server.readthedocs.io/)"
         self.session = build_session(user_agent)
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 90))

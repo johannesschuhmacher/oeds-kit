@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 try:
     import eurostat
@@ -32,10 +32,9 @@ LEGACY_DATASET_ID = "nrg_inf_epcrw"
 MAX_IDENTIFIER_LENGTH = 63
 
 
-class EurostatCrawler(BaseCrawler):
+class EurostatCrawler(KitCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.dataset_id = self.get("dataset_id")
         self.table_name = self._resolve_table_name()
         self.unique_constraint_name = self._build_unique_constraint_name()

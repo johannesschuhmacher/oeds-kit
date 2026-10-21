@@ -13,9 +13,9 @@ and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts
 
 ## Responsibility
 
-This module contains the KIT-enhanced crawler implementations, their registry,
-and the current compatibility implementation of `crawler.common.BaseCrawler`.
-It does not contain the scheduler, post-run scripts, or deployment.
+This module contains the KIT-enhanced crawler implementations and their shared
+base class `crawler.common.kit_base.KitCrawler`. It does not contain the
+scheduler, post-run scripts, or deployment.
 
 The generic parts of `crawler_core`, `BaseCrawler`, database URI handling, and
 the crawler contract are intended for an upstream contribution to OEDS. Until
@@ -29,8 +29,8 @@ are prepared for upstream OEDS or kept as extension crawlers.
 
 - ships all current KIT crawler implementations as importable `crawler.*`
 - ships the temporary `crawler_core` and BaseCrawler compatibility API
-- discovers crawlers from its own installed package
-- exposes stable crawler specs such as `crawler.smard:SmardCrawler`
+- registers its crawlers as `oeds.crawlers` entry points such as
+  `crawler.smard:SmardCrawler` (`oeds-crawl --list` shows them)
 - gives KIT crawler specs priority over upstream OEDS when the deployment stack
   merges registries
 - keeps upstream-only crawlers available through `oeds-core`
@@ -51,7 +51,9 @@ config access `self.get("a.b")`, and `set_metadata` with
 `concave_hull_geometry`. Constructors take `(crawler_name, config)`; the
 `database_uri` config key (ending in `?options=--search_path=`) stays valid,
 `kit_db_uri` turns it into the `{DBNAME}` form upstream expects.
-`crawler.common.base_crawler.BaseCrawler` is an alias of `KitCrawler`.
+Crawlers subclass `KitCrawler` directly. `crawler.common.base_crawler.BaseCrawler`
+is a deprecated alias kept for `crawler_core`, which oeds-scheduler-ui and
+oeds-deployment still import; alias and `crawler_core` are removed together.
 
 ## Local Development
 
@@ -60,7 +62,7 @@ Install and test this repository directly:
 ```powershell
 uv sync
 uv run --with pytest pytest tests
-uv run python -c "from oeds_crawler_pack import get_crawler_specs; print(get_crawler_specs())"
+uv run oeds-crawl --list
 ```
 
 No checkout of `open-energy-data-server-KIT` is required.

@@ -23,10 +23,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 
-class WeatherForecastCrawler(BaseCrawler):
+class WeatherForecastCrawler(KitCrawler):
     SOURCE_URL = "https://api.open-meteo.com/v1/dwd-icon"
     DOCS_URL = "https://open-meteo.com/en/docs/dwd-api"
 
@@ -283,7 +283,6 @@ class WeatherForecastCrawler(BaseCrawler):
 
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.metadata = MetaData(schema=self.schema_name)
         self.session = requests.Session()
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 45))

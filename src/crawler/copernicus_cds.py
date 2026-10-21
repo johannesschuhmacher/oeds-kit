@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     CrawlerSkipped,
     compact_json,
@@ -32,11 +32,10 @@ DOCS_URL = "https://cds.climate.copernicus.eu/en/how-to-api"
 DEFAULT_CDS_URL = "https://cds.climate.copernicus.eu/api"
 
 
-class CopernicusCdsCrawler(BaseCrawler):
+class CopernicusCdsCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
 
     def _prepare_schema(self) -> None:
         with self.engine.begin() as conn:
