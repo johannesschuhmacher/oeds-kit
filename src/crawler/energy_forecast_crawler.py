@@ -25,8 +25,8 @@ class EnergyForecastCrawler(BaseCrawler):
     BASE_URL = "https://www.energyforecast.de"
     TOKEN = os.getenv("ENERGY_FORECAST_TOKEN")
 
-    def __init__(self, schema_name: str, config: dict):
-        super().__init__(schema_name, config)
+    def __init__(self, crawler_name: str, config: dict):
+        super().__init__(crawler_name, config)
 
         self.schema_name = self.get('schema_name')
         self.table_name = 'predictions_48h'

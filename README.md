@@ -41,6 +41,18 @@ The registry priority is:
 oeds-crawler-pack before oeds-core
 ```
 
+## Base class
+
+`crawler.common.kit_base.KitCrawler` is upstream's `oeds.base_crawler.BaseCrawler`
+(engine, `search_path`, `create_schema`) plus the pack's additions: a rotating
+file log `logs/<crawler>.log` and rate-limited critical-error mails on the
+logger named after the crawler (`crawler.common.crawler_logging`), dotted
+config access `self.get("a.b")`, and `set_metadata` with
+`concave_hull_geometry`. Constructors take `(crawler_name, config)`; the
+`database_uri` config key (ending in `?options=--search_path=`) stays valid,
+`kit_db_uri` turns it into the `{DBNAME}` form upstream expects.
+`crawler.common.base_crawler.BaseCrawler` is an alias of `KitCrawler`.
+
 ## Local Development
 
 Install and test this repository directly:

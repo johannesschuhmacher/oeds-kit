@@ -17,6 +17,7 @@ dependencies = [
     "eurostat",
     "lxml",
     "netCDF4",
+    "oeds @ git+https://github.com/johannesschuhmacher/oeds-core.git@13b508d225407fe00f01b346b3a06d3f39e74e57",
     "openpyxl",
     "pandas",
     "paramiko",
