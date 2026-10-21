@@ -29,7 +29,6 @@ crawlers have written source tables.
 Implemented command facade:
 
 ```powershell
-oeds-post gapfill smard
 oeds-post gapfill entsoe-fms
 oeds-post refresh entsoe-availability-map
 oeds-post forecast day-ahead-price
@@ -92,8 +91,8 @@ scripts/lib/
 
 The stable `oeds-post` commands still keep the legacy-compatible paths as their
 behavioral source of truth. Scripts with a safe `main()` entry point can be
-called directly in-process; scripts with import-time side effects, such as the
-current `gapfill_smard.py`, continue to run through the subprocess fallback.
+called directly in-process; scripts with import-time side effects would run
+through the subprocess fallback.
 These packages and their SQL files are included in both source distributions
 and wheels. The repository can therefore be installed independently of the KIT
 monorepository. Database-backed commands use the shared runtime configuration
@@ -114,7 +113,6 @@ Current direct-call candidates:
 | `oeds-post refresh entsoe-availability-map` | yes |
 | `oeds-post forecast day-ahead-price` | yes |
 | `oeds-post backfill entsoe-unavailability` | yes |
-| `oeds-post gapfill smard` | no, script has import-time execution |
 
 ## Local Development
 
