@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `oeds-crawl` logs a failed run at CRITICAL on the crawler's own logger, so
+  the alert mail and the crawler log file are written from the subprocess the
+  scheduler starts.
 - The pack's crawlers now run on upstream's `oeds.base_crawler.BaseCrawler`
   through `crawler.common.kit_base.KitCrawler`, which adds only what the pack
   needs on top (per-crawler file log and critical-error mails, dotted `get`,

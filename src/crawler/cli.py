@@ -110,7 +110,11 @@ def main(argv: list[str] | None = None) -> int:
         log.info("Skipped %s: %s", args.crawler, exc)
         return EXIT_SKIPPED
     except Exception:
-        log.exception("Run of %s failed", args.crawler)
+        # The crawler's own logger carries the file handler and the SMTP alert
+        # handler (set up in KitCrawler.__init__); a CRITICAL record there writes
+        # the traceback to logs/<crawler>.log and sends the alert mail. The
+        # scheduler only sees the exit code, so this must happen here.
+        logging.getLogger(args.crawler).critical("Run of %s failed", args.crawler, exc_info=True)
         return EXIT_FAILED
     log.info("Finished %s", args.crawler)
     return EXIT_OK

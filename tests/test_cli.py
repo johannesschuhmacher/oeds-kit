@@ -83,3 +83,23 @@ def test_exit_codes(tmp_path, monkeypatch, outcome, expected):
 def test_list_does_not_need_a_config(capsys):
     assert cli.main(["--list", "--config", "does-not-exist.yml"]) == cli.EXIT_OK
     assert "smard" in capsys.readouterr().out
+
+
+def test_failed_run_is_logged_critical_on_the_crawler_logger(tmp_path, monkeypatch, caplog):
+    import logging
+
+    config_path = tmp_path / "CRAWLER_CONFIG.yml"
+    config_path.write_text(yaml.safe_dump(RAW), encoding="utf-8")
+
+    class FailingCrawler:
+        def __init__(self, name, config):
+            pass
+
+        def run(self):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli, "load_crawler_class", lambda name: FailingCrawler)
+    with caplog.at_level(logging.CRITICAL, logger="smard"):
+        assert cli.main(["smard", "--config", str(config_path)]) == cli.EXIT_FAILED
+    records = [r for r in caplog.records if r.name == "smard" and r.levelno == logging.CRITICAL]
+    assert records and records[0].exc_info is not None
