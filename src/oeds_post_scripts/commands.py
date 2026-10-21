@@ -43,12 +43,6 @@ class ResolvedPostCommand:
 POST_COMMANDS: tuple[PostCommandSpec, ...] = (
     PostCommandSpec(
         group="gapfill",
-        action="smard",
-        legacy_script="scripts/gapfill_smard.py",
-        description="Run the legacy SMARD gapfill helper.",
-    ),
-    PostCommandSpec(
-        group="gapfill",
         action="entsoe-fms",
         legacy_script="scripts/gapfill_timeseries.py",
         default_args=("--job", "entsoe_fms"),

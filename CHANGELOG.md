@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove `oeds-post gapfill smard` and `scripts/gapfill_smard.py`: the script
+  filled one hard-coded week (2–9 June 2024) against hard-coded localhost
+  credentials and ran uselessly after every SMARD run.
 - Use ENTSO-E's harmonised r3.1 column names (`AreaMapCode`,
   `ValidityPeriodStart(UTC)`, `InstalledCapacity[MW]`, `Comment`, ...).
 
