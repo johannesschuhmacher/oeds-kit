@@ -65,14 +65,15 @@ DEFAULT_ENDPOINTS = [
     },
     {
         "id": "online_solar_actuals",
-        "label": "Online solar actuals",
-        "path": "onlinehochrechnung/Solar",
+        "label": "Solar actuals (Hochrechnung)",
+        # onlinehochrechnung/* disappeared from the API (404 since 2026-10); hochrechnung/* is the 15-min actuals feed.
+        "path": "hochrechnung/Solar",
         "format": "csv",
     },
     {
         "id": "online_wind_onshore_actuals",
-        "label": "Online wind onshore actuals",
-        "path": "onlinehochrechnung/Windonshore",
+        "label": "Wind onshore actuals (Hochrechnung)",
+        "path": "hochrechnung/Windonshore",
         "format": "csv",
     },
     {
