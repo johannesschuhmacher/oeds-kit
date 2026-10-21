@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- EPEX Spot: reconnect and retry a file download when the SFTP server drops
+  the session ("Socket is closed" failed whole scheduled runs); keepalive 30 s.
+- Netztransparenz: `onlinehochrechnung/*` endpoints vanished from the API
+  (404); solar and wind-onshore actuals now use `hochrechnung/*`.
 - `oeds-crawl` logs a failed run at CRITICAL on the crawler's own logger, so
   the alert mail and the crawler log file are written from the subprocess the
   scheduler starts.

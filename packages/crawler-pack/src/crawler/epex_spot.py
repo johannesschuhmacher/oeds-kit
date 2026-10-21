@@ -306,6 +306,7 @@ class EpexSpotCrawler(KitCrawler):
         self.transport.banner_timeout = 30
         self.transport.auth_timeout = 30
         self.transport.connect(username=username, password=password)
+        self.transport.set_keepalive(30)
         self.sftp = paramiko.SFTPClient.from_transport(self.transport)
         self.logger.info("Connected to EPEX SPOT SFTP host %s:%s", host, port)
 
@@ -325,12 +326,29 @@ class EpexSpotCrawler(KitCrawler):
         files = [entry for entry in entries if not stat.S_ISDIR(entry.st_mode)]
         return sorted(files, key=lambda entry: entry.filename)
 
-    def _download_bytes(self, remote_path: str) -> bytes:
+    def _download_bytes(self, remote_path: str, attempts: int = 3) -> bytes:
+        """Read one remote file; reconnect and retry when the server drops the session.
+
+        The EPEX SFTP server closes idle or long sessions ("Socket is closed"
+        in the middle of a run), which otherwise fails the whole run.
+        """
         if self.sftp is None:
             raise RuntimeError("SFTP connection is not open.")
 
-        with self.sftp.open(remote_path, "rb") as remote_file:
-            return remote_file.read()
+        for attempt in range(1, attempts + 1):
+            try:
+                with self.sftp.open(remote_path, "rb") as remote_file:
+                    return remote_file.read()
+            except (OSError, EOFError, paramiko.SSHException) as exc:
+                if attempt == attempts:
+                    raise
+                self.logger.warning(
+                    "SFTP read of %s failed (%s); reconnecting (attempt %s of %s)",
+                    remote_path, exc, attempt + 1, attempts,
+                )
+                self._disconnect_sftp()
+                self._connect_sftp()
+        raise RuntimeError("unreachable")
 
     @staticmethod
     def _join_remote_path(remote_dir: str, filename: str) -> str:
