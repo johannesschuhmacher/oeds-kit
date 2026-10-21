@@ -2,9 +2,9 @@
 
 Scheduler and crawler admin UI module for the modular OEDS stack.
 
-The runtime expects `oeds-crawler-pack` and `oeds-post-scripts` to be installed
-alongside this package. The deployment repository installs all three modules
-and supplies the runtime configuration.
+The runtime expects `oeds-crawler-pack` to be installed alongside this package;
+`oeds-post-scripts` is optional (see below). The deployment repository installs
+all three modules and supplies the runtime configuration.
 
 This repository is part of the modular OEDS stack. The shared crawler and
 database core remains in
@@ -76,6 +76,14 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
   successful crawler run; `*.py` paths use the current interpreter with the
   working directory on `PYTHONPATH`.
 
+## Optional post-processing
+
+`oeds-post-scripts` is not required. Without it, scheduled runs and the admin
+UI work as usual; a post-run command whose executable is not installed (for
+example `oeds-post gapfill entsoe-fms`) is skipped with a WARNING and does not
+mark the run failed. The admin's Gapfill Tests page, the per-crawler gapfill and
+price-forecast panels and their actions are absent until the package is installed.
+
 ## Current CLIs
 
 The package entry point loads the modular application:
@@ -105,9 +113,10 @@ Environment variables preserved from KIT:
 | `OEDS_ADMIN_STATE_DIR` | platform user data path | run history and logs |
 
 The admin UI still expects the assembled deployment workspace to provide the
-current crawler package, `CRAWLER_CONFIG.yml`, `crawler/.env`, and post-script
-modules. That keeps crawler implementation ownership outside this repo while
-preserving the current UI behavior.
+current crawler package, `CRAWLER_CONFIG.yml`, `crawler/.env`, and (for the
+gapfill and forecast pages) the post-script modules. That keeps crawler
+implementation ownership outside this repo while preserving the current UI
+behavior.
 
 ## Local Development
 

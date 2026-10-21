@@ -352,6 +352,26 @@ def test_execute_post_command_adds_workspace_to_pythonpath_for_legacy_scripts(
     assert "imported ok" in log_path.read_text(encoding="utf-8")
 
 
+def test_post_run_command_without_installed_executable_is_skipped_not_failed(crawl_stub, caplog):
+    command = "oeds-post-not-installed gapfill stub"
+    plan = _plan(extra={"post_run_scripts": [command]})[0]
+
+    with caplog.at_level(logging.INFO):
+        result = CrawlerJobRunner("CRAWLER_CONFIG.yml").run(plan)
+        SchedulerDaemon(SimpleNamespace(tick=lambda now: (result,))).run_once(datetime.now())
+
+    assert result.status == "succeeded"
+    assert result.success is True
+    assert result.post_run_results == (PostRunCommandResult(command, None, True, skipped=True),)
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert [record.getMessage() for record in warnings] == [
+        f"post-processing command not installed; skipped: {command}"
+    ]
+    assert "succeeded in" in caplog.text
+    assert f"post-run skipped (not installed): {command}" in caplog.text
+    assert f"# post-run skipped (not installed): {command}" in result.log_path.read_text(encoding="utf-8")
+
+
 # --- queue, locks, dispatcher ------------------------------------------------
 
 
