@@ -14,16 +14,22 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from datetime import datetime
-from importlib import import_module
-from inspect import isclass
 from pathlib import Path
 from typing import Any
 
 from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB
-from oeds_scheduler_ui.runtime import is_crawler_skipped
+from oeds_scheduler_ui.factory import load_crawler_class
+from oeds_scheduler_ui.locks import CrawlerLock, lock_engine
+from oeds_scheduler_ui.runtime import (
+    crawl_command,
+    is_crawler_skipped,
+    last_log_line,
+    run_status_from_returncode,
+)
 
 from crawler_admin.config_service import (
     CrawlerOverview,
+    get_config_path,
     get_crawler_overview,
     get_repo_root,
 )
@@ -166,7 +172,9 @@ class PreparedAction:
     config_overrides: dict[str, Any]
     action_payload: dict[str, Any]
     run_post_scripts: bool
-    executor: Callable[[Any], str | None]
+    # Receives the crawler instance (None when requires_crawler is False) and
+    # the open run log; returns the summary line.
+    executor: Callable[[Any, io.TextIOBase], str | None]
     requires_crawler: bool = True
 
 
@@ -178,6 +186,10 @@ class ActionValidationError(Exception):
 
 class LockError(Exception):
     pass
+
+
+class CrawlerSkipped(Exception):
+    """``oeds-crawl`` exited with 3; ``is_crawler_skipped`` matches it by name."""
 
 
 class _LogWriter(io.TextIOBase):
@@ -385,19 +397,42 @@ class CrawlerRunService:
             if crawler_name in self._active_runs:
                 raise LockError(f"Crawler '{crawler_name}' already has an active run.")
 
-            run_id = self._create_run_record(prepared, trigger_source=trigger_source)
-            self._active_runs[crawler_name] = run_id
+            lock = self._acquire_crawler_lock(prepared)
+            try:
+                run_id = self._create_run_record(prepared, trigger_source=trigger_source)
+                self._active_runs[crawler_name] = run_id
 
-            thread = threading.Thread(
-                target=self._execute_run,
-                args=(run_id, prepared),
-                daemon=True,
-                name=f"crawler-run-{crawler_name}-{run_id}",
-            )
-            self._active_threads[run_id] = thread
-            thread.start()
+                thread = threading.Thread(
+                    target=self._execute_run,
+                    args=(run_id, prepared, lock),
+                    daemon=True,
+                    name=f"crawler-run-{crawler_name}-{run_id}",
+                )
+                self._active_threads[run_id] = thread
+                thread.start()
+            except Exception:
+                lock.release()
+                raise
 
         return run_id
+
+    def _acquire_crawler_lock(self, prepared: PreparedAction) -> CrawlerLock:
+        """Take the crawler's advisory lock shared with the scheduler daemon."""
+
+        database_uri = prepared.effective_config.get(
+            "database_uri"
+        ) or prepared.effective_config.get("db_uri")
+        if not database_uri:
+            raise ActionValidationError(
+                ["database_uri is not configured; the run lock needs it."]
+            )
+        lock = CrawlerLock.try_acquire(lock_engine(database_uri), prepared.crawler_name)
+        if lock is None:
+            raise LockError(
+                f"Crawler '{prepared.crawler_name}' is already running "
+                "(scheduler or another admin session)."
+            )
+        return lock
 
     def prepare_action(
         self,
@@ -438,7 +473,8 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload={},
                 run_post_scripts=True,
-                executor=lambda crawler: self._run_default(crawler),
+                executor=lambda _crawler, log: self._run_oeds_crawl(crawler_name, log),
+                requires_crawler=False,
             )
 
         if action_id == "weather_window":
@@ -473,7 +509,7 @@ class CrawlerRunService:
                 config_overrides=config_overrides,
                 action_payload={"location_ids": location_ids},
                 run_post_scripts=True,
-                executor=lambda crawler: self._run_default(crawler),
+                executor=lambda crawler, _log: self._run_default(crawler),
             )
 
         if action_id == "eurostat_range":
@@ -512,7 +548,7 @@ class CrawlerRunService:
                 config_overrides=config_overrides,
                 action_payload={},
                 run_post_scripts=True,
-                executor=lambda crawler: self._run_default(crawler),
+                executor=lambda crawler, _log: self._run_default(crawler),
             )
 
         if action_id == "entsoe_targeted":
@@ -544,7 +580,7 @@ class CrawlerRunService:
                 config_overrides=config_overrides,
                 action_payload={"target_data_items": target_items},
                 run_post_scripts=True,
-                executor=lambda crawler: self._run_default(crawler),
+                executor=lambda crawler, _log: self._run_default(crawler),
             )
 
         if action_id == "entsoe_backfill":
@@ -594,7 +630,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda crawler: self._run_entsoe_backfill(crawler, payload),
+                executor=lambda crawler, _log: self._run_entsoe_backfill(crawler, payload),
             )
 
         if action_id == "gapfill_backfill":
@@ -646,7 +682,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler: self._run_gapfill_backfill(payload),
+                executor=lambda _crawler, _log: self._run_gapfill_backfill(payload),
                 requires_crawler=False,
             )
 
@@ -707,7 +743,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler: self._run_price_forecast(payload),
+                executor=lambda _crawler, _log: self._run_price_forecast(payload),
                 requires_crawler=False,
             )
 
@@ -1078,7 +1114,9 @@ class CrawlerRunService:
 
         return run_id
 
-    def _execute_run(self, run_id: int, prepared: PreparedAction) -> None:
+    def _execute_run(
+        self, run_id: int, prepared: PreparedAction, lock: CrawlerLock | None = None
+    ) -> None:
         started_at = self._utc_now()
         log_path = Path(self.get_run(run_id).log_path)
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1137,7 +1175,7 @@ class CrawlerRunService:
                         if prepared.requires_crawler
                         else None
                     )
-                    result_summary = prepared.executor(crawler)
+                    result_summary = prepared.executor(crawler, handle)
                     if prepared.run_post_scripts:
                         self._run_post_scripts(prepared.effective_config, handle)
                     if result_summary:
@@ -1158,6 +1196,8 @@ class CrawlerRunService:
                     handle.write(traceback.format_exc())
                 handle.flush()
         finally:
+            if lock is not None:
+                lock.release()
             finished_at = self._utc_now()
             duration_seconds = self._duration_seconds(started_at, finished_at)
             root_logger.removeHandler(root_handler)
@@ -1193,6 +1233,32 @@ class CrawlerRunService:
 
     def _run_default(self, crawler: Any) -> str | None:
         crawler.run()
+        return "Run completed successfully."
+
+    def _run_oeds_crawl(self, crawler_name: str, handle: io.TextIOBase) -> str | None:
+        """Run the crawler through ``oeds-crawl`` like the scheduler does.
+
+        The child writes straight to the run log, so its output cannot
+        interleave with other runs. Exit code 3 means the crawler skipped.
+        """
+
+        argv = crawl_command(crawler_name, get_config_path(self.repo_root))
+        print(f"[COMMAND] {' '.join(argv)}")
+        handle.flush()
+        completed = subprocess.run(
+            argv,
+            cwd=self.repo_root,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        status = run_status_from_returncode(completed.returncode)
+        detail = last_log_line(Path(handle.name))
+        if status == "skipped":
+            raise CrawlerSkipped(detail or f"oeds-crawl exited with code {completed.returncode}")
+        if status == "failed":
+            message = f"oeds-crawl exited with code {completed.returncode}"
+            raise RuntimeError(f"{message}: {detail}" if detail else message)
         return "Run completed successfully."
 
     def _run_entsoe_backfill(self, crawler: Any, payload: dict[str, Any]) -> str | None:
@@ -1323,22 +1389,7 @@ class CrawlerRunService:
     def _build_crawler_instance(
         self, crawler_name: str, effective_config: dict[str, Any]
     ) -> Any:
-        from crawler_core.base import BaseCrawler
-
-        crawler_module = import_module(f"crawler.{crawler_name}")
-
-        for module_element_name in dir(crawler_module):
-            crawler_class = getattr(crawler_module, module_element_name)
-            if (
-                isclass(crawler_class)
-                and issubclass(crawler_class, BaseCrawler)
-                and crawler_class is not BaseCrawler
-            ):
-                return crawler_class(crawler_name, effective_config)
-
-        raise RuntimeError(
-            f"No BaseCrawler subclass found in crawler module '{crawler_name}'."
-        )
+        return load_crawler_class(crawler_name)(crawler_name, effective_config)
 
     def _row_to_record(self, row: sqlite3.Row) -> RunRecord:
         return RunRecord(

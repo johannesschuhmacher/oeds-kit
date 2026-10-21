@@ -4,7 +4,7 @@ Scheduler and crawler admin UI module for the modular OEDS stack.
 
 The runtime expects `oeds-crawler-pack` and `oeds-post-scripts` to be installed
 alongside this package. The deployment repository installs all three modules
-and supplies the crawler inventory and runtime configuration.
+and supplies the runtime configuration.
 
 This repository is part of the modular OEDS stack. The shared crawler and
 database core remains in
@@ -22,14 +22,15 @@ implementation files.
 
 ## Current State
 
-The module contains a registry-based scheduler core:
+The module contains the scheduler core:
 
-- `interfaces.py`: lazy crawler specs, config normalization, generic run helper
-- `factory.py`: static constructor audit and crawler construction
-- `planner.py`: dry scheduler job plans from config + registry
-- `runtime.py`: job runner, post-run hook boundary, queue locking
+- `factory.py`: crawler lookup through the `oeds.crawlers` entry points
+- `planner.py`: dry scheduler job plans from config + registered crawler names
+- `runtime.py`: `oeds-crawl` subprocess runner, per-run logs, queue locking,
+  bounded-concurrency dispatcher, post-run commands
+- `locks.py`: cross-process crawler lock (PostgreSQL advisory lock)
 - `service.py`: schedule adapter and scheduler service tick
-- `application.py`: config + inventory assembly and reload boundary
+- `application.py`: config assembly and reload boundary
 - `config.py`: YAML config loading and file change signature
 - `daemon.py`: stoppable loop around the scheduler application
 
@@ -40,31 +41,53 @@ The current KIT admin UI has also been extracted into this repo:
 - `crawler_admin_server.py`: CLI-compatible server launcher
 - `oeds-crawler-admin`: package entry point for the server launcher
 
-The dependency direction is:
+Crawlers are discovered through the `oeds.crawlers` entry points that every
+crawler package declares in its pyproject.toml; the scheduler never imports a
+crawler module itself. The layering is `oeds < crawler-pack < scheduler < post`:
+this module imports `crawler.common.*` where it needs to, nothing above it.
 
-```text
-scheduler-ui -> crawler registry -> crawler implementation
-```
+## How runs are executed
 
-The scheduler does not need to import `crawler.<name>` directly during planning.
-Crawler import/construction happens only when a planned job is dispatched.
-
-The merged static inventory currently exposes 47 crawler names. Forty-six have
-a supported constructor interface. The unregistered upstream legacy `dwd`
-module remains visible for analysis but is not dispatched because it requires
-an additional `nuts_matrix` argument. `dwd_cdc` is a separate crawler, not a
-verified equivalent of that legacy workflow. `eex` also has no dispatchable
-run method. Constructor discovery alone does not demonstrate source availability.
+- A scheduled job is started as a subprocess:
+  `oeds-crawl <crawler> --config CRAWLER_CONFIG.yml [--job <job>]` (the command
+  comes with `oeds-crawler-pack`; `OEDS_CRAWL_COMMAND` overrides the
+  executable, shell-style quoting). The child builds the effective crawler
+  config itself, so a manual `oeds-crawl` and a scheduled run behave the same.
+- Exit codes: `0` succeeded, `3` skipped (`CrawlerSkipped`, e.g. missing
+  credentials), anything else failed. A failed run logs CRITICAL on the
+  crawler's logger in the daemon with the last output line and the log path;
+  the traceback is in the run log.
+- Each run's stdout/stderr, including its post-run commands, goes to
+  `logs/runs/<crawler>-<job>-<YYYYmmdd-HHMMSS>.log` next to the crawlers' own
+  `logs/<crawler>.log` (relative to the working directory). The last 200 run
+  logs are kept.
+- Before a run starts, the daemon takes the PostgreSQL advisory lock
+  `pg_try_advisory_lock(hashtext('oeds-crawler:<crawler>'))` on a dedicated
+  connection using `default.database_uri` (with the `OEDS_DB_*` overrides).
+  The admin UI takes the same lock for every manual action, so scheduler and
+  admin cannot run one crawler at the same time. A job whose lock is busy is
+  retried on the next tick.
+- Up to `default.max_parallel_runs` (default 3) runs execute concurrently; the
+  per-job `lock_keys` (for example ENTSO-E data items) still serialise
+  conflicting jobs inside the daemon.
+- `run_timeout_seconds` on a crawler or job kills the process after that time
+  and marks the run failed.
+- Post-run commands (`post_run_scripts`) run as subprocesses after a
+  successful crawler run; `*.py` paths use the current interpreter with the
+  working directory on `PYTHONPATH`.
 
 ## Current CLIs
 
-The package entry point now loads the modular application:
+The package entry point loads the modular application:
 
 ```powershell
-oeds-scheduler --config CRAWLER_CONFIG.yml --inventory modular_repos/docs/crawler-inventory.json --workspace-root modular_repos
+oeds-scheduler --config CRAWLER_CONFIG.yml --daemon
 ```
 
-`--once` runs one scheduler tick. `--daemon` runs the persistent scheduler loop.
+`--once` runs one scheduler tick and waits for the started runs. `--daemon`
+runs the persistent scheduler loop. `--inventory` and `--workspace-root` are
+still accepted but ignored (deprecated; the deployment stops passing them in a
+later release).
 
 Run the admin UI:
 
@@ -95,12 +118,11 @@ uv sync
 uv run --with pytest pytest tests/test_interfaces.py
 ```
 
-This checks:
+This checks, with a stub standing in for `oeds-crawl`:
 
-- registry priority and constructor compatibility
 - job expansion for `default` and named `jobs`
-- post-run metadata preservation
-- queue locking
+- exit-code mapping, per-run log files, timeouts and post-run commands
+- queue locking, advisory-lock handling and bounded concurrency
 - scheduler service ticks and daemon wait calculation
 - application reload on config changes
 
@@ -117,7 +139,6 @@ checked by contract tests:
 - same config merge behavior for `default` and `jobs`
 - same `enable`, `schedule`, `post_run_scripts`, and `run_post_scripts`
   semantics
-- same crawler constructor support for KIT and upstream OEDS crawler styles
 - no crawler import during planning
 
 The admin UI has received subsequent fixes and is no longer byte-for-byte
@@ -127,7 +148,8 @@ runtime described in the deployment repository's `docs/testing.md`.
 
 ## Future Work
 
-- deeper admin-service integration with the registry-based scheduler runtime
-- threaded production dispatch if needed
+- run the admin UI's specialised actions (ENTSO-E targeted/backfill, weather
+  window, Eurostat range) through `oeds-crawl` as well; they are still
+  in-process
 - upstream contribution of generic crawler-contract improvements currently
   provided by the `oeds-crawler-pack` compatibility facade
