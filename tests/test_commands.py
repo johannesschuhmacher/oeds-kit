@@ -90,8 +90,8 @@ def test_resolve_entsoe_gapfill_command():
 
 
 def test_script_to_post_command_maps_legacy_paths():
-    assert script_to_post_command("scripts/gapfill_smard.py") == (
-        "oeds-post gapfill smard"
+    assert script_to_post_command("scripts/backfill_entsoe_unavailability.py") == (
+        "oeds-post backfill entsoe-unavailability"
     )
     assert script_to_post_command("scripts/run_price_forecast.py") == (
         "oeds-post forecast day-ahead-price"
@@ -102,7 +102,7 @@ def test_migrate_post_run_scripts_replaces_known_legacy_paths():
     migrated, replacements = migrate_post_run_scripts(
         {
             "smard": {
-                "post_run_scripts": ["scripts/gapfill_smard.py"],
+                "post_run_scripts": ["scripts/backfill_entsoe_unavailability.py"],
             },
             "entsoe_fms": {
                 "jobs": {
@@ -117,13 +117,13 @@ def test_migrate_post_run_scripts_replaces_known_legacy_paths():
         }
     )
 
-    assert migrated["smard"]["post_run_scripts"] == ["oeds-post gapfill smard"]
+    assert migrated["smard"]["post_run_scripts"] == ["oeds-post backfill entsoe-unavailability"]
     assert migrated["entsoe_fms"]["jobs"]["latest"]["post_run_scripts"] == [
         "oeds-post gapfill entsoe-fms",
         "oeds-post refresh entsoe-availability-map",
     ]
     assert [replacement.old_command for replacement in replacements] == [
-        "scripts/gapfill_smard.py",
+        "scripts/backfill_entsoe_unavailability.py",
         "scripts/gapfill_timeseries.py",
         "scripts/refresh_entsoe_availability_map.py",
     ]
