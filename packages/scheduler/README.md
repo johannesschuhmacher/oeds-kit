@@ -1,18 +1,11 @@
 # oeds-scheduler-ui
 
-Scheduler and crawler admin UI module for the modular OEDS stack.
+Scheduler and crawler admin UI package of the [oeds-kit](../../README.md)
+workspace.
 
-The runtime expects `oeds-crawler-pack` to be installed alongside this package;
-`oeds-post-scripts` is optional (see below). The deployment repository installs
-all three modules and supplies the runtime configuration.
-
-This repository is part of the modular OEDS stack. The shared crawler and
-database core remains in
-[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
-while crawler extensions, post-processing, and installation live in
-[oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
-[oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts),
-and [oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment).
+The package depends on `oeds-crawler-pack` (`packages/crawler-pack`);
+`oeds-post-scripts` (`packages/post`) is optional (see below). The deployment
+in `deploy/` installs all three and supplies the runtime configuration.
 
 ## Responsibility
 
@@ -34,7 +27,7 @@ The module contains the scheduler core:
 - `config.py`: YAML config loading and file change signature
 - `daemon.py`: stoppable loop around the scheduler application
 
-The current KIT admin UI has also been extracted into this repo:
+The admin UI lives here as well:
 
 - `crawler_admin/`: FastAPI app, templates, static files, config editor, manual
   run controls, gapfill/forecast views, and run history service
@@ -112,22 +105,22 @@ Environment variables preserved from KIT:
 | `OEDS_ADMIN_RELOAD` | unset | enable Uvicorn reload for local development |
 | `OEDS_ADMIN_STATE_DIR` | platform user data path | run history and logs |
 
-The admin UI still expects the assembled deployment workspace to provide the
-current crawler package, `CRAWLER_CONFIG.yml`, `crawler/.env`, and (for the
-gapfill and forecast pages) the post-script modules. That keeps crawler
-implementation ownership outside this repo while preserving the current UI
-behavior.
+The admin UI expects the installed crawler pack, `CRAWLER_CONFIG.yml` and
+`crawler/.env` under `OEDS_ADMIN_REPO_ROOT`, and (for the gapfill and forecast
+pages) the post-scripts package. Crawler implementations stay outside this
+package.
 
 ## Local Development
 
-Install the package and run the focused tests from this repository:
+From the repository root (the workspace installs the crawler pack and the
+post-scripts, which the admin tests need):
 
 ```powershell
-uv sync
-uv run --with pytest pytest tests/test_interfaces.py
+uv sync --all-packages
+uv run --package oeds-scheduler-ui pytest packages/scheduler/tests
 ```
 
-This checks, with a stub standing in for `oeds-crawl`:
+`tests/test_interfaces.py` checks, with a stub standing in for `oeds-crawl`:
 
 - job expansion for `default` and named `jobs`
 - exit-code mapping, per-run log files, timeouts and post-run commands
@@ -135,9 +128,8 @@ This checks, with a stub standing in for `oeds-crawl`:
 - scheduler service ticks and daemon wait calculation
 - application reload on config changes
 
-The repository includes a starter GitHub Actions workflow for compile checks
-and standalone scheduler-core tests. Admin UI, gapfill, database, crawler, and
-Docker coverage is handled by the deployment-level full function test.
+Database, crawler and Docker coverage is handled by the deployment-level
+integration test (`deploy/tests/integration.py`).
 
 ## Reproducibility Against KIT
 
@@ -151,9 +143,7 @@ checked by contract tests:
 - no crawler import during planning
 
 The admin UI has received subsequent fixes and is no longer byte-for-byte
-identical to KIT. Test behavior, not source-file identity. Full admin tests
-require the crawler and post-scripts modules; run them in the assembled
-runtime described in the deployment repository's `docs/testing.md`.
+identical to KIT. Test behavior, not source-file identity.
 
 ## Future Work
 

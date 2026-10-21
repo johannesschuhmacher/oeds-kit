@@ -20,14 +20,15 @@ only trusted operators should join the `docker` group.
 
 ## Update without losing settings
 
-Assemble the new source outside the installed `repo/` directory first. For
-private repositories, use your Git credential helper or the installer's
-temporary `GIT_ASKPASS` token mechanism. Never embed credentials in clone URLs.
+Check out the new revision of oeds-kit outside the installed `repo/` directory
+first (for example `$HOME/oeds-kit`). For private forks, use your Git
+credential helper or the installer's temporary `GIT_ASKPASS` token mechanism.
+Never embed credentials in clone URLs.
 
 ```bash
 ansible-playbook -i inventory.local.yml -K oeds-update.yml \
   -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-assembled" \
+  -e oeds_repo_local_src="$HOME/oeds-kit" \
   -e oeds_enable_crawlers=true
 ansible-playbook -i inventory.local.yml -K oeds-install-post.yml
 ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
@@ -44,17 +45,15 @@ It does not replace existing Docker volumes. `oeds_update_docker_packages=true`
 also updates Docker packages; normal updates leave them alone. PostgreSQL major
 version changes require a separate migration, not an ordinary update.
 
-The crawler image installs exactly `docker/requirements.lock`. When you bump
-the pins in `compatibility.yml` or a module changes its dependencies,
-regenerate the lock with `tools/update_requirements_lock.sh` in the same
-change (the script header explains the steps).
+The crawler image installs exactly the root `uv.lock` (`uv sync --frozen`).
+When a package changes its dependencies or the `oeds` revision in the root
+`pyproject.toml` moves, run `uv lock` and commit the lock in the same change.
 
-Advanced source modes: `git` clones deployment and assembles its pinned
-dependencies on the target (requires Git access there); `local_worktree`
-transfers a prepared workspace, including intended uncommitted changes;
-`local_archive` transfers a committed Git archive. The last mode only works
-with a repository that actually contains the complete assembled workspace.
-Use `local_worktree` for the modular layout.
+Source modes: `git` clones `oeds_repo_url` at `oeds_repo_version` into
+`repo/` on the target (requires Git access there; the installed checkout
+must stay clean); `local_worktree` transfers the control node's checkout,
+including intended uncommitted changes; `local_archive` transfers a committed
+Git archive of it. The installer uses `local_worktree`.
 
 ## Backup and restore
 
@@ -104,7 +103,7 @@ Optional flags `oeds_uninstall_remove_backups=true` and
 ## Credentials and permissions
 
 Crawler API keys belong in `runtime/crawler/.env`. Service passwords and port
-overrides belong in the installed deployment module's `.env`. Ansible protects
+overrides belong in the installed `repo/deploy/.env`. Ansible protects
 these files with `root:docker` and mode `0640`. Both crawler containers run as
 UID 1000; the runtime config file and the data/log/admin-state directories are
 owned by that UID (group `docker`, not world-writable), and every update
@@ -123,8 +122,7 @@ ansible-playbook -i inventory.local.yml -K oeds-rotate-passwords.yml \
 ```
 
 Use `-e oeds_rotation_dry_run=true` for a preview. Direct host invocation is
-`python3 oeds_ops/password_rotation.py --dry-run` from the deployment module,
-not the old monorepository `scripts/` path. Real Bitwarden writes require
+`python3 oeds_ops/password_rotation.py --dry-run` from `repo/deploy`. Real Bitwarden writes require
 separate vault credentials and are not covered by fixture tests.
 
 ## Status email

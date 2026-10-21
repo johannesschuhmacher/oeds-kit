@@ -103,8 +103,9 @@ timestamp regression. The subsequent Weather basemap-only correction was checked
 separately in Grafana. This is not a blanket certification of every data source.
 
 Official OEDS remains unchanged at `38abf45139f332d59a198c1b0feb95016b323ee1`.
-The assembly uses that repository directly, without a KIT monorepository checkout.
-Add-ons are selected by `compatibility.yml`:
+The deployment used that repository directly, without a KIT monorepository checkout.
+Add-ons were selected by the deployment's former compatibility pins (since replaced by
+the oeds-kit workspace and its `uv.lock`):
 
 | Module | Revision |
 | --- | --- |

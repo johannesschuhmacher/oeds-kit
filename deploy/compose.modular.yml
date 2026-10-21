@@ -1,2 +1,0 @@
-# Compatibility for existing two-file commands. All services live in compose.yml.
-services: {}

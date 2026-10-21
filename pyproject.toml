@@ -1,0 +1,29 @@
+[project]
+name = "oeds-kit"
+version = "0.1.0"
+description = "KIT additions to the Open Energy Data Server: crawler pack, scheduler/admin UI, post-processing and deployment."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "AGPL-3.0-or-later"
+dependencies = []
+
+[tool.uv]
+package = false
+constraint-dependencies = [
+    # SQLAlchemy 2.1 breaks the psycopg2 default dialect used by every crawler.
+    "sqlalchemy>=2.0,<2.1",
+    "pandas<4",
+    "numpy<3",
+]
+
+[tool.uv.workspace]
+members = ["packages/crawler-pack", "packages/scheduler", "packages/post"]
+
+[tool.uv.sources]
+oeds = { git = "https://github.com/johannesschuhmacher/oeds-core.git", rev = "13b508d225407fe00f01b346b3a06d3f39e74e57" }
+oeds-crawler-pack = { workspace = true }
+oeds-scheduler-ui = { workspace = true }
+oeds-post-scripts = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest"]

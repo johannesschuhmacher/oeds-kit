@@ -37,8 +37,8 @@ fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 DEPLOYMENT_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
-REPO_ROOT=$(cd -- "$DEPLOYMENT_ROOT/../../.." && pwd)
-CRAWLER_DATA_SOURCE=$REPO_ROOT/modular_repos/modules/oeds-crawler-pack/src/crawler/data
+REPO_ROOT=$(cd -- "$DEPLOYMENT_ROOT/.." && pwd)
+CRAWLER_DATA_SOURCE=$REPO_ROOT/packages/crawler-pack/src/crawler/data
 source "$SCRIPT_DIR/smoke_lib.sh"
 
 compose_env_value() {
@@ -67,11 +67,11 @@ fi
 
 BASE_RUNTIME_DIR=${OEDS_RUNTIME_DIR:-$(compose_env_value OEDS_RUNTIME_DIR)}
 if [[ -z "$BASE_RUNTIME_DIR" ]]; then
-  BASE_RUNTIME_DIR=../../..
+  BASE_RUNTIME_DIR=/open_energy_data_server/runtime
 fi
 BASE_RUNTIME_DIR=$(resolve_path_from_deployment "$BASE_RUNTIME_DIR")
 
-COMPOSE=(docker compose --profile crawlers -f compose.yml -f compose.modular.yml)
+COMPOSE=(docker compose --profile crawlers -f compose.yml)
 RUNTIME_ROOT=$(mktemp -d "$BASE_RUNTIME_DIR/.sample.XXXXXX")
 RUNTIME_DIR=$RUNTIME_ROOT
 
@@ -85,9 +85,6 @@ mkdir -p "$RUNTIME_ROOT/crawler/data" "$RUNTIME_ROOT/logs" "$RUNTIME_ROOT/crawle
 SOURCE_ENV=${OEDS_CRAWLER_ENV_FILE:-}
 if [[ -z "$SOURCE_ENV" && -f "$BASE_RUNTIME_DIR/crawler/.env" ]]; then
   SOURCE_ENV=$BASE_RUNTIME_DIR/crawler/.env
-fi
-if [[ -z "$SOURCE_ENV" && -f "$REPO_ROOT/crawler/.env" ]]; then
-  SOURCE_ENV=$REPO_ROOT/crawler/.env
 fi
 if [[ -n "$SOURCE_ENV" ]]; then
   cp "$SOURCE_ENV" "$RUNTIME_ROOT/crawler/.env"

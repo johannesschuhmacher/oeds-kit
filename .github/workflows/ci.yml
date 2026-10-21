@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.7"
+          python-version: "3.13"
+
+      - name: Install the workspace from uv.lock
+        run: uv sync --frozen --all-packages --all-extras
+
+      - name: Crawler pack tests
+        run: uv run --frozen --package oeds-crawler-pack pytest -q packages/crawler-pack/tests
+
+      - name: Scheduler tests
+        run: uv run --frozen --package oeds-scheduler-ui pytest -q packages/scheduler/tests
+
+      - name: Post-scripts tests
+        run: uv run --frozen --package oeds-post-scripts pytest -q packages/post/tests
+
+      - name: Deployment tests
+        run: uv run --frozen pytest -q deploy/tests
+
+      - name: Compile all Python
+        run: uv run --frozen python -m compileall -q packages deploy/oeds_ops deploy/tools deploy/tests deploy/playbooks/callback_plugins
+
+      - name: Check shell syntax
+        run: for script in deploy/tools/*.sh deploy/docker/initdb/*.sh; do bash -n "$script"; done
+
+      - name: Parse playbooks and Compose files
+        run: |
+          uv run --frozen python - <<'PY'
+          import glob, yaml
+          class Loader(yaml.SafeLoader):
+              pass
+          Loader.add_constructor('!override', lambda loader, node: loader.construct_sequence(node))
+          for path in glob.glob('deploy/playbooks/**/*.yml', recursive=True) + glob.glob('deploy/*.yml'):
+              with open(path, encoding='utf-8') as handle:
+                  yaml.load(handle, Loader=Loader)
+          PY
+          uv run --frozen python deploy/tools/verify_deployment.py
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the runtime image
+        run: docker build -f deploy/docker/Dockerfile.crawler-modular --target runtime -t oeds-runtime:ci .
+
+      # Same database image family and init SQL as compose.yml (creates the
+      # readonly role and public.metadata).
+      - name: Start the database
+        run: |
+          docker network create oeds-ci
+          docker run -d --name open-data --network oeds-ci \
+            -e POSTGRES_USER=opendata -e POSTGRES_PASSWORD=opendata -e POSTGRES_DB=opendata \
+            -v "$PWD/deploy/docker/initdb:/docker-entrypoint-initdb.d:ro" \
+            timescale/timescaledb-ha:pg18-oss -c timescaledb.telemetry_level=off
+          for attempt in $(seq 1 60); do
+            if docker exec open-data psql -U opendata -d opendata -c 'SELECT 1 FROM public.metadata LIMIT 0' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs open-data
+          exit 1
+
+      - name: List the registered crawlers
+        run: |
+          docker run --rm oeds-runtime:ci oeds-crawl --list --config /app/CRAWLER_CONFIG.yml | tee crawlers.txt
+          test "$(wc -l < crawlers.txt)" -ge 20
+
+      # Mirrors oeds-smoke-test.yml: the offline ninja crawler against a local ZIP fixture.
+      - name: Run the offline crawler test in the image
+        run: |
+          docker run --rm --network oeds-ci \
+            -e OEDS_DB_HOST=open-data -e OEDS_DB_PORT=5432 -e OEDS_DB_PASSWORD=opendata \
+            -e OEDS_CRAWLER_CONFIG=/app/CRAWLER_CONFIG.yml -e OEDS_CRAWLER_DATA_DIR=/app/crawler/data \
+            -v "$PWD/deploy/tests:/tests:ro" oeds-runtime:ci python /tests/integration.py crawlers
+
+  ansible-syntax:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/playbooks
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip ansible-core
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Syntax-check the playbooks
+        env:
+          ANSIBLE_CONFIG: ansible.cfg
+        run: |
+          for playbook in oeds-*.yml; do
+            ansible-playbook -i inventory.example.yml --syntax-check "$playbook"
+          done
