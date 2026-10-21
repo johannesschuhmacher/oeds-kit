@@ -5,5 +5,11 @@
 **/build
 **/dist
 **/*.egg-info
+**/.pytest_cache
+deploy/data
+deploy/docs
+deploy/playbooks
+deploy/tests
 crawler_admin_state
 logs
+runtime

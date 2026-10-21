@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 DEPLOYMENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-WORKSPACE=$(cd "$DEPLOYMENT_ROOT/../../.." && pwd)
+REPO_ROOT=$(cd "$DEPLOYMENT_ROOT/.." && pwd)
 cd "$DEPLOYMENT_ROOT"
 if [[ -f .env ]]; then
   set -a
@@ -25,16 +25,16 @@ SELECT count(*) FROM public.metadata;
 RESET ROLE;
 SQL
 
-echo 'Building and testing modules in order (fixture data, then real clock scheduling)'
+echo 'Building the runtime image and testing each layer (fixture data, then real clock scheduling)'
+docker build --target runtime -t oeds-test:runtime \
+  -f "$DEPLOYMENT_ROOT/docker/Dockerfile.crawler-modular" "$REPO_ROOT"
 for stage in core crawlers post runtime; do
-  docker build --target "$stage" -t "oeds-test:$stage" \
-    -f "$DEPLOYMENT_ROOT/docker/Dockerfile.crawler-modular" "$WORKSPACE"
   docker run --rm --network "$NETWORK" \
     -e OEDS_DB_HOST=open-data -e OEDS_DB_PORT=5432 \
     -e OEDS_DB_PASSWORD \
     -e OEDS_CRAWLER_CONFIG=/app/CRAWLER_CONFIG.yml \
     -e OEDS_CRAWLER_DATA_DIR=/app/crawler/data \
-    -v "$DEPLOYMENT_ROOT/tests:/tests:ro" "oeds-test:$stage" \
+    -v "$DEPLOYMENT_ROOT/tests:/tests:ro" oeds-test:runtime \
     python /tests/integration.py "$stage"
 done
 

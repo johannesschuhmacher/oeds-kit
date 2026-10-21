@@ -21,29 +21,31 @@ x-oeds-python-environment: &oeds-python-environment
   OEDS_PRICE_FORECAST_BACKTEST_DAYS: ${OEDS_PRICE_FORECAST_BACKTEST_DAYS:-2}
   OEDS_PRICE_FORECAST_RETENTION_DAYS: ${OEDS_PRICE_FORECAST_RETENTION_DAYS:-180}
 
+# OEDS_RUNTIME_DIR (written to deploy/.env by Ansible) holds CRAWLER_CONFIG.yml,
+# crawler/.env, crawler/data and logs outside the Git checkout.
 x-oeds-python-service: &oeds-python-service
   build:
-    context: ../../..
-    dockerfile: modular_repos/modules/oeds-deployment/docker/Dockerfile.crawler-modular
+    context: ..
+    dockerfile: deploy/docker/Dockerfile.crawler-modular
   restart: unless-stopped
   working_dir: /app
   environment:
     <<: *oeds-python-environment
   env_file:
-    - path: ${OEDS_RUNTIME_DIR:-../../..}/crawler/.env
+    - path: ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/crawler/.env
       required: false
   volumes:
     - type: bind
-      source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
+      source: ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/CRAWLER_CONFIG.yml
       target: /app/CRAWLER_CONFIG.yml
       bind:
         create_host_path: false
     - type: bind
-      source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
+      source: ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/crawler/data
       target: /app/crawler/data
       bind:
         create_host_path: false
-    - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
+    - ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/logs:/app/logs
   networks:
     - netlocalhost
   depends_on:
@@ -179,16 +181,16 @@ services:
       OEDS_ADMIN_STATE_DIR: /var/lib/oeds-admin
     volumes:
       - type: bind
-        source: ${OEDS_RUNTIME_DIR:-../../..}/CRAWLER_CONFIG.yml
+        source: ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/CRAWLER_CONFIG.yml
         target: /app/CRAWLER_CONFIG.yml
         bind:
           create_host_path: false
       - type: bind
-        source: ${OEDS_RUNTIME_DIR:-../../..}/crawler/data
+        source: ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/crawler/data
         target: /app/crawler/data
         bind:
           create_host_path: false
-      - ${OEDS_RUNTIME_DIR:-../../..}/logs:/app/logs
-      - ${OEDS_RUNTIME_DIR:-../../..}/crawler_admin_state:/var/lib/oeds-admin
+      - ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/logs:/app/logs
+      - ${OEDS_RUNTIME_DIR:-/open_energy_data_server/runtime}/crawler_admin_state:/var/lib/oeds-admin
     ports:
       - "${OEDS_CRAWLER_ADMIN_PORT:-3010}:3010"

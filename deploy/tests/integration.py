@@ -1,4 +1,8 @@
-"""Small deterministic DB/HTTP/crawler/scheduler test. Writes oeds_test_* schemas."""
+"""Small deterministic DB/HTTP/crawler/scheduler test. Writes oeds_test_* schemas.
+
+Runs inside the built runtime image; the positional argument selects the layer
+to test (core = upstream oeds, crawlers = crawler pack, post, runtime = scheduler).
+"""
 
 import argparse
 import functools

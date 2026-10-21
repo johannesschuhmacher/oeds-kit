@@ -25,9 +25,11 @@ NETWORK = "oeds-crawler-validation"
 ROOT = Path(__file__).resolve().parent
 IMAGE = "oeds-test:runtime"
 BOOTSTRAP_LOCK = threading.Lock()
+# Crawler module directories inside the image (both packages are installed
+# into /app/.venv).
 SOURCES = {
-    "kit": Path("/app/modular_repos/modules/oeds-crawler-pack/src/crawler"),
-    "core": Path("/app/modular_repos/sources/oeds-core/oeds/crawler"),
+    "kit": Path(importlib.import_module("crawler").__file__).parent,
+    "core": Path(importlib.import_module("oeds.crawler").__file__).parent,
 }
 REQUIRED_TABLES = {
     "kit:copernicus_cds": ("downloaded_files", "variable_statistics"),

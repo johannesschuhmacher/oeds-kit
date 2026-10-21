@@ -23,7 +23,7 @@
     oeds_crawler_admin_url_effective: "{{ oeds_crawler_admin_url | default(oeds_default_crawler_admin_url) }}"
     oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
     oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
-    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/deploy') }}"
     oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
   tasks:
     - name: Wait until the PostgreSQL TCP port is reachable
