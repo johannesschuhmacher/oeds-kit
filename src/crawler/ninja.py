@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 import pandas as pd
 import requests
@@ -32,7 +32,7 @@ def _as_bool(value) -> bool:
     return bool(value)
 
 
-class NinjaCrawler(BaseCrawler):
+class NinjaCrawler(KitCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
 

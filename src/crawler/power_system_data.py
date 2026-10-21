@@ -10,18 +10,17 @@ import yaml
 from sqlalchemy import Column, Float, MetaData, String, Table
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.data.mapping_eic_to_location import etl_run
 
 
-class PowerSystemDataCrawler(BaseCrawler):
+class PowerSystemDataCrawler(KitCrawler):
     """
     Crawler to fetch power plant data from PyPSA and save it to the database.
     """
 
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.table_name = "powersystemdata"
         self._init_table_object()
 

@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from urllib3.util.retry import Retry
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 log = logging.getLogger("smard")
 DEFAULT_START_DATE = "2024-06-02 22:00:00"  # "2023-11-26 22:45:00"
@@ -45,10 +45,9 @@ metadata_info = {
 }
 
 
-class SmardCrawler(BaseCrawler):
+class SmardCrawler(KitCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self._table_cache: dict[str, Table] = {}
         configured_start = self.config.get("default_start_date", DEFAULT_START_DATE)
         self.default_start_date = pd.Timestamp(configured_start)

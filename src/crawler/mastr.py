@@ -13,7 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from sqlalchemy import bindparam, inspect, text
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
 metadata_info = {
     "schema_name": "mastr",
@@ -36,7 +36,7 @@ id_fields = [
 ]
 
 
-class MastrCrawler(BaseCrawler):
+class MastrCrawler(KitCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
 

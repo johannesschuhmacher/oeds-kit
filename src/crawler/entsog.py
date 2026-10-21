@@ -15,7 +15,7 @@ from requests.adapters import HTTPAdapter
 from sqlalchemy import text
 from urllib3.util.retry import Retry
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
 
@@ -53,11 +53,10 @@ metadata_info = {
 }
 
 
-class EntsogCrawler(BaseCrawler):
+class EntsogCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.schema_name = self.get("schema_name")
         self.session = self._build_session()
 
     def _build_session(self) -> requests.Session:

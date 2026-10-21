@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from sqlalchemy import text, Table, MetaData, Column, DateTime, Float, String
 from sqlalchemy.dialects.postgresql import insert
 
-from crawler.common.base_crawler import BaseCrawler
+from crawler.common.kit_base import KitCrawler
 
-class EnergyForecastCrawler(BaseCrawler):
+class EnergyForecastCrawler(KitCrawler):
     
     _script_dir = Path(__file__).resolve().parent
     _target_env_path = _script_dir / ".env"
@@ -28,7 +28,6 @@ class EnergyForecastCrawler(BaseCrawler):
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
 
-        self.schema_name = self.get('schema_name')
         self.table_name = 'predictions_48h'
         self.primary_key_name = 'prediction_start'
 
