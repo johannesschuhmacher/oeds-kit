@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 from pathlib import Path
 from typing import Any
+import zipfile
 
 import pandas as pd
 from sqlalchemy import text
@@ -176,6 +177,21 @@ class CopernicusCdsCrawler(KitCrawler):
                 },
             )
 
+    def _unpack_if_zip(self, target_path: Path) -> list[Path]:
+        """Return the NetCDF files of a download; the CDS zips multi-variable netcdf requests."""
+        if not zipfile.is_zipfile(target_path):
+            return [target_path]
+        extract_dir = target_path.with_suffix("")
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        extracted = []
+        with zipfile.ZipFile(target_path) as archive:
+            for member in archive.namelist():
+                if member.lower().endswith((".nc", ".netcdf")):
+                    archive.extract(member, extract_dir)
+                    extracted.append(extract_dir / member)
+        self.logger.info("Unpacked %s NetCDF file(s) from %s.", len(extracted), target_path)
+        return extracted
+
     def _summarize_netcdf(self, request_id: str, dataset: str, target_path: Path, fetched_at: datetime) -> pd.DataFrame:
         if target_path.suffix.lower() not in {".nc", ".netcdf"}:
             return pd.DataFrame()
@@ -250,7 +266,11 @@ class CopernicusCdsCrawler(KitCrawler):
             client.retrieve(dataset, request, str(target_path))
             fetched_at = utc_now()
             file_size = target_path.stat().st_size if target_path.exists() else None
-            stats = self._summarize_netcdf(request_id, dataset, target_path, fetched_at)
+            summaries = [
+                self._summarize_netcdf(request_id, dataset, path, fetched_at)
+                for path in self._unpack_if_zip(target_path)
+            ]
+            stats = pd.concat(summaries, ignore_index=True) if summaries else pd.DataFrame()
             with self.engine.begin() as conn:
                 conn.execute(
                     text(
