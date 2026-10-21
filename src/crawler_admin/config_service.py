@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import errno
 import os
-import pkgutil
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,12 +13,12 @@ from typing import Any
 import yaml
 from crawler.common.local_env import apply_email_env_overrides
 from cron_converter import Cron
+from oeds_scheduler_ui.factory import known_crawler_names
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
 CONFIG_FILENAME = "CRAWLER_CONFIG.yml"
-EXCLUDED_CRAWLER_MODULES = {"__init__", "common", "data"}
 GAPFILL_POSTRUN_SCRIPT = "scripts/gapfill_timeseries.py"
 WINDOWS_TIMEZONE_ABBREVIATIONS = {
     "W. Europe Standard Time": "CET",
@@ -172,29 +171,10 @@ def get_file_mtime_display(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def discover_crawler_modules(repo_root: Path | None = None) -> list[str]:
-    root = repo_root or get_repo_root()
-    crawler_dir = root / "crawler"
-    modules: set[str] = set()
+def discover_crawler_modules() -> list[str]:
+    """Crawler names registered under the ``oeds.crawlers`` entry points."""
 
-    for file_path in crawler_dir.glob("*.py"):
-        module_name = file_path.stem
-        if module_name.startswith("__") or module_name in EXCLUDED_CRAWLER_MODULES:
-            continue
-        modules.add(module_name)
-
-    try:
-        import crawler as crawler_package
-    except ImportError:
-        pass
-    else:
-        modules.update(
-            module.name
-            for module in pkgutil.iter_modules(crawler_package.__path__)
-            if not module.ispkg and module.name not in EXCLUDED_CRAWLER_MODULES
-        )
-
-    return sorted(modules)
+    return list(known_crawler_names())
 
 
 def merge_with_defaults(default_config: dict[str, Any], crawler_config: dict[str, Any]) -> dict[str, Any]:
@@ -642,7 +622,7 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
     root = repo_root or get_repo_root()
     config_path = get_config_path(root)
     yaml_text = read_config_text(root)
-    available_crawlers = discover_crawler_modules(root)
+    available_crawlers = discover_crawler_modules()
     validation = validate_config_text(yaml_text, available_crawlers=available_crawlers)
     runtime_config = apply_email_env_overrides(validation.data, root) if validation.data is not None else None
 
@@ -756,7 +736,7 @@ def get_effective_config_map(
 ) -> tuple[ValidationResult, dict[str, Any], dict[str, dict[str, Any]], list[str]]:
     root = repo_root or get_repo_root()
     yaml_text = read_config_text(root)
-    available_crawlers = discover_crawler_modules(root)
+    available_crawlers = discover_crawler_modules()
     validation = validate_config_text(yaml_text, available_crawlers=available_crawlers)
     runtime_config = apply_email_env_overrides(validation.data, root) if validation.data is not None else None
 

@@ -1,26 +1,18 @@
 import logging
+import shlex
+import sys
+import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
-from oeds_scheduler_ui.interfaces import (
-    CrawlerRegistry,
-    CrawlerSpec,
-    load_crawler_target,
-    merge_crawler_registries,
-    normalize_crawler_config,
-    registry_from_spec_strings,
-    run_crawler_instance,
-)
-from oeds_scheduler_ui.distribution import registries_from_inventory
-from oeds_scheduler_ui.discovery import discover_crawler_specs
-from oeds_scheduler_ui.factory import (
-    CONSTRUCTOR_CRAWLER_NAME_CONFIG,
-    CONSTRUCTOR_SCHEMA_NAME_CONFIG,
-    CONSTRUCTOR_SCHEMA_NAME_ONLY,
-    CONSTRUCTOR_UNKNOWN,
-    CrawlerFactory,
-)
+import pytest
+
+from oeds_scheduler_ui import application as application_module
+from oeds_scheduler_ui.application import SchedulerApplication
+from oeds_scheduler_ui.daemon import SchedulerDaemon
+from oeds_scheduler_ui.locks import CrawlerLock
 from oeds_scheduler_ui.planner import (
     build_scheduler_job_plans,
     expand_crawler_job_configs,
@@ -29,332 +21,139 @@ from oeds_scheduler_ui.planner import (
 from oeds_scheduler_ui.runtime import (
     CrawlerJobQueue,
     CrawlerJobRunner,
+    CrawlerRunResult,
+    JobDispatcher,
     PostRunCommandResult,
     execute_post_command,
     lock_keys_from_plan,
-    run_ready_jobs,
     scheduled_job_from_plan,
 )
 from oeds_scheduler_ui.service import SchedulerService
-from oeds_scheduler_ui.daemon import SchedulerDaemon
+
+DATABASE_URI = "postgresql://user:pass@localhost:5432/opendata"
+
+# Stands in for ``oeds-crawl``: parses the same arguments, echoes them, and
+# exits with $OEDS_TEST_EXIT_CODE after sleeping $OEDS_TEST_SLEEP seconds.
+CRAWL_STUB = """\
+import argparse, os, sys, time
+parser = argparse.ArgumentParser()
+parser.add_argument("crawler")
+parser.add_argument("--config", required=True)
+parser.add_argument("--job")
+args = parser.parse_args()
+print(f"stub run {args.crawler} job={args.job} config={os.path.basename(args.config)}", flush=True)
+time.sleep(float(os.environ.get("OEDS_TEST_SLEEP", "0")))
+code = int(os.environ.get("OEDS_TEST_EXIT_CODE", "0"))
+if code == 1:
+    print("RuntimeError: boom", file=sys.stderr)
+if code == 3:
+    print("Skipped stub: ENTSOE_API_KEY is not configured", file=sys.stderr)
+sys.exit(code)
+"""
 
 
-def test_normalize_crawler_config_accepts_kit_database_uri():
-    config = normalize_crawler_config(
+@pytest.fixture
+def crawl_stub(tmp_path, monkeypatch):
+    """Point OEDS_CRAWL_COMMAND at the stub and run inside ``tmp_path``."""
+
+    stub = tmp_path / "crawl_stub.py"
+    stub.write_text(CRAWL_STUB, encoding="utf-8")
+    monkeypatch.setenv(
+        "OEDS_CRAWL_COMMAND",
+        shlex.join([Path(sys.executable).as_posix(), stub.as_posix()]),
+    )
+    monkeypatch.setenv("OEDS_TEST_EXIT_CODE", "0")
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def _plan(crawler_name="stub", extra=None, jobs=None, known=("stub",)):
+    section = {"schema_name": crawler_name, **(extra or {})}
+    if jobs:
+        section["jobs"] = jobs
+    result = build_scheduler_job_plans(
         {
-            "schema_name": "smard",
-            "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            "schedule": "0 4 * * *",
-            "enable": True,
-            "region": "DE",
-        }
-    )
-
-    assert config.schema_name == "smard"
-    assert config.db_uri == "postgresql://user:pass@localhost:5432/opendata"
-    assert config.options == {"region": "DE"}
-
-
-def test_run_crawler_instance_prefers_run():
-    class Crawler:
-        def run(self):
-            return "run"
-
-        def crawl_temporal(self):
-            return "crawl_temporal"
-
-    assert run_crawler_instance(Crawler()) == "run"
-
-
-def test_run_crawler_instance_supports_temporal_legacy_crawler():
-    class Crawler:
-        def crawl_temporal(self):
-            return "crawl_temporal"
-
-    assert run_crawler_instance(Crawler()) == "crawl_temporal"
-
-
-def test_merge_crawler_registries_keeps_first_registry_priority():
-    class CoreSmard:
-        pass
-
-    class KitSmard:
-        pass
-
-    class EntsoeFms:
-        pass
-
-    merged = merge_crawler_registries(
-        [
-            CrawlerRegistry("oeds-crawler-pack", {"smard": KitSmard, "entsoe_fms": EntsoeFms}),
-            CrawlerRegistry("oeds-core", {"smard": CoreSmard}),
-        ]
-    )
-
-    assert merged["smard"] is KitSmard
-    assert merged["entsoe_fms"] is EntsoeFms
-
-
-def test_registry_from_spec_strings_creates_lazy_targets(tmp_path):
-    registry = registry_from_spec_strings(
-        "oeds-crawler-pack",
-        {"smard": "crawler.smard:SmardCrawler"},
-        source_path=tmp_path,
-    )
-
-    target = registry.crawlers["smard"]
-
-    assert isinstance(target, CrawlerSpec)
-    assert target.source_name == "oeds-crawler-pack"
-    assert target.module == "crawler.smard"
-    assert target.attribute == "SmardCrawler"
-    assert target.source_path == tmp_path.resolve()
-
-
-def test_load_crawler_target_imports_from_source_path(tmp_path):
-    package = tmp_path / "example_crawlers"
-    package.mkdir()
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    (package / "demo.py").write_text(
-        "class DemoCrawler:\n    pass\n",
-        encoding="utf-8",
-    )
-    spec = CrawlerSpec.parse(
-        "test-source",
-        "example_crawlers.demo:DemoCrawler",
-        source_path=tmp_path,
-    )
-
-    crawler_class = load_crawler_target(spec)
-
-    assert crawler_class.__name__ == "DemoCrawler"
-
-
-def test_pilot_registry_keeps_kit_priority_and_upstream_only_crawlers(tmp_path):
-    kit_registry = registry_from_spec_strings(
-        "oeds-crawler-pack",
-        {
-            "smard": "crawler.smard:SmardCrawler",
-            "eurostat_crawler": "crawler.eurostat_crawler:EurostatCrawler",
+            "default": {"enable": True, "schedule": "0 4 * * *", "database_uri": DATABASE_URI},
+            crawler_name: section,
         },
-        source_path=tmp_path / "kit",
+        known,
     )
-    core_registry = registry_from_spec_strings(
-        "oeds-core",
-        {
-            "smard": "oeds.crawler.smard:SmardCrawler",
-            "chargepoint": "oeds.crawler.chargepoint:ChargepointDownloader",
-        },
-        source_path=tmp_path / "core",
-    )
-
-    merged = merge_crawler_registries([kit_registry, core_registry])
-
-    assert set(merged) == {"smard", "eurostat_crawler", "chargepoint"}
-    assert merged["smard"].source_name == "oeds-crawler-pack"
-    assert merged["eurostat_crawler"].source_name == "oeds-crawler-pack"
-    assert merged["chargepoint"].source_name == "oeds-core"
+    assert not result.errors, result.errors
+    return result.plans
 
 
-def test_registries_from_inventory_preserves_priority(tmp_path):
-    inventory = {
-        "registry_priority": ["oeds-crawler-pack", "oeds-core"],
-        "pilot": {
-            "smard": {
-                "preferred_source": "oeds-crawler-pack",
-                "source_path": ".",
-                "module": "crawler.smard",
-                "attribute": "SmardCrawler",
-            },
-            "chargepoint": {
-                "preferred_source": "oeds-core",
-                "source_path": ".",
-                "module": "oeds.crawler.chargepoint",
-                "attribute": "ChargepointDownloader",
-            },
-        },
-    }
-
-    registries = registries_from_inventory(inventory, workspace_root=tmp_path)
-    merged = merge_crawler_registries(registries)
-
-    assert [registry.source_name for registry in registries] == [
-        "oeds-crawler-pack",
-        "oeds-core",
-    ]
-    assert merged["smard"].source_name == "oeds-crawler-pack"
-    assert merged["chargepoint"].source_name == "oeds-core"
-
-
-def test_crawler_factory_audits_constructor_styles(tmp_path):
-    kit_package = tmp_path / "crawler"
-    kit_package.mkdir()
-    (kit_package / "__init__.py").write_text("", encoding="utf-8")
-    (kit_package / "smard.py").write_text(
-        "class SmardCrawler:\n"
-        "    def __init__(self, crawler_name, config):\n"
-        "        pass\n"
-        "    def run(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    core_package = tmp_path / "oeds" / "crawler"
-    core_package.mkdir(parents=True)
-    (tmp_path / "oeds" / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "chargepoint.py").write_text(
-        "class ChargepointDownloader:\n"
-        "    def __init__(self, schema_name, config):\n"
-        "        pass\n"
-        "    def crawl_structural(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    registries = [
-        registry_from_spec_strings(
-            "oeds-crawler-pack",
-            {"smard": "crawler.smard:SmardCrawler"},
-            source_path=tmp_path,
-        ),
-        registry_from_spec_strings(
-            "oeds-core",
-            {"chargepoint": "oeds.crawler.chargepoint:ChargepointDownloader"},
-            source_path=tmp_path,
-        ),
-    ]
-    factory = CrawlerFactory(merge_crawler_registries(registries))
-
-    smard_audit = factory.audit("smard")
-    chargepoint_audit = factory.audit("chargepoint")
-
-    assert smard_audit.constructor_style == CONSTRUCTOR_CRAWLER_NAME_CONFIG
-    assert smard_audit.run_methods == ("run",)
-    assert chargepoint_audit.constructor_style == CONSTRUCTOR_SCHEMA_NAME_CONFIG
-    assert chargepoint_audit.run_methods == ("crawl_structural",)
-
-
-def test_crawler_factory_supports_schema_name_only_legacy_constructor(tmp_path):
-    core_package = tmp_path / "oeds" / "crawler"
-    core_package.mkdir(parents=True)
-    (tmp_path / "oeds" / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "eex.py").write_text(
-        "class EEXCrawler:\n"
-        "    def __init__(self, schema_name):\n"
-        "        pass\n"
-        "    def crawl_structural(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    registry = registry_from_spec_strings(
-        "oeds-core",
-        {"eex": "oeds.crawler.eex:EEXCrawler"},
-        source_path=tmp_path,
-    )
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    config = normalize_crawler_config(
-        {
-            "schema_name": "eex_prices",
-            "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-        }
+def _result(plan, status="succeeded"):
+    now = datetime.now()
+    return CrawlerRunResult(
+        job_id=plan.job_id,
+        display_name=plan.display_name,
+        crawler_name=plan.crawler_name,
+        job_name=plan.job_name,
+        started_at=now,
+        finished_at=now,
+        duration_seconds=0.0,
+        crawler_success=status == "succeeded",
+        post_run_success=True,
+        success=status == "succeeded",
+        status=status,
     )
 
-    audit = factory.audit("eex")
-    plan = factory.constructor_plan("eex", config)
 
-    assert audit.constructor_style == CONSTRUCTOR_SCHEMA_NAME_ONLY
-    assert audit.has_supported_constructor is True
-    assert plan.args == ("eex_prices",)
+class FakeRunner:
+    """In-process stand-in for CrawlerJobRunner; blocks until ``release`` is set."""
 
+    def __init__(self, block=False):
+        self.release = Event()
+        self.block = block
+        self.started = []
 
-def test_crawler_factory_rejects_additional_required_constructor_parameter(tmp_path):
-    core_package = tmp_path / "oeds" / "crawler"
-    core_package.mkdir(parents=True)
-    (tmp_path / "oeds" / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "dwd.py").write_text(
-        "class DWDCrawler:\n"
-        "    def __init__(self, schema_name, config, nuts_matrix):\n"
-        "        pass\n"
-        "    def crawl_temporal(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    registry = registry_from_spec_strings(
-        "oeds-core",
-        {"dwd": "oeds.crawler.dwd:DWDCrawler"},
-        source_path=tmp_path,
-    )
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-
-    audit = factory.audit("dwd")
-
-    assert audit.init_parameters == ("schema_name", "config", "nuts_matrix")
-    assert audit.required_init_parameters == (
-        "schema_name",
-        "config",
-        "nuts_matrix",
-    )
-    assert audit.constructor_style == CONSTRUCTOR_UNKNOWN
-    assert audit.has_supported_constructor is False
+    def run(self, plan):
+        self.started.append(plan.job_id)
+        if self.block:
+            assert self.release.wait(5)
+        return _result(plan)
 
 
-def test_crawler_factory_allows_optional_constructor_extension(tmp_path):
-    crawler_package = tmp_path / "crawler"
-    crawler_package.mkdir()
-    (crawler_package / "__init__.py").write_text("", encoding="utf-8")
-    (crawler_package / "sample.py").write_text(
-        "class SampleCrawler:\n"
-        "    def __init__(self, crawler_name, config, batch_size=100):\n"
-        "        pass\n"
-        "    def run(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    registry = registry_from_spec_strings(
-        "oeds-crawler-pack",
-        {"sample": "crawler.sample:SampleCrawler"},
-        source_path=tmp_path,
-    )
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
+class FakeConnection:
+    def __init__(self, lock_free):
+        self.lock_free = lock_free
+        self.statements = []
+        self.closed = False
 
-    audit = factory.audit("sample")
+    def execute(self, statement, parameters=None):
+        self.statements.append((str(statement), parameters))
+        return SimpleNamespace(scalar=lambda: self.lock_free)
 
-    assert audit.required_init_parameters == ("crawler_name", "config")
-    assert audit.constructor_style == CONSTRUCTOR_CRAWLER_NAME_CONFIG
+    def close(self):
+        self.closed = True
 
 
-def test_discover_crawler_specs_finds_class_based_crawlers(tmp_path):
-    crawler_dir = tmp_path / "crawler"
-    crawler_dir.mkdir()
-    (crawler_dir / "__init__.py").write_text("", encoding="utf-8")
-    (crawler_dir / "smard.py").write_text(
-        "class SmardCrawler(BaseCrawler):\n"
-        "    def __init__(self, crawler_name, config):\n"
-        "        pass\n"
-        "    def run(self):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    (crawler_dir / "helper.py").write_text("def main():\n    pass\n", encoding="utf-8")
+class FakeEngine:
+    def __init__(self, lock_free=True):
+        self.lock_free = lock_free
+        self.connections = []
 
-    discovery = discover_crawler_specs(
-        source_name="oeds-crawler-pack",
-        source_path=tmp_path,
-        crawler_package_path="crawler",
-        module_prefix="crawler",
-    )
+    def connect(self):
+        connection = FakeConnection(self.lock_free)
+        self.connections.append(connection)
+        return connection
 
-    assert list(discovery.crawlers) == ["smard"]
-    assert discovery.crawlers["smard"].attribute == "SmardCrawler"
-    assert [issue.module_name for issue in discovery.issues] == ["crawler.helper"]
+
+def _wait_until(predicate, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        assert time.monotonic() < deadline, "condition not reached in time"
+        time.sleep(0.01)
+
+
+# --- planner -----------------------------------------------------------------
 
 
 def test_planner_expands_named_jobs_with_inherited_config():
     config = {
         "enable": True,
         "schema_name": "entsoe_fms",
-        "database_uri": "postgresql://user:pass@localhost:5432/opendata",
+        "database_uri": DATABASE_URI,
         "post_run_scripts": ["scripts/gapfill_timeseries.py"],
         "jobs": {
             "latest_hourly": {
@@ -381,88 +180,44 @@ def test_planner_expands_named_jobs_with_inherited_config():
     assert jobs[1].run_post_scripts is False
 
 
-def test_planner_builds_dry_job_plans_without_importing_crawlers(tmp_path):
-    crawler_dir = tmp_path / "crawler"
-    crawler_dir.mkdir()
-    (crawler_dir / "__init__.py").write_text("", encoding="utf-8")
-    (crawler_dir / "smard.py").write_text(
-        "class SmardCrawler:\n"
-        "    def __init__(self, crawler_name, config):\n"
-        "        pass\n"
-        "    def run(self):\n"
-        "        return None\n",
-        encoding="utf-8",
-    )
-    registry = registry_from_spec_strings(
-        "oeds-crawler-pack",
-        {"smard": "crawler.smard:SmardCrawler"},
-        source_path=tmp_path,
-    )
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-
+def test_planner_builds_plans_for_registered_crawlers_only():
     result = build_scheduler_job_plans(
         {
-            "default": {
-                "enable": False,
-                "schedule": "0 4 * * *",
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
+            "default": {"enable": False, "schedule": "0 4 * * *", "database_uri": DATABASE_URI},
             "smard": {
                 "enable": True,
                 "schema_name": "smard",
                 "post_run_scripts": ["scripts/gapfill_smard.py"],
+                "run_timeout_seconds": 3600,
             },
-            "missing": {
-                "enable": True,
-                "schema_name": "missing",
-            },
+            "missing": {"enable": True, "schema_name": "missing"},
         },
-        factory,
+        ["smard", "entsoe_fms"],
     )
 
     assert not result.errors
-    assert len(result.plans) == 1
-    assert result.plans[0].job_id == "smard:default"
-    assert result.plans[0].source_name == "oeds-crawler-pack"
-    assert result.plans[0].constructor_plan.args[0] == "smard"
+    assert [plan.job_id for plan in result.plans] == ["smard:default"]
     assert result.plans[0].post_run_scripts == ("scripts/gapfill_smard.py",)
+    assert result.plans[0].run_timeout_seconds == 3600.0
     assert result.skipped[0].crawler_name == "missing"
+    assert "entry point" in result.skipped[0].reason
 
 
-def test_planner_reports_crawlers_without_supported_run_method(tmp_path):
-    core_package = tmp_path / "oeds" / "crawler"
-    core_package.mkdir(parents=True)
-    (tmp_path / "oeds" / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "__init__.py").write_text("", encoding="utf-8")
-    (core_package / "eex.py").write_text(
-        "class EEXCrawler:\n"
-        "    def __init__(self, schema_name):\n"
-        "        pass\n",
-        encoding="utf-8",
-    )
-    registry = registry_from_spec_strings(
-        "oeds-core",
-        {"eex": "oeds.crawler.eex:EEXCrawler"},
-        source_path=tmp_path,
-    )
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-
+def test_planner_reports_missing_database_uri_and_bad_timeout():
     result = build_scheduler_job_plans(
         {
-            "default": {
-                "enable": True,
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "eex": {
-                "enable": True,
-                "schema_name": "eex_prices",
-            },
+            "default": {"enable": True, "schedule": "0 4 * * *"},
+            "smard": {"schema_name": "smard"},
+            "mastr": {"schema_name": "mastr", "database_uri": DATABASE_URI, "run_timeout_seconds": "soon"},
         },
-        factory,
+        ["smard", "mastr"],
     )
 
     assert not result.plans
-    assert result.errors[0].reason == "crawler has no supported run method"
+    assert {(issue.crawler_name, issue.reason) for issue in result.errors} == {
+        ("smard", "db_uri or database_uri is required"),
+        ("mastr", "run_timeout_seconds must be a positive number: 'soon'"),
+    }
 
 
 def test_merge_job_config_recursively_overrides_nested_values():
@@ -477,120 +232,99 @@ def test_merge_job_config_recursively_overrides_nested_values():
     }
 
 
-def test_runtime_executes_planned_job_and_post_run_hook():
-    class RuntimeCrawler:
-        constructed = []
-        runs = []
+# --- runner (oeds-crawl subprocess) ------------------------------------------
 
-        def __init__(self, crawler_name, config):
-            self.crawler_name = crawler_name
-            self.config = config
-            RuntimeCrawler.constructed.append((crawler_name, dict(config)))
 
-        def run(self):
-            RuntimeCrawler.runs.append(self.crawler_name)
-            return "done"
-
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan_result = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "schedule": "0 4 * * *",
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {
-                "schema_name": "runtime_schema",
-                "post_run_scripts": ["scripts/after_runtime.py"],
-            },
-        },
-        factory,
-    )
+@pytest.mark.parametrize(
+    "exit_code, status, error_fragment",
+    [(0, "succeeded", None), (1, "failed", "RuntimeError: boom (exit code 1)"), (3, "skipped", "ENTSOE_API_KEY")],
+)
+def test_runner_maps_exit_codes_and_writes_run_log(crawl_stub, monkeypatch, caplog, exit_code, status, error_fragment):
+    monkeypatch.setenv("OEDS_TEST_EXIT_CODE", str(exit_code))
+    plan = _plan(jobs={"hourly": {"enable": True, "post_run_scripts": ["scripts/after.py"]}})[0]
     post_run_commands = []
 
-    def fake_post_run(command, plan):
-        post_run_commands.append((plan.job_id, command))
-        return PostRunCommandResult(command, 0, True)
-
-    result = CrawlerJobRunner(factory, fake_post_run).run(plan_result.plans[0])
-
-    assert result.success is True
-    assert result.crawler_result == "done"
-    assert RuntimeCrawler.constructed[0][0] == "runtime_crawler"
-    assert RuntimeCrawler.constructed[0][1]["schema_name"] == "runtime_schema"
-    assert RuntimeCrawler.runs == ["runtime_crawler"]
-    assert post_run_commands == [
-        ("runtime_crawler:default", "scripts/after_runtime.py")
-    ]
-
-
-def _run_raising_crawler(exc):
-    class RaisingCrawler:
-        def __init__(self, crawler_name, config):
-            pass
-
-        def run(self):
-            raise exc
-
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RaisingCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "schedule": "0 4 * * *",
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {
-                "schema_name": "runtime_schema",
-                "post_run_scripts": ["scripts/after_runtime.py"],
-            },
-        },
-        factory,
-    ).plans[0]
-    post_run_commands = []
-
-    def fake_post_run(command, plan):
+    def fake_post_run(command, plan, log):
         post_run_commands.append(command)
+        log.write("post-run output\n")
         return PostRunCommandResult(command, 0, True)
 
-    result = CrawlerJobRunner(factory, fake_post_run).run(plan)
-    return result, post_run_commands
+    runner = CrawlerJobRunner("CRAWLER_CONFIG.yml", post_run_executor=fake_post_run)
+    with caplog.at_level(logging.INFO, logger="stub"):
+        result = runner.run(plan)
+
+    assert result.status == status
+    assert result.success is (status == "succeeded")
+    assert result.job_id == "stub:hourly"
+    if error_fragment is None:
+        assert result.error is None
+    else:
+        assert error_fragment in result.error
+
+    log_text = result.log_path.read_text(encoding="utf-8")
+    assert result.log_path.parent == crawl_stub / "logs" / "runs"
+    assert result.log_path.name.startswith("stub-hourly-")
+    assert "stub run stub job=hourly config=CRAWLER_CONFIG.yml" in log_text
+    assert log_text.rstrip().endswith(f"# finished: {status}")
+
+    if status == "succeeded":
+        assert post_run_commands == ["scripts/after.py"]
+        assert "post-run output" in log_text
+    else:
+        assert post_run_commands == []
+    critical = [record for record in caplog.records if record.levelno == logging.CRITICAL]
+    if status == "failed":
+        assert [record.name for record in critical] == ["stub"]
+        assert "boom" in critical[0].getMessage()
+        assert str(result.log_path) in critical[0].getMessage()
+    else:
+        assert critical == []
 
 
-def test_runtime_marks_crawler_skipped_without_post_run(caplog):
-    class CrawlerSkipped(Exception):
-        """Stands in for crawler.common.crawler_utils.CrawlerSkipped."""
+def test_runner_kills_run_after_timeout(crawl_stub, monkeypatch):
+    monkeypatch.setenv("OEDS_TEST_SLEEP", "30")
+    plan = _plan(extra={"run_timeout_seconds": 0.5})[0]
 
-    with caplog.at_level(logging.INFO, logger="runtime_crawler"):
-        result, post_run_commands = _run_raising_crawler(
-            CrawlerSkipped("ENTSOE_API_KEY is not configured")
-        )
+    started = time.monotonic()
+    result = CrawlerJobRunner("CRAWLER_CONFIG.yml").run(plan)
 
-    assert result.status == "skipped"
-    assert result.success is False
-    assert result.error == "ENTSOE_API_KEY is not configured"
-    assert post_run_commands == []
-    assert "skipped" in caplog.text
+    assert time.monotonic() - started < 20
+    assert result.status == "failed"
+    assert "timed out after 0.5s" in result.error
+
+
+def test_runner_fails_post_run_command_without_critical_log(crawl_stub, caplog):
+    plan = _plan(extra={"post_run_scripts": ["scripts/after.py"]})[0]
+
+    def failing_post_run(command, plan, log):
+        return PostRunCommandResult(command, 2, False, "exit code 2")
+
+    with caplog.at_level(logging.INFO, logger="stub"):
+        result = CrawlerJobRunner("CRAWLER_CONFIG.yml", post_run_executor=failing_post_run).run(plan)
+
+    assert result.status == "failed"
+    assert result.crawler_success is True
+    assert result.post_run_success is False
+    assert result.error is None
     assert all(record.levelno < logging.ERROR for record in caplog.records)
 
 
-def test_runtime_marks_crawler_failure_and_logs_critical(caplog):
-    with caplog.at_level(logging.INFO, logger="runtime_crawler"):
-        result, post_run_commands = _run_raising_crawler(RuntimeError("boom"))
+def test_runner_keeps_only_recent_run_logs(crawl_stub):
+    runs_dir = crawl_stub / "logs" / "runs"
+    runs_dir.mkdir(parents=True)
+    for index in range(3):
+        old_log = runs_dir / f"old-{index}.log"
+        old_log.write_text("old\n", encoding="utf-8")
+        stamp = time.time() - 1000 + index
+        import os
 
-    assert result.status == "failed"
-    assert result.success is False
-    assert result.error == "RuntimeError: boom"
-    assert post_run_commands == []
-    critical_records = [
-        record for record in caplog.records if record.levelno == logging.CRITICAL
-    ]
-    assert len(critical_records) == 1
-    assert critical_records[0].name == "runtime_crawler"
-    assert critical_records[0].exc_info is not None
-    assert "boom" in critical_records[0].getMessage()
+        os.utime(old_log, (stamp, stamp))
+
+    result = CrawlerJobRunner("CRAWLER_CONFIG.yml", keep_run_logs=2).run(_plan()[0])
+
+    assert sorted(path.name for path in runs_dir.glob("*.log")) == sorted(
+        ["old-2.log", result.log_path.name]
+    )
 
 
 def test_execute_post_command_adds_workspace_to_pythonpath_for_legacy_scripts(
@@ -604,229 +338,177 @@ def test_execute_post_command_adds_workspace_to_pythonpath_for_legacy_scripts(
     scripts.mkdir()
     (scripts / "check_import.py").write_text(
         "from workspace_pkg import VALUE\n"
+        "print('imported', VALUE)\n"
         "raise SystemExit(0 if VALUE == 'ok' else 1)\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
+    log_path = tmp_path / "run.log"
 
-    result = execute_post_command("scripts/check_import.py", plan=None)
+    with log_path.open("a", encoding="utf-8") as log:
+        result = execute_post_command("scripts/check_import.py", plan=None, log=log)
 
     assert result.success is True
+    assert "imported ok" in log_path.read_text(encoding="utf-8")
 
 
-def test_runtime_queue_blocks_conflicting_lock_keys():
-    class RuntimeCrawler:
-        def __init__(self, crawler_name, config):
-            self.crawler_name = crawler_name
+# --- queue, locks, dispatcher ------------------------------------------------
 
-        def run(self):
-            return self.crawler_name
 
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan_result = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {
-                "schema_name": "runtime_schema",
-                "jobs": {
-                    "a": {"enable": True, "lock_keys": ["shared"]},
-                    "b": {"enable": True, "lock_keys": ["shared"]},
-                },
-            },
-        },
-        factory,
+def test_runtime_queue_blocks_conflicting_lock_keys_and_honours_limit():
+    plans = _plan(
+        jobs={
+            "a": {"enable": True, "lock_keys": ["shared"]},
+            "b": {"enable": True, "lock_keys": ["shared"]},
+            "c": {"enable": True, "lock_keys": ["c"]},
+            "d": {"enable": True, "lock_keys": ["d"]},
+        }
     )
-    jobs = [scheduled_job_from_plan(plan) for plan in plan_result.plans]
+    jobs = [scheduled_job_from_plan(plan) for plan in plans]
     queue = CrawlerJobQueue()
 
     assert queue.enqueue(jobs[0]) is True
     assert queue.enqueue(jobs[0]) is False
-    assert queue.enqueue(jobs[1]) is True
-    first_ready = queue.pop_ready_jobs()
-    assert len(first_ready) == 1
-    assert first_ready[0].job.job_id == "runtime_crawler:a"
-    assert queue.pop_ready_jobs() == ()
+    for job in jobs[1:]:
+        assert queue.enqueue(job) is True
+    first_ready = queue.pop_ready_jobs(limit=2)
+    assert [queued.job.job_id for queued in first_ready] == ["stub:a", "stub:c"]
+    assert queue.pending_count == 2
+    assert [queued.job.job_id for queued in queue.pop_ready_jobs()] == ["stub:d"]
     queue.mark_finished(jobs[0])
-    second_ready = queue.pop_ready_jobs()
-    assert len(second_ready) == 1
-    assert second_ready[0].job.job_id == "runtime_crawler:b"
+    assert [queued.job.job_id for queued in queue.pop_ready_jobs()] == ["stub:b"]
 
 
 def test_runtime_lock_keys_for_entsoe_fms_target_data_items():
-    class EntsoeFMSCrawler:
-        def __init__(self, schema_name, config):
-            self.schema_name = schema_name
+    plan = _plan(
+        "entsoe_fms",
+        extra={"target_data_items": ["ActualTotalLoad_6.1.A_r3"]},
+        known=("entsoe_fms",),
+    )[0]
 
-        def run(self):
-            return self.schema_name
-
-    registry = CrawlerRegistry("runtime-test", {"entsoe_fms": EntsoeFMSCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan_result = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "entsoe_fms": {
-                "schema_name": "entsoe_fms",
-                "target_data_items": ["ActualTotalLoad_6.1.A_r3"],
-            },
-        },
-        factory,
-    )
-
-    assert lock_keys_from_plan(plan_result.plans[0]) == frozenset(
-        {"entsoe_fms:ActualTotalLoad_6.1.A_r3"}
-    )
+    assert lock_keys_from_plan(plan) == frozenset({"entsoe_fms:ActualTotalLoad_6.1.A_r3"})
 
 
-def test_run_ready_jobs_marks_jobs_finished_after_execution():
-    class RuntimeCrawler:
-        runs = []
+def test_dispatcher_requeues_job_when_advisory_lock_is_busy(caplog):
+    runner = FakeRunner()
+    dispatcher = JobDispatcher(runner=runner, lock_engine=FakeEngine(lock_free=False))
+    dispatcher.queue.enqueue(scheduled_job_from_plan(_plan()[0]))
 
-        def __init__(self, crawler_name, config):
-            self.crawler_name = crawler_name
+    with caplog.at_level(logging.INFO, logger="oeds_scheduler_ui.runtime"):
+        assert dispatcher.dispatch() == ()
 
-        def run(self):
-            RuntimeCrawler.runs.append(self.crawler_name)
+    assert runner.started == []
+    assert dispatcher.active_count == 0
+    assert dispatcher.pending_count == 1
+    assert "already running elsewhere" in caplog.text
+    # The next tick tries again and runs once the lock is free.
+    dispatcher.lock_engine = FakeEngine(lock_free=True)
+    results = [*dispatcher.dispatch(), *dispatcher.wait()]
+    assert [result.job_id for result in results] == ["stub:default"]
+    assert dispatcher.pending_count == 0
 
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {"schema_name": "runtime_schema"},
-        },
-        factory,
-    ).plans[0]
-    queue = CrawlerJobQueue()
-    queue.enqueue(scheduled_job_from_plan(plan))
 
-    results = run_ready_jobs(queue, CrawlerJobRunner(factory))
+def test_dispatcher_holds_advisory_lock_until_the_run_ends():
+    engine = FakeEngine(lock_free=True)
+    runner = FakeRunner(block=True)
+    dispatcher = JobDispatcher(runner=runner, lock_engine=engine)
+    dispatcher.queue.enqueue(scheduled_job_from_plan(_plan()[0]))
 
-    assert len(results) == 1
-    assert results[0].success is True
-    assert RuntimeCrawler.runs == ["runtime_crawler"]
+    dispatcher.dispatch()
+    _wait_until(lambda: runner.started == ["stub:default"])
+    connection = engine.connections[0]
+    assert "pg_try_advisory_lock" in connection.statements[0][0]
+    assert connection.statements[0][1] == {"key": "oeds-crawler:stub"}
+    assert connection.closed is False
+
+    runner.release.set()
+    assert len(dispatcher.wait()) == 1
+    assert "pg_advisory_unlock" in connection.statements[1][0]
+    assert connection.closed is True
+
+
+def test_crawler_lock_try_acquire_closes_connection_when_busy():
+    engine = FakeEngine(lock_free=False)
+
+    assert CrawlerLock.try_acquire(engine, "smard") is None
+    assert engine.connections[0].closed is True
+
+
+def test_dispatcher_respects_max_parallel_runs():
+    runner = FakeRunner(block=True)
+    dispatcher = JobDispatcher(runner=runner, max_parallel_runs=2)
+    # Distinct lock keys: jobs of one crawler would otherwise block each other.
+    plans = _plan(jobs={name: {"enable": True, "lock_keys": [name]} for name in "abc"})
+    for plan in plans:
+        dispatcher.queue.enqueue(scheduled_job_from_plan(plan))
+
+    assert dispatcher.dispatch() == ()
+    _wait_until(lambda: len(runner.started) == 2)
+    assert dispatcher.active_count == 2
+    assert dispatcher.pending_count == 1
+    assert dispatcher.dispatch() == ()  # no free slot yet
+    assert len(runner.started) == 2
+
+    runner.release.set()
+    finished = dispatcher.wait()
+    assert sorted(result.job_id for result in finished) == ["stub:a", "stub:b"]
+    results = [*dispatcher.dispatch(), *dispatcher.wait()]
+    assert [result.job_id for result in results] == ["stub:c"]
+    assert runner.started == ["stub:a", "stub:b", "stub:c"]
+
+
+# --- service, daemon, application --------------------------------------------
+
+
+class EverySecondSchedule:
+    def next_after(self, ref_time):
+        return ref_time + timedelta(seconds=1)
 
 
 def test_scheduler_service_enqueues_due_jobs_with_injected_schedule():
-    class RuntimeCrawler:
-        runs = []
-
-        def __init__(self, crawler_name, config):
-            self.crawler_name = crawler_name
-
-        def run(self):
-            RuntimeCrawler.runs.append(self.crawler_name)
-            return self.crawler_name
-
-    class EverySecondSchedule:
-        def next_after(self, ref_time):
-            return ref_time + timedelta(seconds=1)
-
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "schedule": "1",
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {"schema_name": "runtime_schema"},
-        },
-        factory,
-    ).plans[0]
+    runner = FakeRunner()
+    plan = _plan(extra={"schedule": "1"})[0]
     reference_time = datetime(2026, 1, 1, 0, 0, 0)
     service = SchedulerService(
         [plan],
-        CrawlerJobRunner(factory),
+        JobDispatcher(runner=runner),
         schedule_factory=lambda expression: EverySecondSchedule(),
         reference_time=reference_time - timedelta(seconds=1),
     )
 
     assert not service.issues
     assert service.next_run_time == reference_time
-    first_results = service.tick(reference_time)
-    assert len(first_results) == 1
-    assert first_results[0].success is True
-    assert RuntimeCrawler.runs == ["runtime_crawler"]
+    # The run happens in the background; its result is collected by a later
+    # tick or by wait_for_runs.
+    results = [*service.tick(reference_time), *service.wait_for_runs()]
+    assert [result.job_id for result in results] == ["stub:default"]
+    assert results[0].success is True
+    assert runner.started == ["stub:default"]
     assert service.next_run_time == reference_time + timedelta(seconds=1)
-    assert service.tick(reference_time) == ()
+    assert [*service.tick(reference_time), *service.wait_for_runs()] == []
 
 
 def test_scheduler_service_reports_missing_schedule():
-    class RuntimeCrawler:
-        def __init__(self, crawler_name, config):
-            pass
-
-        def run(self):
-            pass
-
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {
-                "schema_name": "runtime_schema",
-                "schedule": None,
-            },
-        },
-        factory,
-    ).plans[0]
+    plan = _plan(extra={"schedule": None})[0]
 
     service = SchedulerService(
         [plan],
-        CrawlerJobRunner(factory),
+        JobDispatcher(runner=FakeRunner()),
         schedule_factory=lambda expression: None,
     )
 
     assert service.jobs == ()
-    assert service.issues[0].job_id == "runtime_crawler:default"
+    assert service.issues[0].job_id == "stub:default"
     assert service.issues[0].reason == "job has no schedule"
 
 
-def test_scheduler_daemon_runs_one_tick_and_reports_next_wait():
-    class RuntimeCrawler:
-        def __init__(self, crawler_name, config):
-            self.crawler_name = crawler_name
-
-        def run(self):
-            return self.crawler_name
-
-    class EverySecondSchedule:
-        def next_after(self, ref_time):
-            return ref_time + timedelta(seconds=1)
-
-    registry = CrawlerRegistry("runtime-test", {"runtime_crawler": RuntimeCrawler})
-    factory = CrawlerFactory(merge_crawler_registries([registry]))
-    plan = build_scheduler_job_plans(
-        {
-            "default": {
-                "enable": True,
-                "schedule": "1",
-                "database_uri": "postgresql://user:pass@localhost:5432/opendata",
-            },
-            "runtime_crawler": {"schema_name": "runtime_schema"},
-        },
-        factory,
-    ).plans[0]
+def test_scheduler_daemon_runs_one_tick_and_polls_faster_while_runs_are_active(caplog):
+    runner = FakeRunner(block=True)
+    plan = _plan(extra={"schedule": "1"})[0]
     reference_time = datetime(2026, 1, 1, 0, 0, 0)
     service = SchedulerService(
         [plan],
-        CrawlerJobRunner(factory),
+        JobDispatcher(runner=runner),
         schedule_factory=lambda expression: EverySecondSchedule(),
         reference_time=reference_time - timedelta(seconds=1),
     )
@@ -841,14 +523,20 @@ def test_scheduler_daemon_runs_one_tick_and_reports_next_wait():
     daemon = SchedulerDaemon(
         App(service),
         poll_seconds=30.0,
+        busy_poll_seconds=0.2,
         now_func=lambda: reference_time,
     )
 
     assert daemon.seconds_until_next_tick(reference_time) == 0.0
-    results = daemon.run_once()
-    assert len(results) == 1
-    assert results[0].crawler_result == "runtime_crawler"
+    assert daemon.run_once() == ()
+    _wait_until(lambda: runner.started == ["stub:default"])
+    assert daemon.seconds_until_next_tick(reference_time) == 0.2
+    runner.release.set()
+    _wait_until(lambda: service.active_run_count == 0)
     assert daemon.seconds_until_next_tick(reference_time) == 1.0
+    with caplog.at_level(logging.INFO, logger="oeds_scheduler_ui.daemon"):
+        assert daemon.run_once(reference_time + timedelta(seconds=0.5))[0].job_id == "stub:default"
+    assert "succeeded" in caplog.text
 
 
 def test_scheduler_daemon_survives_failing_tick(caplog):
@@ -856,7 +544,7 @@ def test_scheduler_daemon_survives_failing_tick(caplog):
     ticks = []
 
     class App:
-        service = SimpleNamespace(next_run_time=None)
+        service = SimpleNamespace(next_run_time=None, active_run_count=0, wait_for_runs=lambda: ())
 
         def tick(self, now):
             ticks.append(now)
@@ -878,3 +566,59 @@ def test_scheduler_daemon_survives_failing_tick(caplog):
     assert len(ticks) == 2
     assert "Scheduler tick failed" in caplog.text
     assert "while parsing a block mapping" in caplog.text
+
+
+def test_application_reloads_changed_config_and_keeps_the_dispatcher(crawl_stub, monkeypatch):
+    engines = []
+
+    def fake_lock_engine(database_uri):
+        engines.append(database_uri)
+        return FakeEngine(lock_free=True)
+
+    monkeypatch.setattr(application_module, "known_crawler_names", lambda: ("stub", "other"))
+    monkeypatch.setattr(application_module, "lock_engine", fake_lock_engine)
+    config_path = crawl_stub / "CRAWLER_CONFIG.yml"
+    config_path.write_text(
+        "default:\n  enable: true\n  schedule: '1'\n"
+        f"  database_uri: {DATABASE_URI}\n"
+        "stub:\n  schema_name: stub\n",
+        encoding="utf-8",
+    )
+    start = datetime(2026, 1, 1, 0, 0, 0)
+
+    app = SchedulerApplication(
+        config_path,
+        "ignored.json",
+        "ignored",
+        schedule_factory=lambda expression: EverySecondSchedule(),
+        reference_time=start,
+    )
+    dispatcher = app.dispatcher
+
+    assert app.snapshot.ready
+    assert app.snapshot.crawler_count == 2
+    assert app.snapshot.planned_job_count == 1
+    assert dispatcher.max_parallel_runs == 3
+    assert engines == [DATABASE_URI]
+    assert app.tick(start, reload_if_changed=False) == ()  # nothing due yet
+
+    config_path.write_text(
+        "default:\n  enable: true\n  schedule: '1'\n  max_parallel_runs: 1\n"
+        f"  database_uri: {DATABASE_URI}\n"
+        "stub:\n  schema_name: stub\n"
+        "other:\n  schema_name: other\n",
+        encoding="utf-8",
+    )
+    reload_time = start + timedelta(seconds=1)
+    assert app.tick(reload_time) == ()  # reloads; schedules restart from here
+    assert app.snapshot.planned_job_count == 2
+    assert app.dispatcher is dispatcher
+    assert dispatcher.max_parallel_runs == 1
+
+    # Both jobs are due; one slot means one run per tick.
+    results = [*app.tick(reload_time + timedelta(seconds=1)), *app.service.wait_for_runs()]
+    assert app.service.pending_job_count == 1
+    results += [*app.tick(reload_time + timedelta(seconds=1.5)), *app.service.wait_for_runs()]
+    assert sorted(result.job_id for result in results) == ["other:default", "stub:default"]
+    assert all(result.status == "succeeded" for result in results)
+    assert len(list((crawl_stub / "logs" / "runs").glob("*.log"))) == 2

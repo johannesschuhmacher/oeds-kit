@@ -16,6 +16,8 @@ from oeds_scheduler_ui.application import (
 )
 from oeds_scheduler_ui.daemon import SchedulerDaemon
 
+logger = logging.getLogger(__name__)
+
 
 def main(argv: Sequence[str] | None = None) -> None:
     logging.basicConfig(
@@ -30,18 +32,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     parser.add_argument(
         "--inventory",
-        default="modular_repos/docs/crawler-inventory.json",
-        help="crawler inventory JSON path",
+        default=None,
+        help="deprecated and ignored; crawlers come from the oeds.crawlers entry points",
     )
     parser.add_argument(
         "--workspace-root",
-        default="modular_repos",
-        help="workspace root used to resolve inventory source paths",
+        default=None,
+        help="deprecated and ignored",
     )
     parser.add_argument(
         "--once",
         action="store_true",
-        help="run one scheduler tick after loading",
+        help="run one scheduler tick after loading and wait for the started runs",
     )
     parser.add_argument(
         "--daemon",
@@ -55,17 +57,30 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="maximum seconds between config checks",
     )
     args = parser.parse_args(argv)
+    if args.inventory is not None or args.workspace_root is not None:
+        logger.warning(
+            "--inventory and --workspace-root are ignored: crawlers are discovered "
+            "through the oeds.crawlers entry points"
+        )
 
     app = SchedulerApplication(
         config_path=Path(args.config),
-        inventory_path=Path(args.inventory),
-        workspace_root=Path(args.workspace_root),
         reference_time=datetime.now(),
     )
     print(format_application_summary(app.snapshot))
 
     if args.once:
-        results = app.tick(datetime.now(), reload_if_changed=False)
+        results = list(app.tick(datetime.now(), reload_if_changed=False))
+        while True:
+            results.extend(app.service.wait_for_runs())
+            if not app.service.pending_job_count:
+                break
+            results.extend(app.service.dispatch_ready_jobs())
+            if not app.service.active_run_count:
+                break  # the rest cannot start now (crawler running elsewhere)
+        for result in results:
+            detail = f" ({result.error})" if result.error else ""
+            print(f"{result.display_name}: {result.status}{detail}")
         print(f"ran jobs: {len(results)}")
         return
 

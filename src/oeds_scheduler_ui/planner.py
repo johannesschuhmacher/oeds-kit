@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
-
-from oeds_scheduler_ui.factory import ConstructorPlan, CrawlerFactory
-from oeds_scheduler_ui.interfaces import CrawlerSpec, OedsCrawlerConfig, normalize_crawler_config
 
 
 @dataclass(frozen=True)
@@ -48,14 +46,12 @@ class SchedulerJobPlan:
     job_name: str
     job_id: str
     display_name: str
-    source_name: str
     schedule: str | None
     enabled: bool
     run_post_scripts: bool
     post_run_scripts: Sequence[str]
     raw_config: Mapping[str, Any]
-    crawler_config: OedsCrawlerConfig
-    constructor_plan: ConstructorPlan
+    run_timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -168,12 +164,16 @@ def expand_crawler_job_configs(
 
 def build_scheduler_job_plans(
     raw_config: Mapping[str, Any],
-    factory: CrawlerFactory,
+    known_crawlers: Collection[str],
 ) -> SchedulerPlanResult:
-    """Build dry scheduler plans from config and a merged crawler registry."""
+    """Build dry scheduler plans from config and the registered crawler names.
+
+    The crawler itself is validated and constructed by ``oeds-crawl`` at run
+    time; planning only checks what the scheduler needs to start it.
+    """
 
     config = apply_default_config(raw_config)
-    known_crawlers = set(factory.list_crawlers())
+    known = set(known_crawlers)
     plans: list[SchedulerJobPlan] = []
     skipped: list[SchedulerPlanIssue] = []
     errors: list[SchedulerPlanIssue] = []
@@ -186,19 +186,10 @@ def build_scheduler_job_plans(
                 SchedulerPlanIssue(crawler_name, None, "crawler config is not a mapping")
             )
             continue
-        if crawler_name not in known_crawlers:
+        if crawler_name not in known:
             skipped.append(
-                SchedulerPlanIssue(crawler_name, None, "crawler is not in registry")
-            )
-            continue
-
-        audit = factory.audit(crawler_name)
-        if not audit.run_methods:
-            errors.append(
                 SchedulerPlanIssue(
-                    crawler_name,
-                    None,
-                    "crawler has no supported run method",
+                    crawler_name, None, "crawler has no oeds.crawlers entry point"
                 )
             )
             continue
@@ -214,36 +205,37 @@ def build_scheduler_job_plans(
                 )
                 continue
 
-            try:
-                normalized_config = normalize_crawler_config(job_config.config)
-                constructor_plan = factory.constructor_plan(
-                    crawler_name,
-                    normalized_config,
+            if not (
+                job_config.config.get("db_uri") or job_config.config.get("database_uri")
+            ):
+                errors.append(
+                    SchedulerPlanIssue(
+                        crawler_name,
+                        job_config.job_name,
+                        "db_uri or database_uri is required",
+                    )
                 )
-            except Exception as exc:
+                continue
+            try:
+                run_timeout_seconds = _run_timeout_seconds(job_config.config)
+            except ValueError as exc:
                 errors.append(
                     SchedulerPlanIssue(crawler_name, job_config.job_name, str(exc))
                 )
                 continue
 
-            target = factory.get_target(crawler_name)
-            source_name = (
-                target.source_name if isinstance(target, CrawlerSpec) else "loaded-class"
-            )
             plans.append(
                 SchedulerJobPlan(
                     crawler_name=crawler_name,
                     job_name=job_config.job_name,
                     job_id=job_config.job_id,
                     display_name=job_config.display_name,
-                    source_name=source_name,
                     schedule=job_config.schedule,
                     enabled=job_config.enabled,
                     run_post_scripts=job_config.run_post_scripts,
                     post_run_scripts=_post_run_scripts(job_config.config),
                     raw_config=dict(job_config.config),
-                    crawler_config=normalized_config,
-                    constructor_plan=constructor_plan,
+                    run_timeout_seconds=run_timeout_seconds,
                 )
             )
 
@@ -270,3 +262,16 @@ def _post_run_scripts(config: Mapping[str, Any]) -> tuple[str, ...]:
     if not isinstance(scripts, Sequence):
         return ()
     return tuple(str(script) for script in scripts)
+
+
+def _run_timeout_seconds(config: Mapping[str, Any]) -> float | None:
+    raw_timeout = config.get("run_timeout_seconds")
+    if raw_timeout is None:
+        return None
+    try:
+        timeout = float(raw_timeout)
+    except (TypeError, ValueError):
+        timeout = 0.0
+    if timeout <= 0:
+        raise ValueError(f"run_timeout_seconds must be a positive number: {raw_timeout!r}")
+    return timeout
