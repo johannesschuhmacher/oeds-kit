@@ -1,0 +1,158 @@
+# oeds-post-scripts
+
+Post-run processing module for the modular OEDS stack.
+
+This repository is part of the modular OEDS stack. The shared crawler and
+database core remains in
+[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
+while crawler extensions, scheduling/UI, and installation live in
+[oeds-crawler-pack](https://github.com/johannesschuhmacher/oeds-crawler-pack),
+[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
+and [oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment).
+
+## Responsibility
+
+This module should transform, validate, fill, forecast, or derive data after
+crawlers have written source tables.
+
+## Contents
+
+- gapfilling
+- price forecasting
+- ENTSO-E availability map refresh
+- dashboard generation
+- derived SQL refresh tools
+- stable `oeds-post` CLI
+
+## Current CLI Facade
+
+Implemented command facade:
+
+```powershell
+oeds-post gapfill entsoe-fms
+oeds-post refresh entsoe-availability-map
+oeds-post forecast day-ahead-price
+oeds-post backfill entsoe-unavailability
+```
+
+These commands delegate to the included legacy-compatible modules. This
+preserves behavior while giving the scheduler a stable command vocabulary.
+
+Command execution resolves the legacy-compatible script root in this order:
+
+1. explicit `--repo-root`
+2. `OEDS_POST_REPO_ROOT`
+3. current working directory when it contains `scripts/`
+4. the installed module location
+
+Direct-call commands retain the current working directory. Only the legacy
+subprocess fallback uses the script root. Set `OEDS_CRAWLER_DATA_DIR` to a
+writable directory for downloaded files; installed source code can be read-only.
+
+Useful migration helper:
+
+```powershell
+oeds-post --from-script scripts/gapfill_timeseries.py
+oeds-post --list
+oeds-post --migrate-config CRAWLER_CONFIG.yml
+oeds-post --migrate-config CRAWLER_CONFIG.yml --output CRAWLER_CONFIG.post.yml
+```
+
+Current scheduler config can migrate from:
+
+```yaml
+post_run_scripts:
+  - "scripts/gapfill_timeseries.py"
+```
+
+to:
+
+```yaml
+post_run_scripts:
+  - "oeds-post gapfill entsoe-fms"
+```
+
+For automated migration previews, use:
+
+```python
+from oeds_post_scripts.migration import migrate_post_run_scripts
+```
+
+## Included Implementation
+
+This module repository contains the current post-processing implementation:
+
+```text
+oeds_gapfill/
+oeds_price_forecast/
+scripts/
+scripts/lib/
+```
+
+The stable `oeds-post` commands still keep the legacy-compatible paths as their
+behavioral source of truth. Scripts with a safe `main()` entry point can be
+called directly in-process; scripts with import-time side effects would run
+through the subprocess fallback.
+These packages and their SQL files are included in both source distributions
+and wheels. The repository can therefore be installed independently of the KIT
+monorepository and of `oeds-crawler-pack`. Database connection overrides
+(`OEDS_DB_HOST`, `OEDS_DB_PORT`, `OEDS_DB_PASSWORD`) and the optional
+`crawler/.env` file (or the file named by `OEDS_CRAWLER_ENV`) are handled by
+`oeds_post_scripts.runtime_env`. Only `oeds-post backfill entsoe-unavailability`
+imports the pack's ENTSO-E FMS crawler; the deployment installs it before this
+module.
+Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
+the post-scripts repository root. The modular deployment sets this variable to
+`/app/CRAWLER_CONFIG.yml` inside its Python containers.
+For ENTSO-E backfill downloads, `OEDS_CRAWLER_DATA_DIR` selects the writable
+crawler data directory; the modular deployment uses `/app/crawler/data`.
+
+Current direct-call candidates:
+
+| Stable command | Direct mode |
+| --- | --- |
+| `oeds-post gapfill entsoe-fms` | yes |
+| `oeds-post refresh entsoe-availability-map` | yes |
+| `oeds-post forecast day-ahead-price` | yes |
+| `oeds-post backfill entsoe-unavailability` | yes |
+
+## Local Development
+
+List stable commands:
+
+```powershell
+uv sync
+uv run oeds-post --list
+```
+
+Preview config migration:
+
+```powershell
+uv run oeds-post --migrate-config .\CRAWLER_CONFIG.yml
+```
+
+Preview the command that would run against the module-local implementation:
+
+```powershell
+uv run oeds-post --print-command gapfill entsoe-fms
+```
+
+## Test Coverage
+
+Run the focused command tests from this repository:
+
+```powershell
+uv run --with pytest pytest tests
+```
+
+The repository includes a starter GitHub Actions workflow for compile and unit
+test checks. Database-backed post-processing remains covered by the
+deployment repository's `tools/test_installation.sh`. That suite uses a real
+database, deterministic gapfill/forecast cases and actual scheduler post-runs.
+Live backfill needs ENTSO-E credentials and an explicitly bounded date range.
+
+## Required Interfaces
+
+- OEDS database schema contract
+- post-run command contract
+- JSON/log result format for scheduler consumption
