@@ -1,0 +1,883 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "13.0.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "rgba(120, 120, 120, 0.45)",
+        "name": "Non-heatwave periods",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamptz '2026-06-01 00:00:00+02' AS time,\n  timestamptz '2026-06-13 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags\nUNION ALL\nSELECT\n  timestamptz '2026-06-30 00:00:00+02' AS time,\n  timestamptz '2026-07-01 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags",
+          "refId": "NonHeatwave"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": true,
+      "title": "Static HTML report",
+      "type": "link",
+      "url": "http://127.0.0.1:8765/dashboards/index.html"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9000,
+      "options": {
+        "mode": "markdown",
+        "content": "Ziel: Solar, Wind und Cooling Load als entlastende beziehungsweise verschaerfende Faktoren trennen.\n\nHauptmessage: PV entlastet die Mittagsstunden, waehrend niedriger Windanteil an der Last und steigende Kuehlungslast die Abendstunden verschaerfen.\n\n**Datenbasis:** Datenfluss: Rohdaten wurden mit `scripts/research_heatwave_2026.py` aus ENTSO-E Transparency, Energy-Charts/SMARD-Fallback fuer DE_LU-Preise und Open-Meteo geladen. Preise bleiben als `prices_qh` in 15-Minuten-Aufloesung erhalten; Last, Erzeugung, Fluesse und Wetter werden als Stundenkontext in `Europe/Brussels` normalisiert, als CSV gecacht und mit `scripts/load_heatwave_2026_to_postgres.py` in das OEDS-Postgres-Schema `heatwave_2026` geladen. Grafana fragt diese Tabellen direkt per SQL ab; Zeitbereich und Variablen werden live in der Query angewendet. Standard-Zeitfenster: 2026-06-01 00:00 bis 2026-06-30 23:00 Europe/Brussels; Hitzewellenfenster: 2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels; Baseline fuer voraggregierte Delta-Metriken: 2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels."
+      },
+      "pluginVersion": "13.0.1",
+      "title": "Ziel und Hauptmessage",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Solar und Wind_total stammen aus ENTSO-E Actual Generation per Type, stundenweise normalisiert. Die Grafik zeigt, ob PV mittags entlastet und ob Wind in Abendstunden knapp war.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, country || ' ' || metric AS metric, value FROM (SELECT timestamp, country, 'solar_mw' AS metric, solar_mw AS value FROM heatwave_2026.mix_h UNION ALL SELECT timestamp, country, 'wind_total_mw', wind_total_mw FROM heatwave_2026.mix_h) s WHERE $__timeFilter(timestamp) AND country IN (${country:sqlstring}) ORDER BY 1,2",
+          "refId": "A"
+        }
+      ],
+      "title": "Solar and wind by selected country",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Wind_total fasst Onshore und Offshore zusammen. Die Zeitreihe zeigt west-/suedeuropaeische Laender als Stundenwerte; Grafana-Zeitbereich wird live angewendet.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, country || ' wind_total_mw' AS metric, wind_total_mw AS value\nFROM heatwave_2026.mix_h\nWHERE $__timeFilter(timestamp)\n  AND country IN ('FR','DE_LU','BE','NL','ES','IT_NORD','CH','AT')\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Wind generation overview",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Berechnung pro Tag und Land: avg(wind_total_mw) / avg(load_mw) * 100. Dies ist die interaktive Entsprechung der statischen Wind/Last-Heatmap.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ((timestamp AT TIME ZONE 'Europe/Brussels')::date)::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' wind/load %' AS metric,\n       avg(wind_total_mw) / NULLIF(avg(load_mw), 0) * 100 AS value\nFROM heatwave_2026.mix_h\nWHERE $__timeFilter(timestamp)\n  AND country IN ('FR','DE_LU','BE','NL','ES','AT')\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily wind/load share",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.wind_metrics`. Vorberechnet aus `mix_h`: Baseline 2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels, Ereignis 2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels; angezeigt wird das Ereignis-Windmittel in GW fuer fokussierte West-/Suedeuropa-Laender; Wind/Last-Anteile stehen daneben als Zeitreihe und Tabelle.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "id": 4,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label, event_wind_avg_mw / 1000.0 AS event_wind_gw FROM heatwave_2026.wind_metrics WHERE country IN ('FR','DE_LU','BE','NL','ES','IT_NORD','CH','AT') ORDER BY event_wind_avg_mw DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Wind event averages",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.wind_metrics`. Berechnung: Baseline-/Ereignis-Mittel Wind_total, Wind/Last-Anteil, Delta, Minimum, P10 und Low-Wind-Stunden gegenueber dem Baseline-25%-Quantil.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label, baseline_wind_avg_mw, event_wind_avg_mw, delta_wind_avg_mw, baseline_wind_load_share, event_wind_load_share, delta_wind_load_share, event_wind_min_mw, event_wind_p10_mw, event_low_wind_hours FROM heatwave_2026.wind_metrics WHERE country IN ('FR','DE_LU','BE','NL','ES','IT_NORD','CH','AT') ORDER BY event_wind_load_share ASC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Wind metrics",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.weather_h`. Open-Meteo 2m-Temperatur je repraesentativer Stadt, stundenweise. Dient als Cooling-Load-Proxy und wird nicht als meteorologische Flaechenanalyse interpretiert.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, country AS metric, avg(temperature_2m_c) AS value FROM heatwave_2026.weather_h WHERE $__timeFilter(timestamp) AND country IN (${country:sqlstring}) GROUP BY 1,2 ORDER BY 1,2",
+          "refId": "A"
+        }
+      ],
+      "title": "Temperature by selected country",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.load_h`. ENTSO-E Actual Load, auf Stundenmittel normalisiert. Zusammen mit Temperatur und Residual-Last nutzbar zur Cooling-Load-Einordnung.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, country AS metric, avg(load_mw) AS value FROM heatwave_2026.load_h WHERE $__timeFilter(timestamp) AND country IN (${country:sqlstring}) GROUP BY 1,2 ORDER BY 1,2",
+          "refId": "A"
+        }
+      ],
+      "title": "Load by selected country",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.cooling_metrics`. Kombiniert Open-Meteo-Temperatur, ENTSO-E-Last und Cooling Degree Proxy CDD22. Enthaelt Temperaturdelta, CDD-Summe, Lastdelta und Temperatur-Last-Korrelation.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label, city, delta_temp_avg_c, event_temp_max_c, delta_cdd22_sum, delta_load_avg_mw, event_temp_load_corr FROM heatwave_2026.cooling_metrics ORDER BY delta_cdd22_sum DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Cooling metrics",
+      "type": "table"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "oeds",
+    "heatwave-2026",
+    "interactive",
+    "renewables",
+    "cooling"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU"
+          ],
+          "value": [
+            "FR",
+            "DE_LU"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Country",
+        "multi": true,
+        "name": "country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Price Country",
+        "multi": true,
+        "name": "price_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "FR",
+          "value": "FR"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Base",
+        "multi": false,
+        "name": "base",
+        "options": [],
+        "query": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ],
+          "value": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Neighbor",
+        "multi": true,
+        "name": "neighbor",
+        "options": [],
+        "query": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Load Country",
+        "multi": true,
+        "name": "load_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-06-01T00:00:00+02:00",
+    "to": "2026-07-01T00:00:00+02:00"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Heatwave 2026 - Renewables and Cooling Interactive",
+  "uid": "heatwave2026-renewables-cooling",
+  "version": 2,
+  "weekStart": ""
+}

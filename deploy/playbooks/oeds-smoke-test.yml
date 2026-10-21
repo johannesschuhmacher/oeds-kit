@@ -1,0 +1,184 @@
+- name: OEDS smoke test
+  hosts: oeds
+  become: true
+  vars:
+    oeds_default_root: /open_energy_data_server
+    oeds_default_db_container_name: open-data
+    oeds_default_db_name: opendata
+    oeds_default_db_user: opendata
+    oeds_default_db_port: 6432
+    oeds_default_postgrest_url: http://127.0.0.1:3001/
+    oeds_default_grafana_health_url: http://127.0.0.1:3006/api/health
+    oeds_default_pgadmin_url: http://127.0.0.1:8080/
+    oeds_default_expect_crawler_admin: false
+    oeds_default_crawler_admin_url: http://127.0.0.1:3010/admin
+    oeds_db_container_name_effective: "{{ oeds_db_container_name | default(oeds_default_db_container_name) }}"
+    oeds_db_name_effective: "{{ oeds_db_name | default(oeds_default_db_name) }}"
+    oeds_db_user_effective: "{{ oeds_db_user | default(oeds_default_db_user) }}"
+    oeds_db_port_effective: "{{ oeds_db_port | default(oeds_default_db_port) }}"
+    oeds_postgrest_url_effective: "{{ oeds_postgrest_url | default(oeds_default_postgrest_url) }}"
+    oeds_grafana_health_url_effective: "{{ oeds_grafana_health_url | default(oeds_default_grafana_health_url) }}"
+    oeds_pgadmin_url_effective: "{{ oeds_pgadmin_url | default(oeds_default_pgadmin_url) }}"
+    oeds_expect_crawler_admin_effective: "{{ oeds_expect_crawler_admin | default(oeds_default_expect_crawler_admin) | bool }}"
+    oeds_crawler_admin_url_effective: "{{ oeds_crawler_admin_url | default(oeds_default_crawler_admin_url) }}"
+    oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
+    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
+    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/modular_repos/modules/oeds-deployment') }}"
+    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
+  tasks:
+    - name: Wait until the PostgreSQL TCP port is reachable
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ oeds_db_port_effective }}"
+        timeout: 120
+
+    - name: Check whether the database container is running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - ps
+          - --filter
+          - "name=^/{{ oeds_db_container_name_effective }}$"
+          - --filter
+          - status=running
+          - -q
+      register: oeds_smoke_db_container
+      changed_when: false
+
+    - name: Fail when the database container is not running
+      ansible.builtin.fail:
+        msg: "Container {{ oeds_db_container_name_effective }} is not running."
+      when: (oeds_smoke_db_container.stdout | trim) == ""
+
+    - name: Query the PostgreSQL version
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_db_container_name_effective }}"
+          - psql
+          - -U
+          - "{{ oeds_db_user_effective }}"
+          - -d
+          - "{{ oeds_db_name_effective }}"
+          - -tAc
+          - SELECT version();
+      register: oeds_smoke_pg_version
+      changed_when: false
+
+    - name: Query the non-system table count
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_db_container_name_effective }}"
+          - psql
+          - -U
+          - "{{ oeds_db_user_effective }}"
+          - -d
+          - "{{ oeds_db_name_effective }}"
+          - -tAc
+          - >-
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema NOT IN ('pg_catalog', 'information_schema');
+      register: oeds_smoke_table_count
+      changed_when: false
+
+    - name: Check the PostgREST endpoint
+      ansible.builtin.uri:
+        url: "{{ oeds_postgrest_url_effective }}"
+        status_code: 200
+        return_content: false
+      register: oeds_smoke_postgrest
+      retries: 24
+      delay: 5
+      until: oeds_smoke_postgrest.status == 200
+
+    - name: Check the Grafana health endpoint
+      ansible.builtin.uri:
+        url: "{{ oeds_grafana_health_url_effective }}"
+        status_code: 200
+        return_content: false
+      register: oeds_smoke_grafana
+      retries: 24
+      delay: 5
+      until: oeds_smoke_grafana.status == 200
+
+    - name: Check the pgAdmin landing page
+      ansible.builtin.uri:
+        url: "{{ oeds_pgadmin_url_effective }}"
+        status_code:
+          - 200
+          - 302
+        return_content: false
+      register: oeds_smoke_pgadmin
+      retries: 24
+      delay: 5
+      until: oeds_smoke_pgadmin.status in [200, 302]
+
+    - name: Check the crawler admin UI when requested
+      ansible.builtin.uri:
+        url: "{{ oeds_crawler_admin_url_effective }}"
+        status_code: 200
+        return_content: false
+      register: oeds_smoke_crawler_admin
+      retries: 24
+      delay: 5
+      until: oeds_smoke_crawler_admin.status == 200
+      when: oeds_expect_crawler_admin_effective
+
+    # Runs the ninja crawler from the built scheduler image against a local
+    # ZIP fixture (tests/integration.py), so a broken image fails here instead
+    # of at the first scheduled crawl. Writes only the oeds_test_crawlers
+    # schema, which is dropped again below.
+    - name: Run the offline ninja crawler test in the scheduler image
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers run --rm --no-deps -T
+        -v {{ (oeds_compose_dir_effective ~ '/tests:/tests:ro') | quote }}
+        scheduler python /tests/integration.py crawlers
+      args:
+        chdir: "{{ oeds_compose_dir_effective }}"
+      register: oeds_smoke_crawler_test
+      when: oeds_expect_crawler_admin_effective
+
+    - name: Drop the crawler test schema
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ oeds_db_container_name_effective }}"
+          - psql
+          - -U
+          - "{{ oeds_db_user_effective }}"
+          - -d
+          - "{{ oeds_db_name_effective }}"
+          - -c
+          - DROP SCHEMA IF EXISTS oeds_test_crawlers CASCADE;
+      when: oeds_expect_crawler_admin_effective
+
+    # Every scheduled run is an oeds-crawl subprocess; the command must find
+    # the crawler pack's oeds.crawlers entry points inside the image.
+    - name: List the registered crawlers in the scheduler image
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers run --rm --no-deps -T
+        scheduler oeds-crawl --list --config /app/CRAWLER_CONFIG.yml
+      args:
+        chdir: "{{ oeds_compose_dir_effective }}"
+      register: oeds_smoke_crawl_list
+      changed_when: false
+      failed_when: oeds_smoke_crawl_list.rc != 0 or (oeds_smoke_crawl_list.stdout_lines | length) < 20
+      when: oeds_expect_crawler_admin_effective
+
+    - name: Write the smoke test summary
+      ansible.builtin.debug:
+        msg:
+          - "postgres={{ oeds_smoke_pg_version.stdout | trim }}"
+          - "non_system_tables={{ oeds_smoke_table_count.stdout | trim }}"
+          - "postgrest={{ oeds_postgrest_url_effective }}"
+          - "grafana={{ oeds_grafana_health_url_effective }}"
+          - "crawler_test={{ (oeds_smoke_crawler_test.stdout_lines | default(['skipped']))[-1] }}"
+          - "registered_crawlers={{ oeds_smoke_crawl_list.stdout_lines | default([]) | length }}"

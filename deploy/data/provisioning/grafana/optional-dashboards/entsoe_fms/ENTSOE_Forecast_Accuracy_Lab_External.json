@@ -1,0 +1,924 @@
+{
+    "__inputs": [],
+    "__requires": [
+        {
+            "type": "datasource",
+            "id": "grafana-postgresql-datasource",
+            "name": "OPENDATA",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "stat",
+            "name": "Stat",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "table",
+            "name": "Table",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "geomap",
+            "name": "Geomap",
+            "version": "11.3.1"
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [
+        {
+            "asDropdown": false,
+            "icon": "external link",
+            "includeVars": false,
+            "keepTime": false,
+            "targetBlank": true,
+            "title": "Impressum",
+            "type": "link",
+            "url": "https://www.iip.kit.edu/16.php"
+        },
+        {
+            "asDropdown": false,
+            "icon": "info",
+            "includeVars": false,
+            "keepTime": false,
+            "targetBlank": false,
+            "title": "Datenschutz",
+            "type": "link",
+            "url": "/d/oeds-datenschutz/oeds-datenschutz"
+        }
+    ],
+    "liveNow": false,
+    "panels": [
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-GrYlRd"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \"DateTime(UTC)\" AS \"time\", \"ActualGenerationOutput[MW]\" AS \"value\" FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = '$RES_Type' AND \"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY \"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Latest Actual Output",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-RdYlGr"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 250
+                            },
+                            {
+                                "color": "red",
+                                "value": 500
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT a.\"DateTime(UTC)\" AS \"time\", f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS \"value\" FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY a.\"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Latest Current Error",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-RdYlGr"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 250
+                            },
+                            {
+                                "color": "red",
+                                "value": 500
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT a.\"DateTime(UTC)\" AS \"time\", f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS \"value\" FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY a.\"DateTime(UTC)\" DESC LIMIT 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Latest Day-Ahead Error",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-RdYlGr"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 0
+                            },
+                            {
+                                "color": "green",
+                                "value": 150
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "orientation": "horizontal",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT now() AS \"time\", AVG(ABS(f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\")) - AVG(ABS(f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\")) AS \"value\" FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= now() - interval '7 days'",
+                    "refId": "A"
+                }
+            ],
+            "title": "7d MAE Gain vs Day-Ahead",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 12,
+                        "lineWidth": 2,
+                        "showPoints": "never",
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Actual"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#E5E7EB",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Day-ahead Forecast"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#7EB3FF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Current Forecast"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#F28E2B",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 4
+            },
+            "id": 5,
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT $__timeGroupAlias(my_time, $__interval), metric, AVG(value) AS \"value\" FROM (SELECT a.\"DateTime(UTC)\" AS my_time, 'Actual' AS metric, a.\"ActualGenerationOutput[MW]\" AS value FROM entsoe_fms.\"AggregatedGenerationPerType\" a WHERE a.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND a.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' UNION ALL SELECT f.\"DateTime(UTC)\" AS my_time, 'Day-ahead Forecast' AS metric, f.\"DayAheadGenerationForecast[MW]\" AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" f WHERE f.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND f.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND f.\"AreaDisplayName\" = '$Country' AND f.\"AreaTypeCode\" = '$Area_Type' AND f.\"ProductionType\" = '$RES_Type' UNION ALL SELECT f.\"DateTime(UTC)\" AS my_time, 'Current Forecast' AS metric, f.\"CurrentGenerationForecast[MW]\" AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" f WHERE f.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND f.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND f.\"AreaDisplayName\" = '$Country' AND f.\"AreaTypeCode\" = '$Area_Type' AND f.\"ProductionType\" = '$RES_Type') s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Forecast vs Actual ($RES_Type)",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "lineWidth": 2,
+                        "showPoints": "never",
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Current Error"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#1F78C1",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Day-ahead Error"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#9CA3AF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Day-ahead Price"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#E15759",
+                                    "mode": "fixed"
+                                }
+                            },
+                            {
+                                "id": "custom.axisPlacement",
+                                "value": "right"
+                            },
+                            {
+                                "id": "unit",
+                                "value": "currencyEUR"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            },
+            "id": 6,
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH joined AS (SELECT a.\"DateTime(UTC)\" AS ts, f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS current_error_mw, f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS day_ahead_error_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND a.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)), prices AS (SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS price_mwh FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT $__timeGroupAlias(ts, $__interval), metric, AVG(value) AS \"value\" FROM (SELECT ts, 'Current Error' AS metric, current_error_mw AS value FROM joined UNION ALL SELECT ts, 'Day-ahead Error' AS metric, day_ahead_error_mw AS value FROM joined UNION ALL SELECT ts, 'Day-ahead Price' AS metric, price_mwh AS value FROM prices) s GROUP BY 1, 2 ORDER BY 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Forecast Errors vs Day-Ahead Price",
+            "type": "timeseries",
+            "description": "Sources: ENTSO-E. External price views: SMARD."
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 14,
+                        "lineWidth": 2,
+                        "showPoints": "never",
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Current MAE"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#1F78C1",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Day-ahead MAE"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#9CA3AF",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "Correction Magnitude"
+                        },
+                        "properties": [
+                            {
+                                "id": "color",
+                                "value": {
+                                    "fixedColor": "#F28E2B",
+                                    "mode": "fixed"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 12
+            },
+            "id": 7,
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH joined AS (SELECT a.\"DateTime(UTC)\" AS ts, f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS current_error_mw, f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS day_ahead_error_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND a.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT day AS \"time\", metric, value FROM (SELECT date_trunc('day', ts) AS day, 'Current MAE' AS metric, AVG(ABS(current_error_mw)) AS value FROM joined GROUP BY 1 UNION ALL SELECT date_trunc('day', ts) AS day, 'Day-ahead MAE' AS metric, AVG(ABS(day_ahead_error_mw)) AS value FROM joined GROUP BY 1 UNION ALL SELECT date_trunc('day', ts) AS day, 'Correction Magnitude' AS metric, AVG(ABS(current_error_mw - day_ahead_error_mw)) AS value FROM joined GROUP BY 1) s ORDER BY 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Daily Skill Trend & Correction",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 12
+            },
+            "id": 8,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH joined AS (SELECT a.\"DateTime(UTC)\" AS ts, a.\"ActualGenerationOutput[MW]\" AS actual_mw, f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS current_error_mw, f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS day_ahead_error_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND a.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT EXTRACT(HOUR FROM ts)::int AS hour_utc, ROUND(AVG(actual_mw)::numeric, 1) AS avg_actual_mw, ROUND(AVG(ABS(day_ahead_error_mw))::numeric, 1) AS avg_abs_day_ahead_error_mw, ROUND(AVG(ABS(current_error_mw))::numeric, 1) AS avg_abs_current_error_mw, ROUND(AVG(day_ahead_error_mw)::numeric, 1) AS avg_day_ahead_bias_mw, ROUND(AVG(current_error_mw)::numeric, 1) AS avg_current_bias_mw FROM joined GROUP BY 1 ORDER BY 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Hourly Error Profile (UTC)",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-YlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 0,
+                "y": 20
+            },
+            "id": 9,
+            "options": {
+                "basemap": {
+                    "config": {
+                        "showLabels": true,
+                        "theme": "auto"
+                    },
+                    "name": "Layer 0",
+                    "type": "carto"
+                },
+                "controls": {
+                    "mouseWheelZoom": true,
+                    "showAttribution": true,
+                    "showMeasure": false,
+                    "showZoom": true
+                },
+                "layers": [
+                    {
+                        "config": {
+                            "showLegend": true,
+                            "style": {
+                                "color": {
+                                    "field": "abs_current_error_mw"
+                                },
+                                "opacity": 0.85,
+                                "size": {
+                                    "field": "abs_current_error_mw",
+                                    "fixed": 10,
+                                    "max": 22,
+                                    "min": 6
+                                },
+                                "symbol": {
+                                    "fixed": "img/icons/marker/circle.svg",
+                                    "mode": "fixed"
+                                }
+                            }
+                        },
+                        "location": {
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "mode": "coords"
+                        },
+                        "name": "Layer 1",
+                        "tooltip": true,
+                        "type": "markers"
+                    }
+                ],
+                "tooltip": {
+                    "mode": "details"
+                },
+                "view": {
+                    "id": "europe",
+                    "lat": 50,
+                    "lon": 10,
+                    "zoom": 3
+                }
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH val_map (grafana_label, db_name) AS (VALUES ('Albania (AL)', 'Albania'), ('Austria (AT)', 'Austria'), ('Belgium (BE)', 'Belgium'), ('Bosnia and Herz. (BA)', 'Bosnia and Herzegovina'), ('Bulgaria (BG)', 'Bulgaria'), ('Croatia (HR)', 'Croatia'), ('Cyprus (CY)', 'Cyprus'), ('Czech Republic (CZ)', 'Czechia'), ('Denmark (DK)', 'Denmark'), ('DK', 'Denmark'), ('DK1', 'Denmark'), ('DK2', 'Denmark'), ('Estonia (EE)', 'Estonia'), ('Finland (FI)', 'Finland'), ('France (FR)', 'France'), ('Germany (DE)', 'Germany'), ('DE(50Hertz)', 'Germany'), ('DE(Amprion)', 'Germany'), ('DE(TenneT GER)', 'Germany'), ('DE(TransnetBW)', 'Germany'), ('DE-LU', 'Germany'), ('Greece (GR)', 'Greece'), ('Hungary (HU)', 'Hungary'), ('Ireland (IE)', 'Ireland'), ('IE(SEM)', 'Ireland'), ('Italy (IT)', 'Italy'), ('IT-Calabria', 'Italy'), ('IT-Centre-North', 'Italy'), ('IT-Centre-South', 'Italy'), ('IT-North', 'Italy'), ('IT-Sardinia', 'Italy'), ('IT-Sicily', 'Italy'), ('IT-South', 'Italy'), ('Kosovo (XK)', 'Kosovo'), ('Latvia (LV)', 'Latvia'), ('Lithuania (LT)', 'Lithuania'), ('Luxembourg (LU)', 'Luxembourg'), ('Moldova (MD)', 'Moldova'), ('Montenegro (ME)', 'Montenegro'), ('Netherlands (NL)', 'Netherlands'), ('North Macedonia (MK)', 'North Macedonia'), ('Norway (NO)', 'Norway'), ('NO1', 'Norway'), ('NO2', 'Norway'), ('NO3', 'Norway'), ('NO4', 'Norway'), ('NO5', 'Norway'), ('Poland (PL)', 'Poland'), ('Portugal (PT)', 'Portugal'), ('Romania (RO)', 'Romania'), ('Serbia (RS)', 'Serbia'), ('Slovakia (SK)', 'Slovakia'), ('Slovenia (SI)', 'Slovenia'), ('Spain (ES)', 'Spain'), ('Sweden (SE)', 'Sweden'), ('SE1', 'Sweden'), ('SE2', 'Sweden'), ('SE3', 'Sweden'), ('SE4', 'Sweden'), ('Switzerland (CH)', 'Switzerland'), ('United Kingdom (UK)', 'United Kingdom'), ('GB', 'United Kingdom'), ('Ukraine (UA)', 'Ukraine')), latest_joined AS (SELECT DISTINCT ON (a.\"AreaDisplayName\") a.\"AreaDisplayName\" AS area_name, a.\"DateTime(UTC)\" AS ts, f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS current_error_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= now() - interval '2 days' ORDER BY a.\"AreaDisplayName\", a.\"DateTime(UTC)\" DESC), country_centroids AS (SELECT country AS db_name, AVG(lat) AS lat, AVG(lon) AS lon FROM power_system_data.powersystemdata WHERE lat IS NOT NULL AND lon IS NOT NULL GROUP BY country), country_errors AS (SELECT vm.db_name, AVG(lj.current_error_mw) AS current_error_mw, AVG(ABS(lj.current_error_mw)) AS abs_current_error_mw, MAX(lj.ts) AS snapshot_time, COUNT(*) AS bidding_zones FROM latest_joined lj JOIN val_map vm ON vm.grafana_label = lj.area_name GROUP BY vm.db_name) SELECT 0 AS \"time\", cc.lat, cc.lon, ce.db_name AS name, ce.db_name AS country, ROUND(ce.current_error_mw::numeric, 1) AS current_error_mw, ROUND(ce.abs_current_error_mw::numeric, 1) AS abs_current_error_mw, ce.bidding_zones, ce.snapshot_time FROM country_errors ce JOIN country_centroids cc ON cc.db_name = ce.db_name ORDER BY ce.abs_current_error_mw DESC",
+                    "refId": "A"
+                }
+            ],
+            "title": "Europe Current Forecast Error Map ($RES_Type)",
+            "type": "geomap"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 12,
+                "y": 20
+            },
+            "id": 10,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH joined AS (SELECT a.\"DateTime(UTC)\" AS ts, a.\"ActualGenerationOutput[MW]\" AS actual_mw, f.\"CurrentGenerationForecast[MW]\" AS current_fc_mw, f.\"DayAheadGenerationForecast[MW]\" AS day_ahead_fc_mw, f.\"CurrentGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS current_error_mw, f.\"DayAheadGenerationForecast[MW]\" - a.\"ActualGenerationOutput[MW]\" AS day_ahead_error_mw FROM entsoe_fms.\"AggregatedGenerationPerType\" a JOIN entsoe_fms.\"GenerationForecastsForWindAndSolar\" f ON f.\"DateTime(UTC)\" = a.\"DateTime(UTC)\" AND f.\"AreaDisplayName\" = a.\"AreaDisplayName\" AND f.\"AreaTypeCode\" = a.\"AreaTypeCode\" AND f.\"ProductionType\" = a.\"ProductionType\" WHERE a.\"AreaDisplayName\" = '$Country' AND a.\"AreaTypeCode\" = '$Area_Type' AND a.\"ProductionType\" = '$RES_Type' AND a.\"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND a.\"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)), prices AS (SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS price_mwh FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0) AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)) SELECT j.ts AS forecast_time, ROUND(j.actual_mw::numeric, 1) AS actual_mw, ROUND(j.day_ahead_fc_mw::numeric, 1) AS day_ahead_fc_mw, ROUND(j.current_fc_mw::numeric, 1) AS current_fc_mw, ROUND(j.day_ahead_error_mw::numeric, 1) AS day_ahead_error_mw, ROUND(j.current_error_mw::numeric, 1) AS current_error_mw, ROUND(ABS(j.current_error_mw)::numeric, 1) AS abs_current_error_mw, ROUND(p.price_mwh::numeric, 2) AS price_eur_mwh FROM joined j LEFT JOIN prices p ON p.ts = j.ts ORDER BY abs_current_error_mw DESC, forecast_time DESC LIMIT 25",
+                    "refId": "A"
+                }
+            ],
+            "title": "Worst Forecast Misses ($RES_Type)",
+            "type": "table",
+            "description": "Sources: ENTSO-E. External price views: SMARD."
+        }
+    ],
+    "refresh": "5m",
+    "schemaVersion": 40,
+    "style": "dark",
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": "DE-LU",
+                    "value": "DE-LU"
+                },
+                "definition": "SELECT area_name FROM (VALUES ('DE-LU'), ('Belgium (BE)'), ('DK1'), ('DK2'), ('France (FR)'), ('Netherlands (NL)'), ('NO2'), ('Austria (AT)'), ('Poland (PL)'), ('SE4'), ('Switzerland (CH)'), ('Czech Republic (CZ)'), ('IT-North'), ('Slovenia (SI)'), ('Hungary (HU)')) AS allowed(area_name) ORDER BY 1",
+                "label": "Country / Zone",
+                "name": "Country",
+                "options": [],
+                "query": "SELECT area_name FROM (VALUES ('DE-LU'), ('Belgium (BE)'), ('DK1'), ('DK2'), ('France (FR)'), ('Netherlands (NL)'), ('NO2'), ('Austria (AT)'), ('Poland (PL)'), ('SE4'), ('Switzerland (CH)'), ('Czech Republic (CZ)'), ('IT-North'), ('Slovenia (SI)'), ('Hungary (HU)')) AS allowed(area_name) ORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "type": "query"
+            },
+            {
+                "current": {
+                    "text": "BZN",
+                    "value": "BZN"
+                },
+                "definition": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "label": "Area Type",
+                "name": "Area_Type",
+                "options": [],
+                "query": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "refresh": 1,
+                "regex": "",
+                "type": "query",
+                "sort": 0
+            },
+            {
+                "current": {
+                    "text": "Wind Offshore",
+                    "value": "Wind Offshore"
+                },
+                "definition": "SELECT DISTINCT \"ProductionType\" FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" ORDER BY 1",
+                "label": "RES Technology",
+                "name": "RES_Type",
+                "options": [],
+                "query": "SELECT DISTINCT \"ProductionType\" FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" ORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "type": "query"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-14d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "version": 1,
+    "weekStart": "",
+    "uid": "entsoe-forecast-lab-external",
+    "title": "ENTSOE Forecast Accuracy Lab (External)",
+    "description": "Variant: External. Sources: ENTSO-E. External price views: SMARD. Price zones: DE-LU, Belgium (BE), DK1, DK2, France (FR), Netherlands (NL), NO2, Austria (AT), Poland (PL), SE4, Switzerland (CH), Czech Republic (CZ), IT-North, Slovenia (SI), Hungary (HU)",
+    "tags": [
+        "entsoe",
+        "oeds",
+        "forecast",
+        "accuracy",
+        "external"
+    ]
+}

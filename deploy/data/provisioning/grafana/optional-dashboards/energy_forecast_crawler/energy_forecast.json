@@ -1,0 +1,134 @@
+{
+  "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard"}]},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"axisBorderShow": false, "axisColorMode": "text", "axisLabel": "EUR/MWh", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 0, "lineInterpolation": "smooth", "lineWidth": 1, "pointSize": 5, "showPoints": "never", "spanNulls": true, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}},
+          "mappings": [], "unit": "currencyEUR",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Actual Price"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#73BF69"}},
+              {"id": "custom.lineWidth", "value": 3},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.spanNulls", "value": true}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Forecast Avg"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF9830"}},
+              {"id": "custom.lineWidth", "value": 1},
+              {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [8, 8]}},
+              {"id": "custom.fillOpacity", "value": 0}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Forecast Max"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF9830"}},
+              {"id": "custom.lineWidth", "value": 0},
+              {"id": "custom.fillBelowTo", "value": "Forecast Min"},
+              {"id": "custom.fillOpacity", "value": 20},
+              {"id": "custom.hideFrom", "value": {"legend": true, "tooltip": false, "viz": false}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Forecast Min"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF9830"}},
+              {"id": "custom.lineWidth", "value": 0},
+              {"id": "custom.fillOpacity", "value": 0},
+              {"id": "custom.hideFrom", "value": {"legend": true, "tooltip": false, "viz": false}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {"calcs": ["mean", "max", "min"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "title": "Energy Price — Actual vs Forecast Band",
+      "description": "Green = confirmed market price (H+0, ×1000 to EUR/MWh). Orange band = min/max range of all past forecasts for each time point. Orange dashed = forecast average.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+          "editorMode": "code", "format": "time_series", "rawQuery": true,
+          "rawSql": "SELECT prediction_start AS time, p_h_00_m_00 * 1000 AS \"Actual Price\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start) ORDER BY prediction_start",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+          "editorMode": "code", "format": "time_series", "rawQuery": true,
+          "rawSql": "SELECT prediction_start + (t.hr * INTERVAL '1 hour') AS time, AVG(t.price) * 1000 AS \"Forecast Avg\", MAX(t.price) * 1000 AS \"Forecast Max\", MIN(t.price) * 1000 AS \"Forecast Min\" FROM energy_forecast.predictions_48h, LATERAL (VALUES (1, p_h_01_m_00), (2, p_h_02_m_00), (3, p_h_03_m_00), (4, p_h_04_m_00), (5, p_h_05_m_00), (6, p_h_06_m_00), (7, p_h_07_m_00), (8, p_h_08_m_00), (9, p_h_09_m_00), (10, p_h_10_m_00), (11, p_h_11_m_00), (12, p_h_12_m_00), (13, p_h_13_m_00), (14, p_h_14_m_00), (15, p_h_15_m_00), (16, p_h_16_m_00), (17, p_h_17_m_00), (18, p_h_18_m_00), (19, p_h_19_m_00), (20, p_h_20_m_00), (21, p_h_21_m_00), (22, p_h_22_m_00), (23, p_h_23_m_00), (24, p_h_24_m_00), (25, p_h_25_m_00), (26, p_h_26_m_00), (27, p_h_27_m_00), (28, p_h_28_m_00), (29, p_h_29_m_00), (30, p_h_30_m_00), (31, p_h_31_m_00), (32, p_h_32_m_00), (33, p_h_33_m_00), (34, p_h_34_m_00), (35, p_h_35_m_00), (36, p_h_36_m_00), (37, p_h_37_m_00), (38, p_h_38_m_00), (39, p_h_39_m_00), (40, p_h_40_m_00), (41, p_h_41_m_00), (42, p_h_42_m_00), (43, p_h_43_m_00), (44, p_h_44_m_00), (45, p_h_45_m_00), (46, p_h_46_m_00), (47, p_h_47_m_00)) AS t(hr, price) WHERE prediction_start >= to_timestamp($__from/1000) - INTERVAL '47 hours' AND prediction_start <= to_timestamp($__to/1000) AND t.price IS NOT NULL GROUP BY 1 ORDER BY 1",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "unit": "currencyEUR", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 120}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 14},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Latest Price (EUR/MWh)",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"}, "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "SELECT p_h_00_m_00 * 1000 AS \"Price\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start) ORDER BY prediction_start DESC LIMIT 1", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "unit": "currencyEUR", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 100}, {"color": "red", "value": 150}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 14},
+      "id": 3,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Period Max Price (EUR/MWh)",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"}, "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "SELECT MAX(p_h_00_m_00) * 1000 AS \"Max\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start)", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "unit": "currencyEUR", "thresholds": {"mode": "absolute", "steps": [{"color": "super-light-blue", "value": null}, {"color": "green", "value": 30}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 14},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "title": "Period Min Price (EUR/MWh)",
+      "type": "stat",
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"}, "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "SELECT MIN(p_h_00_m_00) * 1000 AS \"Min\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start)", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"},
+      "fieldConfig": {"defaults": {"unit": "currencyEUR"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18},
+      "id": 6,
+      "options": {"showHeader": true, "footer": {"show": false}},
+      "title": "Raw Prediction Data",
+      "type": "table",
+      "targets": [{"datasource": {"type": "grafana-postgresql-datasource", "uid": "P6EAA63344BCC9F38"}, "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "SELECT prediction_start, p_h_00_m_00 * 1000 AS \"H0 (EUR/MWh)\", o_h_00_m_00 AS \"O0\", p_h_06_m_00 * 1000 AS \"H6\", o_h_06_m_00 AS \"O6\", p_h_12_m_00 * 1000 AS \"H12\", o_h_12_m_00 AS \"O12\", p_h_18_m_00 * 1000 AS \"H18\", o_h_18_m_00 AS \"O18\", p_h_24_m_00 * 1000 AS \"H24\", o_h_24_m_00 AS \"O24\", p_h_30_m_00 * 1000 AS \"H30\", o_h_30_m_00 AS \"O30\", p_h_36_m_00 * 1000 AS \"H36\", o_h_36_m_00 AS \"O36\", p_h_42_m_00 * 1000 AS \"H42\", o_h_42_m_00 AS \"O42\", p_h_47_m_00 * 1000 AS \"H47\", o_h_47_m_00 AS \"O47\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start) ORDER BY prediction_start DESC", "refId": "A"}]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": ["energy", "forecast", "price"],
+  "templating": {"list": []},
+  "time": {"from": "now-90d", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Energy Forecast - Price Predictions 48h",
+  "uid": "energy-forecast-48h",
+  "version": 6,
+  "weekStart": ""
+}

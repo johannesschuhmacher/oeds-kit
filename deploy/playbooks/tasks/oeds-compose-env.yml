@@ -1,0 +1,11 @@
+- name: Write Compose settings without resetting service passwords
+  ansible.builtin.copy:
+    dest: "{{ oeds_compose_dir_effective }}/.env"
+    owner: root
+    group: docker
+    mode: "0640"
+    content: |
+      {{ oeds_saved_compose_env.content | default('') | b64decode | regex_replace('(?m)^(COMPOSE_PROJECT_NAME|OEDS_RUNTIME_DIR)=.*\n?', '') }}
+      COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
+      OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
+  no_log: true

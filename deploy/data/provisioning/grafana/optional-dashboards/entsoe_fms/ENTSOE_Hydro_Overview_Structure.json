@@ -1,0 +1,810 @@
+{
+    "__inputs": [],
+    "__requires": [
+        {
+            "type": "datasource",
+            "id": "grafana-postgresql-datasource",
+            "name": "OPENDATA",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "stat",
+            "name": "Stat",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "barchart",
+            "name": "Bar chart",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "table",
+            "name": "Table",
+            "version": "11.3.1"
+        },
+        {
+            "type": "panel",
+            "id": "geomap",
+            "name": "Geomap",
+            "version": "11.3.1"
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "description": "Source: ENTSO-E. Hydro overview, structure, utilization, and seasonality.",
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-BlYlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_hydro_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"DateTime(UTC)\") AS latest_ts,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"AggregatedGenerationPerType\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n          AND \"DateTime(UTC)\" >= now() - interval '30 days'\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_ts DESC\n    LIMIT 1\n),\nlatest_ts AS (\n    SELECT MAX(\"DateTime(UTC)\") AS ts\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" >= now() - interval '3 days'\n)\nSELECT now() AS \"time\", SUM(\"ActualGenerationOutput[MW]\") AS value\nFROM entsoe_fms.\"AggregatedGenerationPerType\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n  AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n  AND \"DateTime(UTC)\" = (SELECT ts FROM latest_ts)",
+                    "refId": "A"
+                }
+            ],
+            "title": "Current Hydro Generation",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-BlYlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_hydro_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"DateTime(UTC)\") AS latest_ts,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"AggregatedGenerationPerType\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n          AND \"DateTime(UTC)\" >= now() - interval '30 days'\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_ts DESC\n    LIMIT 1\n),\nlatest_ts AS (\n    SELECT MAX(\"DateTime(UTC)\") AS ts\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"DateTime(UTC)\" >= now() - interval '3 days'\n),\nsnapshot AS (\n    SELECT\n        SUM(CASE WHEN \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir') THEN \"ActualGenerationOutput[MW]\" ELSE 0 END) AS hydro_mw,\n        SUM(\"ActualGenerationOutput[MW]\") AS total_gen_mw\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"DateTime(UTC)\" = (SELECT ts FROM latest_ts)\n)\nSELECT now() AS \"time\", 100.0 * hydro_mw / NULLIF(total_gen_mw, 0) AS value\nFROM snapshot",
+                    "refId": "A"
+                }
+            ],
+            "title": "Hydro Share of Generation",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-BlYlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_installed_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"Year\") AS latest_year,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_year DESC\n    LIMIT 1\n),\nlatest_year AS (\n    SELECT MAX(\"Year\") AS year\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n)\nSELECT now() AS \"time\", SUM(\"AggregatedInstalledCapacity[MW]\") AS value\nFROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n  AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n  AND \"Year\" = (SELECT year FROM latest_year)",
+                    "refId": "A"
+                }
+            ],
+            "title": "Installed Hydro Capacity",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-BlYlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_hydro_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"DateTime(UTC)\") AS latest_ts,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"AggregatedGenerationPerType\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n          AND \"DateTime(UTC)\" >= now() - interval '30 days'\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_ts DESC\n    LIMIT 1\n),\npreferred_installed_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"Year\") AS latest_year,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_year DESC\n    LIMIT 1\n),\nlatest_ts AS (\n    SELECT MAX(\"DateTime(UTC)\") AS ts\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" >= now() - interval '3 days'\n),\nhydro_now AS (\n    SELECT SUM(\"ActualGenerationOutput[MW]\") AS hydro_mw\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" = (SELECT ts FROM latest_ts)\n),\nlatest_year AS (\n    SELECT MAX(\"Year\") AS year\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n),\ninstalled AS (\n    SELECT SUM(\"AggregatedInstalledCapacity[MW]\") AS installed_mw\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"Year\" = (SELECT year FROM latest_year)\n)\nSELECT now() AS \"time\", 100.0 * hydro_mw / NULLIF(installed_mw, 0) AS value\nFROM hydro_now CROSS JOIN installed",
+                    "refId": "A"
+                }
+            ],
+            "title": "Current Utilization",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 2,
+                        "pointSize": 4,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 14,
+                "x": 0,
+                "y": 4
+            },
+            "id": 5,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_hydro_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"DateTime(UTC)\") AS latest_ts,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"AggregatedGenerationPerType\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n          AND \"DateTime(UTC)\" >= now() - interval '30 days'\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_ts DESC\n    LIMIT 1\n)\nSELECT to_timestamp(floor(extract(epoch from my_time) * 1000 / GREATEST($__interval_ms, 60000)) * GREATEST($__interval_ms, 60000) / 1000.0) AS \"time\", metric, AVG(value) AS \"value\"\nFROM (\n    SELECT\n        \"DateTime(UTC)\" AS my_time,\n        CASE \"ProductionType\"\n            WHEN 'Hydro Pumped Storage' THEN 'Pumped Storage'\n            WHEN 'Hydro Run-of-river and poundage' THEN 'Run-of-river'\n            WHEN 'Hydro Water Reservoir' THEN 'Water Reservoir'\n        END AS metric,\n        \"ActualGenerationOutput[MW]\" AS value\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n      AND \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\n) s\nGROUP BY 1, 2\nORDER BY 1",
+                    "refId": "A"
+                }
+            ],
+            "title": "Hydro Generation by Type",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "continuous-YlRd"
+                    },
+                    "decimals": 1,
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "megwatt"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 10,
+                "x": 14,
+                "y": 4
+            },
+            "id": 6,
+            "options": {
+                "basemap": {
+                    "config": {
+                        "showLabels": true,
+                        "theme": "auto"
+                    },
+                    "name": "Layer 0",
+                    "type": "carto"
+                },
+                "controls": {
+                    "mouseWheelZoom": true,
+                    "showAttribution": true,
+                    "showDebug": false,
+                    "showMeasure": false,
+                    "showScale": false,
+                    "showZoom": true
+                },
+                "layers": [
+                    {
+                        "config": {
+                            "showLegend": true,
+                            "style": {
+                                "color": {
+                                    "field": "hydro_mw"
+                                },
+                                "opacity": 0.9,
+                                "rotation": {
+                                    "fixed": 0,
+                                    "max": 360,
+                                    "min": -360,
+                                    "mode": "mod"
+                                },
+                                "size": {
+                                    "field": "hydro_mw",
+                                    "fixed": 10,
+                                    "max": 24,
+                                    "min": 7
+                                },
+                                "symbol": {
+                                    "field": "",
+                                    "fixed": "img/icons/marker/circle.svg",
+                                    "mode": "fixed"
+                                },
+                                "symbolAlign": {
+                                    "horizontal": "center",
+                                    "vertical": "center"
+                                },
+                                "textConfig": {
+                                    "fontSize": 12,
+                                    "offsetX": 0,
+                                    "offsetY": 0,
+                                    "textAlign": "center",
+                                    "textBaseline": "middle"
+                                }
+                            }
+                        },
+                        "location": {
+                            "latitude": "lat",
+                            "longitude": "lon",
+                            "mode": "coords"
+                        },
+                        "name": "Layer 1",
+                        "tooltip": true,
+                        "type": "markers"
+                    }
+                ],
+                "tooltip": {
+                    "mode": "details"
+                },
+                "view": {
+                    "allLayers": true,
+                    "id": "europe",
+                    "lat": 50,
+                    "lon": 10,
+                    "zoom": 3
+                }
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH hydro_candidates AS (\n    SELECT\n        \"AreaDisplayName\" AS area_name,\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" >= now() - interval '30 days'\n    GROUP BY 1, 2, 4\n),\npreferred_hydro_area_types AS (\n    SELECT area_name, area_type\n    FROM (\n        SELECT\n            area_name,\n            area_type,\n            latest_ts,\n            priority,\n            ROW_NUMBER() OVER (PARTITION BY area_name ORDER BY priority, latest_ts DESC) AS rn\n        FROM hydro_candidates\n    ) ranked\n    WHERE rn = 1\n),\nlatest_ts AS (\n    SELECT\n        g.\"AreaDisplayName\" AS area_name,\n        MAX(g.\"DateTime(UTC)\") AS ts\n    FROM entsoe_fms.\"AggregatedGenerationPerType\" g\n    JOIN preferred_hydro_area_types p\n      ON p.area_name = g.\"AreaDisplayName\"\n     AND p.area_type = g.\"AreaTypeCode\"\n    WHERE g.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND g.\"DateTime(UTC)\" >= now() - interval '3 days'\n    GROUP BY 1\n),\nhydro_snapshot AS (\n    SELECT\n        g.\"AreaDisplayName\" AS area_name,\n        SUM(g.\"ActualGenerationOutput[MW]\") AS hydro_mw,\n        MAX(g.\"DateTime(UTC)\") AS snapshot_time\n    FROM entsoe_fms.\"AggregatedGenerationPerType\" g\n    JOIN preferred_hydro_area_types p\n      ON p.area_name = g.\"AreaDisplayName\"\n     AND p.area_type = g.\"AreaTypeCode\"\n    JOIN latest_ts lt\n      ON lt.area_name = g.\"AreaDisplayName\"\n     AND lt.ts = g.\"DateTime(UTC)\"\n    WHERE g.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1\n),\nmapped AS (\n    SELECT\n        area_name,\n        hydro_mw,\n        snapshot_time,\n        CASE\n    WHEN area_name = 'Czech Republic (CZ)' THEN 'Czechia'\n    WHEN area_name = 'Bosnia and Herz. (BA)' THEN 'Bosnia and Herzegovina'\n    WHEN area_name IN ('United Kingdom (UK)', 'GB', 'NIE') THEN 'United Kingdom'\n    WHEN area_name IN ('IE(SEM)', 'Ireland (IE)') THEN 'Ireland'\n    WHEN area_name IN ('DE-LU', 'DE-AT-LU', 'Germany (DE)') OR area_name LIKE 'DE(%' THEN 'Germany'\n    WHEN area_name IN ('DK', 'Denmark (DK)', 'DK1', 'DK2') THEN 'Denmark'\n    WHEN area_name = 'Italy (IT)' OR area_name LIKE 'IT-%' THEN 'Italy'\n    WHEN area_name = 'Norway (NO)' OR area_name ~ '^NO[1-5]$' THEN 'Norway'\n    WHEN area_name = 'Sweden (SE)' OR area_name ~ '^SE[1-4]$' THEN 'Sweden'\n    ELSE REGEXP_REPLACE(area_name, ' \\([A-Z]{2,3}\\)$', '')\nEND AS mapped_country\n    FROM hydro_snapshot\n),\ncountry_centroids AS (\n    SELECT country, AVG(lat) AS lat, AVG(lon) AS lon\n    FROM entsoe_fms.powersystemdata\n    WHERE lat IS NOT NULL AND lon IS NOT NULL\n    GROUP BY 1\n)\nSELECT\n    0 AS \"time\",\n    cc.lat,\n    cc.lon,\n    m.area_name AS name,\n    m.area_name AS country,\n    ROUND(m.hydro_mw::numeric, 1) AS hydro_mw,\n    m.snapshot_time\nFROM mapped m\nJOIN country_centroids cc\n  ON cc.country = m.mapped_country\nORDER BY hydro_mw DESC",
+                    "refId": "A"
+                }
+            ],
+            "title": "Current Hydro Output Map",
+            "type": "geomap"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 10,
+                "x": 0,
+                "y": 12
+            },
+            "id": 7,
+            "options": {
+                "barRadius": 0,
+                "barWidth": 0.88,
+                "colorByField": "",
+                "fullHighlight": false,
+                "groupWidth": 0.7,
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "orientation": "auto",
+                "showValue": "never",
+                "stacking": "none",
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                },
+                "xField": "country",
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 0
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH installed_candidates AS (\n    SELECT\n        \"AreaDisplayName\" AS area_name,\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"Year\") AS latest_year,\n        CASE\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1, 2, 4\n),\npreferred_installed_area_types AS (\n    SELECT area_name, area_type\n    FROM (\n        SELECT\n            area_name,\n            area_type,\n            latest_year,\n            priority,\n            ROW_NUMBER() OVER (PARTITION BY area_name ORDER BY priority, latest_year DESC) AS rn\n        FROM installed_candidates\n    ) ranked\n    WHERE rn = 1\n),\nlatest_year AS (\n    SELECT\n        i.\"AreaDisplayName\" AS area_name,\n        MAX(i.\"Year\") AS year\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" i\n    JOIN preferred_installed_area_types p\n      ON p.area_name = i.\"AreaDisplayName\"\n     AND p.area_type = i.\"AreaTypeCode\"\n    WHERE i.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1\n)\nSELECT\n    i.\"AreaDisplayName\" AS country,\n    ROUND(SUM(i.\"AggregatedInstalledCapacity[MW]\")::numeric, 1) AS \"Installed Hydro MW\"\nFROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" i\nJOIN preferred_installed_area_types p\n  ON p.area_name = i.\"AreaDisplayName\"\n AND p.area_type = i.\"AreaTypeCode\"\nJOIN latest_year y\n  ON y.area_name = i.\"AreaDisplayName\"\n AND y.year = i.\"Year\"\nWHERE i.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 20",
+                    "refId": "A"
+                }
+            ],
+            "title": "Installed Hydro Capacity by Country",
+            "type": "barchart"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 6,
+                "x": 10,
+                "y": 12
+            },
+            "id": 8,
+            "options": {
+                "barRadius": 0,
+                "barWidth": 0.88,
+                "colorByField": "",
+                "fullHighlight": false,
+                "groupWidth": 0.7,
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "orientation": "auto",
+                "showValue": "never",
+                "stacking": "none",
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                },
+                "xField": "hydro_type",
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 0
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_installed_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"Year\") AS latest_year,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_year DESC\n    LIMIT 1\n),\nlatest_year AS (\n    SELECT MAX(\"Year\") AS year\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"AreaDisplayName\" = '$Country'\n      AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n      AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n)\nSELECT\n    CASE \"ProductionType\"\n        WHEN 'Hydro Pumped Storage' THEN 'Pumped Storage'\n        WHEN 'Hydro Run-of-river and poundage' THEN 'Run-of-river'\n        WHEN 'Hydro Water Reservoir' THEN 'Water Reservoir'\n    END AS hydro_type,\n    ROUND(SUM(\"AggregatedInstalledCapacity[MW]\")::numeric, 1) AS \"Installed MW\"\nFROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_installed_area_type)\n  AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n  AND \"Year\" = (SELECT year FROM latest_year)\nGROUP BY 1\nORDER BY 2 DESC",
+                    "refId": "A"
+                }
+            ],
+            "title": "Hydro Structure in Selected Country",
+            "type": "barchart"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 16,
+                "y": 12
+            },
+            "id": 9,
+            "options": {
+                "barRadius": 0,
+                "barWidth": 0.88,
+                "colorByField": "",
+                "fullHighlight": false,
+                "groupWidth": 0.7,
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "orientation": "auto",
+                "showValue": "never",
+                "stacking": "none",
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                },
+                "xField": "month",
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 0
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH preferred_hydro_area_type AS (\n    SELECT area_type\n    FROM (\n        SELECT\n            \"AreaTypeCode\" AS area_type,\n            MAX(\"DateTime(UTC)\") AS latest_ts,\n            CASE\n                WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n                WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n                WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n                ELSE 9\n            END AS priority\n        FROM entsoe_fms.\"AggregatedGenerationPerType\"\n        WHERE \"AreaDisplayName\" = '$Country'\n          AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n          AND \"DateTime(UTC)\" >= now() - interval '30 days'\n        GROUP BY 1, 3\n    ) ranked\n    ORDER BY priority, latest_ts DESC\n    LIMIT 1\n)\nSELECT\n    LPAD(EXTRACT(MONTH FROM \"DateTime(UTC)\")::int::text, 2, '0') || ' ' || TO_CHAR(\"DateTime(UTC)\", 'Mon') AS month,\n    ROUND(AVG(CASE WHEN \"ProductionType\" = 'Hydro Run-of-river and poundage' THEN \"ActualGenerationOutput[MW]\" END)::numeric, 1) AS \"Run-of-river\",\n    ROUND(AVG(CASE WHEN \"ProductionType\" = 'Hydro Water Reservoir' THEN \"ActualGenerationOutput[MW]\" END)::numeric, 1) AS \"Water Reservoir\",\n    ROUND(AVG(CASE WHEN \"ProductionType\" = 'Hydro Pumped Storage' THEN \"ActualGenerationOutput[MW]\" END)::numeric, 1) AS \"Pumped Storage\"\nFROM entsoe_fms.\"AggregatedGenerationPerType\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"AreaTypeCode\" = (SELECT area_type FROM preferred_hydro_area_type)\n  AND \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\nGROUP BY EXTRACT(MONTH FROM \"DateTime(UTC)\")::int, month\nORDER BY EXTRACT(MONTH FROM MIN(\"DateTime(UTC)\"))::int",
+                    "refId": "A"
+                }
+            ],
+            "title": "Monthly Hydro Profile",
+            "type": "barchart"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P6EAA63344BCC9F38"
+            },
+            "description": "Source: ENTSO-E.",
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 19
+            },
+            "id": 10,
+            "options": {
+                "cellHeight": "sm",
+                "footer": {
+                    "countRows": false,
+                    "fields": "",
+                    "reducer": [
+                        "sum"
+                    ],
+                    "show": false
+                },
+                "showHeader": true
+            },
+            "pluginVersion": "11.3.1",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH hydro_candidates AS (\n    SELECT\n        \"AreaDisplayName\" AS area_name,\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"AggregatedGenerationPerType\"\n    WHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND \"DateTime(UTC)\" >= now() - interval '30 days'\n    GROUP BY 1, 2, 4\n),\npreferred_hydro_area_types AS (\n    SELECT area_name, area_type\n    FROM (\n        SELECT\n            area_name,\n            area_type,\n            latest_ts,\n            priority,\n            ROW_NUMBER() OVER (PARTITION BY area_name ORDER BY priority, latest_ts DESC) AS rn\n        FROM hydro_candidates\n    ) ranked\n    WHERE rn = 1\n),\nlatest_ts AS (\n    SELECT\n        g.\"AreaDisplayName\" AS area_name,\n        MAX(g.\"DateTime(UTC)\") AS ts\n    FROM entsoe_fms.\"AggregatedGenerationPerType\" g\n    JOIN preferred_hydro_area_types p\n      ON p.area_name = g.\"AreaDisplayName\"\n     AND p.area_type = g.\"AreaTypeCode\"\n    WHERE g.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n      AND g.\"DateTime(UTC)\" >= now() - interval '3 days'\n    GROUP BY 1\n),\nhydro_snapshot AS (\n    SELECT\n        g.\"AreaDisplayName\" AS area_name,\n        SUM(g.\"ActualGenerationOutput[MW]\") AS hydro_mw\n    FROM entsoe_fms.\"AggregatedGenerationPerType\" g\n    JOIN preferred_hydro_area_types p\n      ON p.area_name = g.\"AreaDisplayName\"\n     AND p.area_type = g.\"AreaTypeCode\"\n    JOIN latest_ts lt\n      ON lt.area_name = g.\"AreaDisplayName\"\n     AND lt.ts = g.\"DateTime(UTC)\"\n    WHERE g.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1\n),\ntotal_generation AS (\n    SELECT\n        g.\"AreaDisplayName\" AS area_name,\n        SUM(g.\"ActualGenerationOutput[MW]\") AS total_gen_mw\n    FROM entsoe_fms.\"AggregatedGenerationPerType\" g\n    JOIN preferred_hydro_area_types p\n      ON p.area_name = g.\"AreaDisplayName\"\n     AND p.area_type = g.\"AreaTypeCode\"\n    JOIN latest_ts lt\n      ON lt.area_name = g.\"AreaDisplayName\"\n     AND lt.ts = g.\"DateTime(UTC)\"\n    GROUP BY 1\n),\ninstalled_candidates AS (\n    SELECT\n        \"AreaDisplayName\" AS area_name,\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"Year\") AS latest_year,\n        CASE\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 1\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 3\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\"\n    WHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1, 2, 4\n),\npreferred_installed_area_types AS (\n    SELECT area_name, area_type\n    FROM (\n        SELECT\n            area_name,\n            area_type,\n            latest_year,\n            priority,\n            ROW_NUMBER() OVER (PARTITION BY area_name ORDER BY priority, latest_year DESC) AS rn\n        FROM installed_candidates\n    ) ranked\n    WHERE rn = 1\n),\nlatest_year AS (\n    SELECT\n        i.\"AreaDisplayName\" AS area_name,\n        MAX(i.\"Year\") AS year\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" i\n    JOIN preferred_installed_area_types p\n      ON p.area_name = i.\"AreaDisplayName\"\n     AND p.area_type = i.\"AreaTypeCode\"\n    WHERE i.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1\n),\ninstalled_snapshot AS (\n    SELECT\n        i.\"AreaDisplayName\" AS area_name,\n        SUM(i.\"AggregatedInstalledCapacity[MW]\") AS installed_hydro_mw\n    FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" i\n    JOIN preferred_installed_area_types p\n      ON p.area_name = i.\"AreaDisplayName\"\n     AND p.area_type = i.\"AreaTypeCode\"\n    JOIN latest_year y\n      ON y.area_name = i.\"AreaDisplayName\"\n     AND y.year = i.\"Year\"\n    WHERE i.\"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n    GROUP BY 1\n)\nSELECT\n    h.area_name AS country,\n    ROUND(h.hydro_mw::numeric, 1) AS current_hydro_mw,\n    ROUND(i.installed_hydro_mw::numeric, 1) AS installed_hydro_mw,\n    ROUND((100.0 * h.hydro_mw / NULLIF(i.installed_hydro_mw, 0))::numeric, 1) AS utilization_pct,\n    ROUND((100.0 * h.hydro_mw / NULLIF(t.total_gen_mw, 0))::numeric, 1) AS hydro_share_pct\nFROM hydro_snapshot h\nLEFT JOIN installed_snapshot i ON i.area_name = h.area_name\nLEFT JOIN total_generation t ON t.area_name = h.area_name\nORDER BY current_hydro_mw DESC NULLS LAST\nLIMIT 25",
+                    "refId": "A"
+                }
+            ],
+            "title": "Country Hydro Snapshot",
+            "type": "table"
+        }
+    ],
+    "refresh": "5m",
+    "schemaVersion": 40,
+    "style": "dark",
+    "tags": [
+        "entsoe",
+        "hydro",
+        "oeds",
+        "overview"
+    ],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": "DE-LU",
+                    "value": "DE-LU"
+                },
+                "definition": "SELECT DISTINCT \"AreaDisplayName\"\nFROM entsoe_fms.\"AggregatedGenerationPerType\"\nWHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n  AND \"DateTime(UTC)\" >= now() - interval '30 days'\nORDER BY 1",
+                "label": "Country / Zone",
+                "name": "Country",
+                "options": [],
+                "query": "SELECT DISTINCT \"AreaDisplayName\"\nFROM entsoe_fms.\"AggregatedGenerationPerType\"\nWHERE \"ProductionType\" IN ('Hydro Pumped Storage', 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir')\n  AND \"DateTime(UTC)\" >= now() - interval '30 days'\nORDER BY 1",
+                "refresh": 1,
+                "regex": "",
+                "sort": 1,
+                "type": "query"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-30d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "ENTSOE Hydro Overview & Structure",
+    "uid": "entsoe-hydro-overview",
+    "version": 1,
+    "weekStart": ""
+}

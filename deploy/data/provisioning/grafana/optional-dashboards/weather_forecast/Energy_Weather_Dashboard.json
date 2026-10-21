@@ -1,0 +1,481 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "11.3.1"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "11.3.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "11.3.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Avg Temperature Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT now() AS time, ROUND(AVG(temperature_2m_c)::numeric, 1) AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "orange", "value": 25 },
+              { "color": "red", "value": 32 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Avg Day-Ahead Price Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, ROUND(AVG(\"Price[Currency/MWh]\")::numeric, 2) AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "orange", "value": 150 },
+              { "color": "red", "value": 220 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Peak Renewables Weather Next 24h",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT now() AS time, ROUND(MAX(100 * renewables_weather_index)::numeric, 1) AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN now() AND now() + interval '24 hours'"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 30 },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Temperature Vs Load Forecast",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT * FROM (SELECT forecast_time AS time, 'Temperature C' AS metric, temperature_2m_c AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT \"DateTime(UTC)\" AS time, 'Load Forecast MW' AS metric, \"TotalLoad[MW]\" AS value FROM entsoe_fms.\"DayAheadTotalLoadForecast\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0)) s ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Temperature C" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "celsius" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Wind Proxy Vs Wind Forecast",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT * FROM (SELECT forecast_time AS time, 'Wind Proxy %' AS metric, 100 * wind_generation_index AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT \"DateTime(UTC)\" AS time, 'Wind Forecast MW' AS metric, SUM(\"CurrentGenerationForecast[MW]\") AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" IN ('Wind Onshore', 'Wind Offshore') AND \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) GROUP BY 1) s ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Wind Proxy %" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "percent" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Solar Proxy Vs Solar Forecast",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT * FROM (SELECT forecast_time AS time, 'Solar Proxy %' AS metric, 100 * solar_generation_index AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT \"DateTime(UTC)\" AS time, 'Solar Forecast MW' AS metric, SUM(\"CurrentGenerationForecast[MW]\") AS value FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = 'Solar' AND \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) GROUP BY 1) s ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Solar Proxy %" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "percent" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Renewables Weather Vs Price",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1) SELECT * FROM (SELECT forecast_time AS time, 'Renewables Weather %' AS metric, 100 * renewables_weather_index AS value FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0) UNION ALL SELECT \"DateTime(UTC)\" AS time, 'Day-ahead Price' AS metric, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000.0) AND to_timestamp($__to / 1000.0)) s ORDER BY 1, 2"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Renewables Weather %" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "percent" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Next 24h Energy Weather Outlook",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH alias AS (SELECT country_code FROM weather.entsoe_country_aliases WHERE entsoe_area_name = '$Country' LIMIT 1), wx AS (SELECT forecast_time, ROUND(temperature_2m_c::numeric, 1) AS temperature_c, ROUND(wind_speed_80m_ms::numeric, 1) AS wind_80m_ms, ROUND(shortwave_radiation_wm2::numeric, 0) AS shortwave_radiation_wm2, ROUND((100 * renewables_weather_index)::numeric, 1) AS renewables_weather_pct FROM weather.latest_country_hourly_forecast WHERE country_code = (SELECT country_code FROM alias) AND forecast_time BETWEEN now() AND now() + interval '24 hours'), load_fc AS (SELECT \"DateTime(UTC)\" AS forecast_time, ROUND(\"TotalLoad[MW]\"::numeric, 1) AS load_forecast_mw FROM entsoe_fms.\"DayAheadTotalLoadForecast\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"DateTime(UTC)\" BETWEEN now() AND now() + interval '24 hours'), wind_fc AS (SELECT \"DateTime(UTC)\" AS forecast_time, ROUND(SUM(\"CurrentGenerationForecast[MW]\")::numeric, 1) AS wind_forecast_mw FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" IN ('Wind Onshore', 'Wind Offshore') AND \"DateTime(UTC)\" BETWEEN now() AND now() + interval '24 hours' GROUP BY 1), solar_fc AS (SELECT \"DateTime(UTC)\" AS forecast_time, ROUND(SUM(\"CurrentGenerationForecast[MW]\")::numeric, 1) AS solar_forecast_mw FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = '$Area_Type' AND \"ProductionType\" = 'Solar' AND \"DateTime(UTC)\" BETWEEN now() AND now() + interval '24 hours' GROUP BY 1), prices AS (SELECT \"DateTime(UTC)\" AS forecast_time, ROUND(\"Price[Currency/MWh]\"::numeric, 2) AS price_eur_mwh FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$Country' AND \"AreaTypeCode\" = 'BZN' AND (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') AND \"DateTime(UTC)\" BETWEEN now() AND now() + interval '24 hours') SELECT wx.forecast_time, wx.temperature_c, wx.wind_80m_ms, wx.shortwave_radiation_wm2, wx.renewables_weather_pct, load_fc.load_forecast_mw, wind_fc.wind_forecast_mw, solar_fc.solar_forecast_mw, prices.price_eur_mwh FROM wx LEFT JOIN load_fc ON load_fc.forecast_time = wx.forecast_time LEFT JOIN wind_fc ON wind_fc.forecast_time = wx.forecast_time LEFT JOIN solar_fc ON solar_fc.forecast_time = wx.forecast_time LEFT JOIN prices ON prices.forecast_time = wx.forecast_time ORDER BY wx.forecast_time"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": ["sum"]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["energy", "weather", "forecast", "entsoe"],
+  "templating": {
+    "list": [
+      {
+        "name": "Country",
+        "label": "Country / Zone",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "SELECT DISTINCT a.entsoe_area_name FROM weather.entsoe_country_aliases a JOIN weather.latest_country_hourly_forecast w ON w.country_code = a.country_code ORDER BY 1",
+        "definition": "SELECT DISTINCT a.entsoe_area_name FROM weather.entsoe_country_aliases a JOIN weather.latest_country_hourly_forecast w ON w.country_code = a.country_code ORDER BY 1",
+        "current": {
+          "text": "DE-LU",
+          "value": "DE-LU"
+        }
+      },
+      {
+        "name": "Area_Type",
+        "label": "Area Type",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "query": "SELECT DISTINCT \"AreaTypeCode\" FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' ORDER BY 1",
+        "definition": "SELECT DISTINCT \"AreaTypeCode\" FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$Country' ORDER BY 1",
+        "current": {
+          "text": "BZN",
+          "value": "BZN"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now",
+    "to": "now+72h"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Energy Weather Dashboard",
+  "uid": "energy-weather-dashboard",
+  "version": 1,
+  "weekStart": ""
+}

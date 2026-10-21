@@ -1,0 +1,1109 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "13.0.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "rgba(120, 120, 120, 0.45)",
+        "name": "Non-heatwave periods",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamptz '2026-06-01 00:00:00+02' AS time,\n  timestamptz '2026-06-13 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags\nUNION ALL\nSELECT\n  timestamptz '2026-06-30 00:00:00+02' AS time,\n  timestamptz '2026-07-01 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags",
+          "refId": "NonHeatwave"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": true,
+      "title": "Static HTML report",
+      "type": "link",
+      "url": "http://127.0.0.1:8765/dashboards/index.html"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9000,
+      "options": {
+        "mode": "markdown",
+        "content": "Ziel: Sichtbar machen, wie sich Abendspitzen waehrend der Hitzewelle im Vergleich zu den Nicht-Hitzewellenzeiten im Juni veraendert haben.\n\nHauptmessage: Der Abendstress entsteht, wenn PV auslaeuft, Residual-Last und Rampen steigen und Wind die Last nicht ausreichend deckt; die Muster unterscheiden sich je Land und sind in Preis, Timing, Windanteil und Residual-Last gleichzeitig sichtbar.\n\n**Datenbasis:** Datenfluss: Rohdaten wurden mit `scripts/research_heatwave_2026.py` aus ENTSO-E Transparency, Energy-Charts/SMARD-Fallback fuer DE_LU-Preise und Open-Meteo geladen. Preise bleiben als `prices_qh` in 15-Minuten-Aufloesung erhalten; Last, Erzeugung, Fluesse und Wetter werden als Stundenkontext in `Europe/Brussels` normalisiert, als CSV gecacht und mit `scripts/load_heatwave_2026_to_postgres.py` in das OEDS-Postgres-Schema `heatwave_2026` geladen. Grafana fragt diese Tabellen direkt per SQL ab; Zeitbereich und Variablen werden live in der Query angewendet. Standard-Zeitfenster: 2026-06-01 00:00 bis 2026-06-30 23:00 Europe/Brussels; Hitzewellenfenster: 2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels; Baseline fuer voraggregierte Delta-Metriken: 2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels."
+      },
+      "pluginVersion": "13.0.1",
+      "title": "Ziel und Hauptmessage",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.prices_qh`. Berechnung live in SQL: 15-Minuten-Werte in den lokalen Stunden 16:00-23:45 werden in Hitzewelle (2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels) und Nicht-Hitzewelle im ausgewaehlten Zeitbereich getrennt und je Stunde/Land gemittelt. Die x-Achse ist ein kuenstliches Tagesprofil; die Werte bleiben echte Day-ahead-Preise.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH labelled AS (\n    SELECT\n        country,\n        extract(hour from timestamp AT TIME ZONE 'Europe/Brussels')::int AS hour_of_day,\n        price_eur_mwh,\n        CASE\n            WHEN timestamp >= timestamptz '2026-06-13 00:00:00+02'\n             AND timestamp < timestamptz '2026-06-30 00:00:00+02'\n            THEN 'heatwave'\n            ELSE 'non-heatwave'\n        END AS period\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 16 AND 23\n)\nSELECT make_timestamptz(2026, 6, 1, hour_of_day, 0, 0, 'Europe/Brussels') AS time,\n       country || ' ' || period AS metric,\n       avg(price_eur_mwh) AS value\nFROM labelled\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening price profile by hour",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.prices_qh`. Berechnung live in SQL: pro Tag und Land wird im Fenster 18:00-22:45 der maximale 15-Minuten-Day-ahead-Preis bestimmt. Das Panel reagiert auf `price_country` und Grafana-Zeitbereich.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ((timestamp AT TIME ZONE 'Europe/Brussels')::date)::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' evening peak EUR/MWh' AS metric,\n       max(price_eur_mwh) AS value\nFROM heatwave_2026.prices_qh\nWHERE $__timeFilter(timestamp)\n  AND country IN (${price_country:sqlstring})\n  AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily evening peak price",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.prices_qh`. Berechnung live in SQL: Tagesmittel der 15-Minuten-Preise 18:00-22:45 minus Tagesmittel 11:00-15:45. Positive Werte zeigen, dass der Abend gegenueber der PV-/Mittagsphase teurer wurde.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_avg_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 15) AS midday_avg_eur_mwh\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 22\n    GROUP BY 1, 2\n)\nSELECT day::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' evening premium EUR/MWh' AS metric,\n       evening_avg_eur_mwh - midday_avg_eur_mwh AS value\nFROM daily\nWHERE evening_avg_eur_mwh IS NOT NULL\n  AND midday_avg_eur_mwh IS NOT NULL\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening premium over midday",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.prices_qh`. Berechnung live in SQL: pro Tag/Land wird innerhalb 16:00-23:45 die Viertelstunde des hoechsten Day-ahead-Preises gesucht. Das zeigt, ob sich die Preismaxima spaeter oder frueher ballen.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH ranked AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        (\n            extract(hour from timestamp AT TIME ZONE 'Europe/Brussels')\n          + extract(minute from timestamp AT TIME ZONE 'Europe/Brussels') / 60.0\n        ) AS peak_time_decimal,\n        price_eur_mwh,\n        row_number() OVER (\n            PARTITION BY (timestamp AT TIME ZONE 'Europe/Brussels')::date, country\n            ORDER BY price_eur_mwh DESC NULLS LAST, timestamp DESC\n        ) AS rn\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 16 AND 23\n)\nSELECT day::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' evening peak time' AS metric,\n       peak_time_decimal AS value\nFROM ranked\nWHERE rn = 1\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening peak timing",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Residual-Last = Last minus Solar minus Wind_total aus ENTSO-E-Last und Erzeugung. Berechnung live in SQL: lokales Stundenprofil 00:00-23:00 fuer FR, DE_LU, BE, NL, ES und IT_NORD. Verglichen werden Hitzewelle 13.-29.06. und Non-Heatwave-Baseline 01.-12.06.; 30.06. fliesst hier nicht ein.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH labelled AS (\n    SELECT\n        country,\n        extract(hour from timestamp AT TIME ZONE 'Europe/Brussels')::int AS hour_of_day,\n        residual_load_mw,\n        CASE\n            WHEN timestamp >= timestamptz '2026-06-13 00:00:00+02'\n             AND timestamp < timestamptz '2026-06-30 00:00:00+02'\n            THEN 'heatwave'\n            ELSE 'non-heatwave'\n        END AS period\n    FROM heatwave_2026.mix_h\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${country:sqlstring})\n      AND country IN ('FR','DE_LU','BE','NL','ES','IT_NORD')\n      AND timestamp >= timestamptz '2026-06-01 00:00:00+02'\n      AND timestamp < timestamptz '2026-06-30 00:00:00+02'\n)\nSELECT make_timestamptz(2026, 6, 1, hour_of_day, 0, 0, 'Europe/Brussels') AS time,\n       country || ' ' || period AS metric,\n       avg(residual_load_mw) / 1000.0 AS value\nFROM labelled\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Residual-load full-day shape",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.daily_ramps`. Berechnung je Tag und Land: Maximum Residual-Last 18:00-22:00 minus Minimum Residual-Last 11:00-15:00. Residual-Last stammt aus `mix_h` und ist Last minus Solar minus Wind_total.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' evening ramp MW' AS metric,\n       evening_ramp_mw AS value\nFROM heatwave_2026.daily_ramps\nWHERE date >= ($__timeFrom()::date)\n  AND date < ($__timeTo()::date)\n  AND country IN (${country:sqlstring})\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily evening residual ramps",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Berechnung live in SQL: avg(Wind_total 18:00-22:00) / avg(Load 18:00-22:00) * 100. Wind_total fasst Onshore und Offshore zusammen.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ((timestamp AT TIME ZONE 'Europe/Brussels')::date)::timestamp AT TIME ZONE 'Europe/Brussels' AS time,\n       country || ' evening wind/load %' AS metric,\n       avg(wind_total_mw) / NULLIF(avg(load_mw), 0) * 100 AS value\nFROM heatwave_2026.mix_h\nWHERE $__timeFilter(timestamp)\n  AND country IN (${country:sqlstring})\n  AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening wind/load share",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.prices_qh`. Berechnung live in SQL: erst Tagespraemie Abend minus Mittag, dann Mittelwert Hitzewelle minus Mittelwert Nicht-Hitzewelle. Diese Balken zeigen die Aenderung der Abendpraemie je Land.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyEUR"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 8,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_avg_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 15) AS midday_avg_eur_mwh\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 22\n    GROUP BY 1, 2\n),\nlabelled AS (\n    SELECT\n        country,\n        CASE\n            WHEN day >= date '2026-06-13' AND day < date '2026-06-30'\n            THEN 'heatwave'\n            ELSE 'non_heatwave'\n        END AS period,\n        evening_avg_eur_mwh - midday_avg_eur_mwh AS evening_premium_eur_mwh\n    FROM daily\n    WHERE evening_avg_eur_mwh IS NOT NULL\n      AND midday_avg_eur_mwh IS NOT NULL\n)\nSELECT country AS label,\n       avg(evening_premium_eur_mwh) FILTER (WHERE period = 'non_heatwave') AS non_heatwave_premium_eur_mwh,\n       avg(evening_premium_eur_mwh) FILTER (WHERE period = 'heatwave') AS heatwave_premium_eur_mwh,\n       (\n           avg(evening_premium_eur_mwh) FILTER (WHERE period = 'heatwave')\n         - avg(evening_premium_eur_mwh) FILTER (WHERE period = 'non_heatwave')\n       ) AS delta_heatwave_minus_non_heatwave_eur_mwh\nFROM labelled\nGROUP BY 1\nORDER BY delta_heatwave_minus_non_heatwave_eur_mwh DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening premium delta by country",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.daily_ramps`. Berechnung je Tag aus `mix_h`: max Residual-Last 18:00-22:00 minus min Residual-Last 11:00-15:00. Das Panel vergleicht Hitzewelle mit Nicht-Hitzewelle im gewaehlten Zeitbereich.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "id": 9,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH labelled AS (\n    SELECT\n        country,\n        CASE\n            WHEN date >= date '2026-06-13' AND date < date '2026-06-30'\n            THEN 'heatwave'\n            ELSE 'non_heatwave'\n        END AS period,\n        evening_ramp_mw\n    FROM heatwave_2026.daily_ramps\n    WHERE date >= ($__timeFrom()::date)\n      AND date < ($__timeTo()::date)\n      AND country IN (${country:sqlstring})\n)\nSELECT country AS label,\n       avg(evening_ramp_mw) FILTER (WHERE period = 'non_heatwave') / 1000.0 AS non_heatwave_ramp_gw,\n       avg(evening_ramp_mw) FILTER (WHERE period = 'heatwave') / 1000.0 AS heatwave_ramp_gw,\n       (\n           avg(evening_ramp_mw) FILTER (WHERE period = 'heatwave')\n         - avg(evening_ramp_mw) FILTER (WHERE period = 'non_heatwave')\n       ) / 1000.0 AS delta_heatwave_minus_non_heatwave_gw\nFROM labelled\nGROUP BY 1\nORDER BY delta_heatwave_minus_non_heatwave_gw DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening residual ramp delta",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quellen: `heatwave_2026.prices_qh` und `heatwave_2026.mix_h`. Berechnung live in SQL: Tageswerte fuer Abendpreismaximum, Abendpraemie, Wind/Last-Anteil und Residual-Last werden nach Land/Tag verbunden. Tabelle fuer Plausibilitaet und Detailauswahl.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH price_daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        max(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_peak_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_avg_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 15) AS midday_avg_eur_mwh\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 22\n    GROUP BY 1, 2\n),\nmix_daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        avg(wind_total_mw) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_wind_avg_mw,\n        avg(load_mw) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_load_avg_mw,\n        avg(residual_load_mw) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_residual_avg_mw\n    FROM heatwave_2026.mix_h\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22\n    GROUP BY 1, 2\n)\nSELECT\n    p.day,\n    p.country,\n    CASE\n        WHEN p.day >= date '2026-06-13' AND p.day < date '2026-06-30'\n        THEN 'heatwave'\n        ELSE 'non_heatwave'\n    END AS period,\n    round(p.evening_peak_eur_mwh::numeric, 1) AS evening_peak_eur_mwh,\n    round((p.evening_avg_eur_mwh - p.midday_avg_eur_mwh)::numeric, 1) AS evening_premium_eur_mwh,\n    round((m.evening_wind_avg_mw / NULLIF(m.evening_load_avg_mw, 0) * 100)::numeric, 1) AS evening_wind_load_share_pct,\n    round((m.evening_residual_avg_mw / 1000.0)::numeric, 2) AS evening_residual_avg_gw\nFROM price_daily p\nLEFT JOIN mix_daily m\n  ON p.day = m.day AND p.country = m.country\nORDER BY p.day, p.country",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening wind-price context",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quellen: `heatwave_2026.prices_qh`, `heatwave_2026.mix_h` und `heatwave_2026.daily_ramps`. Berechnung live in SQL: Hitzewellenmittel und Nicht-Hitzewellenmittel fuer Abendpreis, Abendpraemie, Residualrampe und Wind/Last-Anteil; Deltas zeigen die Veraenderung.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 11,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH price_daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        max(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_peak_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_avg_eur_mwh,\n        avg(price_eur_mwh) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 15) AS midday_avg_eur_mwh\n    FROM heatwave_2026.prices_qh\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${price_country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 11 AND 22\n    GROUP BY 1, 2\n),\nmix_daily AS (\n    SELECT\n        (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day,\n        country,\n        avg(wind_total_mw) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_wind_avg_mw,\n        avg(load_mw) FILTER (WHERE extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22) AS evening_load_avg_mw\n    FROM heatwave_2026.mix_h\n    WHERE $__timeFilter(timestamp)\n      AND country IN (${country:sqlstring})\n      AND extract(hour from timestamp AT TIME ZONE 'Europe/Brussels') BETWEEN 18 AND 22\n    GROUP BY 1, 2\n),\nramp_daily AS (\n    SELECT date AS day, country, evening_ramp_mw\n    FROM heatwave_2026.daily_ramps\n    WHERE date >= ($__timeFrom()::date)\n      AND date < ($__timeTo()::date)\n      AND country IN (${country:sqlstring})\n),\njoined AS (\n    SELECT\n        p.day,\n        p.country,\n        CASE\n            WHEN p.day >= date '2026-06-13' AND p.day < date '2026-06-30'\n            THEN 'heatwave'\n            ELSE 'non_heatwave'\n        END AS period,\n        p.evening_peak_eur_mwh,\n        p.evening_avg_eur_mwh - p.midday_avg_eur_mwh AS evening_premium_eur_mwh,\n        r.evening_ramp_mw,\n        m.evening_wind_avg_mw / NULLIF(m.evening_load_avg_mw, 0) * 100 AS evening_wind_load_share_pct\n    FROM price_daily p\n    LEFT JOIN mix_daily m\n      ON p.day = m.day AND p.country = m.country\n    LEFT JOIN ramp_daily r\n      ON p.day = r.day AND p.country = r.country\n)\nSELECT\n    country AS label,\n    round(avg(evening_peak_eur_mwh) FILTER (WHERE period = 'non_heatwave')::numeric, 1) AS non_heatwave_evening_peak_eur_mwh,\n    round(avg(evening_peak_eur_mwh) FILTER (WHERE period = 'heatwave')::numeric, 1) AS heatwave_evening_peak_eur_mwh,\n    round((avg(evening_peak_eur_mwh) FILTER (WHERE period = 'heatwave') - avg(evening_peak_eur_mwh) FILTER (WHERE period = 'non_heatwave'))::numeric, 1) AS delta_evening_peak_eur_mwh,\n    round((avg(evening_premium_eur_mwh) FILTER (WHERE period = 'heatwave') - avg(evening_premium_eur_mwh) FILTER (WHERE period = 'non_heatwave'))::numeric, 1) AS delta_evening_premium_eur_mwh,\n    round(((avg(evening_ramp_mw) FILTER (WHERE period = 'heatwave') - avg(evening_ramp_mw) FILTER (WHERE period = 'non_heatwave')) / 1000.0)::numeric, 2) AS delta_evening_ramp_gw,\n    round((avg(evening_wind_load_share_pct) FILTER (WHERE period = 'heatwave') - avg(evening_wind_load_share_pct) FILTER (WHERE period = 'non_heatwave'))::numeric, 1) AS delta_evening_wind_load_share_pct\nFROM joined\nGROUP BY 1\nORDER BY delta_evening_premium_eur_mwh DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Evening stress summary",
+      "type": "table"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "oeds",
+    "heatwave-2026",
+    "interactive",
+    "evening",
+    "peaks"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU"
+          ],
+          "value": [
+            "FR",
+            "DE_LU"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Country",
+        "multi": true,
+        "name": "country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Price Country",
+        "multi": true,
+        "name": "price_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "FR",
+          "value": "FR"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Base",
+        "multi": false,
+        "name": "base",
+        "options": [],
+        "query": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ],
+          "value": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Neighbor",
+        "multi": true,
+        "name": "neighbor",
+        "options": [],
+        "query": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Load Country",
+        "multi": true,
+        "name": "load_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-06-01T00:00:00+02:00",
+    "to": "2026-07-01T00:00:00+02:00"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Heatwave 2026 - Evening Peaks Interactive",
+  "uid": "heatwave2026-evening-peaks",
+  "version": 2,
+  "weekStart": ""
+}

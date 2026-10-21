@@ -1,0 +1,101 @@
+{
+    "__inputs":  [
+
+                 ],
+    "__requires":  [
+                       {
+                           "type":  "panel",
+                           "id":  "text",
+                           "name":  "Text",
+                           "version":  "11.3.1"
+                       }
+                   ],
+    "annotations":  {
+                        "list":  [
+                                     {
+                                         "builtIn":  1,
+                                         "datasource":  {
+                                                            "type":  "grafana",
+                                                            "uid":  "-- Grafana --"
+                                                        },
+                                         "enable":  true,
+                                         "hide":  true,
+                                         "iconColor":  "rgba(0, 211, 255, 1)",
+                                         "name":  "Annotations & Alerts",
+                                         "type":  "dashboard"
+                                     }
+                                 ]
+                    },
+    "editable":  true,
+    "fiscalYearStartMonth":  0,
+    "graphTooltip":  0,
+    "links":  [
+                  {
+                      "asDropdown":  false,
+                      "icon":  "external link",
+                      "includeVars":  false,
+                      "keepTime":  false,
+                      "targetBlank":  true,
+                      "title":  "Impressum",
+                      "type":  "link",
+                      "url":  "https://www.iip.kit.edu/16.php"
+                  },
+                  {
+                      "asDropdown":  false,
+                      "icon":  "external link",
+                      "includeVars":  false,
+                      "keepTime":  false,
+                      "targetBlank":  true,
+                      "title":  "Offizielle Datenschutzseite",
+                      "type":  "link",
+                      "url":  "https://www.iip.kit.edu/4162.php"
+                  }
+              ],
+    "liveNow":  false,
+    "panels":  [
+                   {
+                       "gridPos":  {
+                                       "h":  22,
+                                       "w":  24,
+                                       "x":  0,
+                                       "y":  0
+                                   },
+                       "id":  1,
+                       "options":  {
+                                       "content":  "# OEDS Datenschutz\n\nDiese Seite ergaenzt die offizielle Datenschutzseite des IIP/KIT fuer die oeffentlich erreichbaren OEDS-Grafana-Dashboards. Massgeblich bleiben die offiziellen Angaben des KIT/IIP.\n\n## Verantwortlich\nKarlsruher Institut fuer Technologie (KIT)\nInstitut fuer Industriebetriebslehre und Industrielle Produktion (IIP)\n\n- Impressum: [https://www.iip.kit.edu/16.php](https://www.iip.kit.edu/16.php)\n- Offizielle Datenschutzseite: [https://www.iip.kit.edu/4162.php](https://www.iip.kit.edu/4162.php)\n\n## Zweck der Seite\nDie oeffentlichen OEDS-Dashboards stellen Energiedaten visuell bereit. Dazu wird Grafana als Weboberflaeche fuer Auswertung und Anzeige genutzt.\n\n## Technisch verarbeitete Daten\nBeim Aufruf koennen technisch erforderliche Verbindungsdaten verarbeitet werden, insbesondere IP-Adresse, Zeitpunkt des Abrufs, angeforderte URL, HTTP-Status, Referrer sowie Browser- und Betriebssysteminformationen. Diese Verarbeitung dient dem sicheren Betrieb, der Fehleranalyse und der Abwehr von Missbrauch.\n\n## Login, Cookies und lokale Speicherung\nDie oeffentlichen Dashboards sind ohne eigenes Benutzerkonto nutzbar. Nach aktuellem Stand sind keine Marketing- oder Tracking-Dienste vorgesehen. Technisch notwendige Speichermechanismen des Webservers oder von Grafana koennen dennoch eingesetzt werden, etwa fuer Sitzung, Sprache oder Anzeigeeinstellungen.\n\n## Datenquellen\nDie fachlichen Quellen und Hinweise zur Datennutzung werden im jeweiligen Dashboard genannt. Diese Seite beschreibt die technische Bereitstellung der Dashboards, nicht die fachlichen Lizenzbedingungen einzelner Datensaetze.\n\n## Kartenansichten\nEinige Dashboards enthalten Kartenansichten. Dabei kann der Hintergrund der Karte ueber einen externen Kartendienst geladen werden. In diesem Fall koennen an den jeweiligen Anbieter technische Zugriffsdaten wie IP-Adresse und Browser-Metadaten uebermittelt werden.\n\n## Speicherdauer\nServer- und Sicherheitsprotokolle werden nur so lange gespeichert, wie dies fuer Betrieb, IT-Sicherheit und Fehleranalyse erforderlich ist. Verbindliche Fristen ergeben sich aus den jeweils eingesetzten Server- und Betriebsprozessen.\n\n## Ihre Rechte\nInformationen zu Ihren Rechten auf Auskunft, Berichtigung, Loeschung, Einschraenkung, Widerspruch und Beschwerde bei der zustaendigen Aufsichtsbehoerde finden Sie auf der offiziellen Datenschutzseite des IIP/KIT.\n\n## Kontakt\nBitte nutzen Sie fuer rechtliche oder datenschutzbezogene Anfragen die auf dem Impressum und der offiziellen Datenschutzseite genannten Kontaktmoeglichkeiten.\n",
+                                       "mode":  "markdown"
+                                   },
+                       "pluginVersion":  "11.3.1",
+                       "title":  "Datenschutzhinweise fuer OEDS-Dashboards",
+                       "transparent":  false,
+                       "type":  "text"
+                   }
+               ],
+    "refresh":  "",
+    "schemaVersion":  40,
+    "style":  "dark",
+    "tags":  [
+                 "oeds",
+                 "privacy",
+                 "legal",
+                 "external"
+             ],
+    "templating":  {
+                       "list":  [
+
+                                ]
+                   },
+    "time":  {
+                 "from":  "now-6h",
+                 "to":  "now"
+             },
+    "timepicker":  {
+
+                   },
+    "timezone":  "browser",
+    "title":  "OEDS Datenschutz",
+    "uid":  "oeds-datenschutz",
+    "version":  1,
+    "weekStart":  "",
+    "description":  "Datenschutzhinweise fuer oeffentliche OEDS-Grafana-Dashboards. Ergaenzt die offizielle Datenschutzseite des IIP/KIT."
+}

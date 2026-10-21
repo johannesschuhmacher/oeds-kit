@@ -1,0 +1,752 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "OPENDATA",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": "13.0.1"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "13.0.1"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "rgba(120, 120, 120, 0.45)",
+        "name": "Non-heatwave periods",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  timestamptz '2026-06-01 00:00:00+02' AS time,\n  timestamptz '2026-06-13 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags\nUNION ALL\nSELECT\n  timestamptz '2026-06-30 00:00:00+02' AS time,\n  timestamptz '2026-07-01 00:00:00+02' AS \"timeEnd\",\n  'Non-heatwave period' AS text,\n  'non-heatwave' AS tags",
+          "refId": "NonHeatwave"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": true,
+      "title": "Static HTML report",
+      "type": "link",
+      "url": "http://127.0.0.1:8765/dashboards/index.html"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9000,
+      "options": {
+        "mode": "markdown",
+        "content": "Ziel: Erzeugungsmix, fossile Ersatzproduktion und CO2-Proxy im Ereignisfenster nachvollziehen.\n\nHauptmessage: Fossile Erzeugung steigt dort besonders relevant, wo Residual-Last und eingeschraenkte CO2-arme Erzeugung zusammenfallen; nicht jede Kernenergieaenderung wird fossil ersetzt.\n\n**Datenbasis:** Datenfluss: Rohdaten wurden mit `scripts/research_heatwave_2026.py` aus ENTSO-E Transparency, Energy-Charts/SMARD-Fallback fuer DE_LU-Preise und Open-Meteo geladen. Preise bleiben als `prices_qh` in 15-Minuten-Aufloesung erhalten; Last, Erzeugung, Fluesse und Wetter werden als Stundenkontext in `Europe/Brussels` normalisiert, als CSV gecacht und mit `scripts/load_heatwave_2026_to_postgres.py` in das OEDS-Postgres-Schema `heatwave_2026` geladen. Grafana fragt diese Tabellen direkt per SQL ab; Zeitbereich und Variablen werden live in der Query angewendet. Standard-Zeitfenster: 2026-06-01 00:00 bis 2026-06-30 23:00 Europe/Brussels; Hitzewellenfenster: 2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels; Baseline fuer voraggregierte Delta-Metriken: 2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels."
+      },
+      "pluginVersion": "13.0.1",
+      "title": "Ziel und Hauptmessage",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_h`. Aus ENTSO-E-Erzeugungstypen werden Solar, Wind_total, Nuclear nur bei Laendern mit Kernenergie, Fossil Gas und Fossil Coal/Lignite gebildet. Grafana filtert live ueber `country`.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisBorderShow": false,
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH nuclear_countries AS (\n    SELECT country\n    FROM heatwave_2026.mix_h\n    GROUP BY country\n    HAVING max(nuclear_mw) > 1\n),\ncomponents AS (\n    SELECT timestamp, country, 'solar_mw' AS metric, solar_mw AS value FROM heatwave_2026.mix_h\n    UNION ALL\n    SELECT timestamp, country, 'wind_total_mw', wind_total_mw FROM heatwave_2026.mix_h\n    UNION ALL\n    SELECT timestamp, country, 'nuclear_mw', nuclear_mw FROM heatwave_2026.mix_h\n    UNION ALL\n    SELECT timestamp, country, 'fossil_gas_mw', fossil_gas_mw FROM heatwave_2026.mix_h\n    UNION ALL\n    SELECT timestamp, country, 'fossil_coal_lignite_mw', fossil_coal_mw FROM heatwave_2026.mix_h\n)\nSELECT timestamp AS time, country || ' ' || metric AS metric, value\nFROM components\nWHERE $__timeFilter(timestamp)\n  AND country IN (${country:sqlstring})\n  AND (metric <> 'nuclear_mw' OR country IN (SELECT country FROM nuclear_countries))\nORDER BY 1, 2",
+          "refId": "A"
+        }
+      ],
+      "title": "Generation components by selected country",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_metrics`. Berechnung: Ereignis-Durchschnitt (2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels) minus Baseline-Durchschnitt (2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels) fuer Solar, Wind_total, Nuclear nur bei Laendern mit Kernenergie, Fossil Gas und Fossil Coal/Lignite. Das Panel ist ein SQL-Bar-Chart, keine statische Grafik.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       delta_solar_avg_mw / 1000.0 AS solar_delta_gw,\n       delta_wind_avg_mw / 1000.0 AS wind_delta_gw,\n       CASE\n           WHEN GREATEST(COALESCE(baseline_nuclear_avg_mw, 0), COALESCE(event_nuclear_avg_mw, 0)) > 1\n           THEN delta_nuclear_avg_mw / 1000.0\n       END AS nuclear_delta_gw,\n       delta_fossil_gas_avg_mw / 1000.0 AS gas_delta_gw,\n       delta_fossil_coal_avg_mw / 1000.0 AS coal_lignite_delta_gw\nFROM heatwave_2026.mix_metrics\nORDER BY delta_residual_avg_mw DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Generation delta by country",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.replacement_metrics`. Berechnung aus `mix_h`: Nuclear_drop = max(-(Event nuclear avg - Baseline nuclear avg), 0); Fossil_increase = max(Event fossil avg - Baseline fossil avg, 0); Fossil_drop = max(-(Event fossil avg - Baseline fossil avg), 0). Fossil_total umfasst ENTSO-E-Fossilkategorien. Das zeigt Ersatz-/Rueckgangsmuster, keine blockgenaue Kausalitaet.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label,\n       nuclear_drop_avg_mw / 1000.0 AS nuclear_drop_gw,\n       fossil_increase_avg_mw / 1000.0 AS fossil_increase_gw,\n       -fossil_drop_avg_mw / 1000.0 AS fossil_drop_gw\nFROM heatwave_2026.replacement_metrics\nWHERE COALESCE(nuclear_drop_avg_mw, 0) > 50\n   OR COALESCE(fossil_increase_avg_mw, 0) > 50\n   OR COALESCE(fossil_drop_avg_mw, 0) > 50\nORDER BY (COALESCE(nuclear_drop_avg_mw, 0) + COALESCE(fossil_increase_avg_mw, 0) + 0.35 * COALESCE(fossil_drop_avg_mw, 0)) DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Nuclear/fossil response",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.mix_metrics`. Vergleicht Ereignisfenster (2026-06-13 00:00 bis 2026-06-29 23:00 Europe/Brussels) mit der Baseline (2026-06-01 00:00 bis 2026-06-12 23:00 Europe/Brussels) fuer Solar, Wind, Nuclear, Gas, Kohle/Lignite, Residual-Last und Abendrampe.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label, delta_solar_avg_mw, delta_wind_avg_mw, CASE WHEN GREATEST(COALESCE(baseline_nuclear_avg_mw, 0), COALESCE(event_nuclear_avg_mw, 0)) > 1 THEN delta_nuclear_avg_mw END AS delta_nuclear_avg_mw, delta_fossil_gas_avg_mw, delta_fossil_coal_avg_mw, delta_fossil_avg_mw, delta_residual_avg_mw, delta_evening_ramp_avg_mw FROM heatwave_2026.mix_metrics ORDER BY delta_residual_avg_mw DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Generation deltas",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.replacement_metrics`, voraggregiert aus `mix_h` und `prices_qh`. Enthalten sind Baseline/Event-Mittelwerte, Kernenergie-Rueckgang, fossiler Anstieg/Rueckgang, Fossil-zu-Nuclear-Drop-Ratio sowie Preis- und Residual-Last-Kontext.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT label, nuclear_drop_avg_mw, delta_fossil_avg_mw, fossil_increase_avg_mw, fossil_drop_avg_mw, fossil_to_nuclear_drop_ratio, event_residual_max_mw, event_price_max_eur_mwh FROM heatwave_2026.replacement_metrics ORDER BY nuclear_drop_avg_mw DESC NULLS LAST, fossil_increase_avg_mw DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Nuclear/fossil replacement metrics",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.co2_metrics`. Berechnung: positive fossile Mehrerzeugung gegenueber Baseline mal pauschale Faktoren Gas 0.37, Kohle 0.95, Oel 0.75 tCO2/MWh. Proxy, keine verifizierte Emissionsbilanz.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "id": 6,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.72,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelRotation": 25,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT country,\n       sum(extra_emissions_tco2_est) / 1000.0 AS extra_ktco2_est\nFROM heatwave_2026.co2_metrics\nGROUP BY 1\nHAVING sum(extra_emissions_tco2_est) > 0\nORDER BY extra_ktco2_est DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Estimated extra fossil CO2 by country",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "Quelle: `heatwave_2026.co2_metrics`. Berechnung: positive fossile Mehrerzeugung gegenueber Baseline mal einfache Emissionsfaktoren (Gas 0.37, Kohle 0.95, Oel 0.75 tCO2/MWh). Es ist eine Proxy-Schaetzung, keine verifizierte Emissionsbilanz.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT country, fuel, delta_avg_mw, extra_emissions_tco2_est, emissions_factor_tco2_per_mwh FROM heatwave_2026.co2_metrics ORDER BY extra_emissions_tco2_est DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Estimated extra fossil CO2",
+      "type": "table"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "oeds",
+    "heatwave-2026",
+    "interactive",
+    "generation",
+    "co2"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU"
+          ],
+          "value": [
+            "FR",
+            "DE_LU"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Country",
+        "multi": true,
+        "name": "country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.mix_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "BE",
+            "NL"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Price Country",
+        "multi": true,
+        "name": "price_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.prices_qh ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "FR",
+          "value": "FR"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Base",
+        "multi": false,
+        "name": "base",
+        "options": [],
+        "query": "SELECT DISTINCT base FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ],
+          "value": [
+            "DE_LU",
+            "BE",
+            "GB"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Flow Neighbor",
+        "multi": true,
+        "name": "neighbor",
+        "options": [],
+        "query": "SELECT DISTINCT neighbor FROM heatwave_2026.net_flows_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ],
+          "value": [
+            "FR",
+            "DE_LU",
+            "ES",
+            "IT"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "definition": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Load Country",
+        "multi": true,
+        "name": "load_country",
+        "options": [],
+        "query": "SELECT DISTINCT country FROM heatwave_2026.load_temperature_h ORDER BY 1",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-06-01T00:00:00+02:00",
+    "to": "2026-07-01T00:00:00+02:00"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Heatwave 2026 - Generation and CO2 Interactive",
+  "uid": "heatwave2026-generation-co2",
+  "version": 2,
+  "weekStart": ""
+}

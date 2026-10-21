@@ -1,0 +1,33 @@
+- name: Update repositories
+  hosts: all
+  become: true
+  tasks:
+  - name: Add EPEL repository
+    ansible.builtin.yum_repository:
+      name: "epel"
+      description: "EPEL repo"
+      metalink: "https://mirrors.fedoraproject.org/metalink?repo=epel${releasever_minor:+-z}-$releasever&arch=$basearch"
+      gpgcheck: true
+      gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-$releasever_major"
+      metadata_expire: "24h"
+      enabled: true
+
+  - name: Add CRB repository
+    ansible.builtin.yum_repository:
+      name: "crb"
+      description: "CentOS Stream $releasever - CRB"
+      metalink: "https://mirrors.centos.org/metalink?repo=centos-crb-$stream&arch=$basearch&protocol=https,http"
+      gpgcheck: true
+      gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial-SHA256"
+      repo_gpgcheck: false
+      metadata_expire: "6h"
+      enabled: true
+
+  - name: Add Docker repository
+    ansible.builtin.yum_repository:
+      name: "docker-ce-stable"
+      description: "Docker Community Edition repo"
+      baseurl: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+      gpgcheck: true
+      gpgkey: "https://download.docker.com/linux/centos/gpg"
+      enabled: true

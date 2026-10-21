@@ -1,0 +1,391 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 36,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "suffix:MW"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "hideTimeOverride": false,
+      "id": 2,
+      "interval": "15m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "country",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(timestamp,$__interval), CASE commodity_id WHEN '410' THEN 'Total load' WHEN '4066' THEN 'Biomass' WHEN '1226' THEN 'Hydropower' WHEN '1225' THEN 'Wind offshore' WHEN '4067' THEN 'Wind onshore' WHEN '4068' THEN 'Solar' WHEN '1228' THEN 'Other renewables' WHEN '1223' THEN 'Lignite' WHEN '4071' THEN 'Natural gas' WHEN '4070' THEN 'Pumped storage' WHEN '1227' THEN 'Other conventional' WHEN '4069' THEN 'Hard coal' END AS metric, avg(mwh*4) AS power_mw FROM smard.smard WHERE $__timeFilter(timestamp) GROUP BY 1,2 ORDER BY 1,2",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "biomass"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_hard_coal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "geothermal"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "nuclear"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_brown_coal/lignite\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"fossil_coal-derived_gas\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "\"hydro_run-of-river_and_poundage\""
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "waste"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "solar"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_offshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "wind_onshore"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "other_renewable"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "hydro_water_reservoir"
+                ],
+                "type": "column"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "fossil_gas"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "query_generation",
+          "timeColumn": "index",
+          "timeColumnType": "timestamp",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            },
+            {
+              "datatype": "text",
+              "name": "",
+              "params": [
+                "country",
+                "=",
+                "'$country'"
+              ],
+              "type": "expression"
+            }
+          ]
+        }
+      ],
+      "title": "Electricity generation and load (MW)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": false,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 36,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "suffix:EUR/MWh"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "hideTimeOverride": false,
+      "id": 3,
+      "interval": "15m",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "8.5.0",
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp AS time, price FROM smard.prices WHERE $__timeFilter(timestamp) AND commodity_id = '4169' ORDER BY 1"
+        }
+      ],
+      "title": "Day-ahead electricity price (EUR/MWh)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 39,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "SMARD",
+  "uid": "d7e44e51-6f7f-4316-b9fb-1bb32c03fa18",
+  "version": 1,
+  "weekStart": ""
+}

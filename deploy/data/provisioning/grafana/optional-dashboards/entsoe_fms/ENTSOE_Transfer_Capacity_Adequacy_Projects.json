@@ -1,0 +1,1051 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": true,
+      "title": "Impressum",
+      "type": "link",
+      "url": "https://www.iip.kit.edu/16.php"
+    },
+    {
+      "asDropdown": false,
+      "icon": "info",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": false,
+      "title": "Datenschutz",
+      "type": "link",
+      "url": "/d/oeds-datenschutz/oeds-datenschutz"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latest Border Utilisation",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_fms.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND((100.0 * SUM(u.\"AllocatedCapacity[MW]\") / NULLIF(SUM(u.\"RequestedCapacity[MW]\"), 0))::numeric, 1) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "Latest Avg Auction Price",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_fms.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND(AVG(u.\"CapacityPrice[Currency/MWh]\")::numeric, 2) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyEUR",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 3,
+      "title": "Forecast Margin",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT ROUND(\"ForecastMargin[MW]\"::numeric, 1) AS value\nFROM entsoe_fms.\"YearAheadForecastMargin\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"Year\"::int = $Margin_Year\nORDER BY \"UpdateTime(UTC)\" DESC\nLIMIT 1;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 4,
+      "title": "Active Projects",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT COUNT(DISTINCT \"AssetCode\") AS value\nFROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\nWHERE \"Status\" = 'Active';\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 5,
+      "title": "Allocated vs Requested Capacity",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Allocated' AS metric,\n  SUM(\"AllocatedCapacity[MW]\") AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nUNION ALL\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Requested' AS metric,\n  SUM(\"RequestedCapacity[MW]\") AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt",
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Transfer Capacity Utilisation",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  ROUND((100.0 * SUM(\"AllocatedCapacity[MW]\") / NULLIF(SUM(\"RequestedCapacity[MW]\"), 0))::numeric, 2) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent",
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Latest Auction Slices",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"Category\",\n  \"Sequence\",\n  \"AllocatedCapacity[MW]\",\n  \"RequestedCapacity[MW]\",\n  ROUND((100.0 * \"AllocatedCapacity[MW]\" / NULLIF(\"RequestedCapacity[MW]\", 0))::numeric, 1) AS \"Utilisation[%]\",\n  \"CapacityPrice[Currency/MWh]\",\n  \"Currency\"\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nORDER BY \"DateTime(UTC)\" DESC, \"Category\", \"Sequence\"\nLIMIT 100;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "DateTime(UTC)"
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "title": "Forecast Margin by Country",
+      "type": "barchart",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"AreaDisplayName\",\n  \"ForecastMargin[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"AreaDisplayName\", \"AreaTypeCode\")\n    \"AreaDisplayName\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_fms.\"YearAheadForecastMargin\"\n  WHERE \"Year\"::int = $Margin_Year\n  ORDER BY \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"ForecastMargin[MW]\" DESC NULLS LAST;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      }
+    },
+    {
+      "id": 9,
+      "title": "Forecast Margin Trend",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  make_date(\"Year\"::int, 1, 1) AS \"time\",\n  \"ForecastMargin[MW]\" AS value\nFROM (\n  SELECT DISTINCT ON (\"Year\", \"AreaDisplayName\", \"AreaTypeCode\")\n    \"Year\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_fms.\"YearAheadForecastMargin\"\n  WHERE \"AreaDisplayName\" = '$Country'\n  ORDER BY \"Year\", \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY 1;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt",
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Active NTC Pipeline by Border",
+      "type": "barchart",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  COALESCE(\"OutAreaDisplayName\", '?') || ' -> ' || COALESCE(\"InAreaDisplayName\", '?') AS \"Border\",\n  SUM(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      }
+    },
+    {
+      "id": 11,
+      "title": "Project Register",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 10
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"OutAreaDisplayName\",\n  \"InAreaDisplayName\",\n  \"ProjectType\",\n  \"AssetName\",\n  \"AssetType\",\n  \"NewNTC[MW]\",\n  \"EstimatedCompletionDate\",\n  \"Status\",\n  \"Comment\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    *\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"EstimatedCompletionDate\" NULLS LAST, \"DateTime(UTC)\" DESC\nLIMIT 150;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "DateTime(UTC)"
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "Projects by Status",
+      "type": "barchart",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  \"Status\",\n  COUNT(DISTINCT \"AssetCode\") AS \"Projects\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nGROUP BY 1\nORDER BY 2 DESC;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      }
+    },
+    {
+      "id": 13,
+      "title": "Top NTC Projects",
+      "type": "barchart",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 12,
+        "h": 8
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT\n  COALESCE(\"AssetName\", \"AssetCode\") AS \"Project\",\n  MAX(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"AssetName\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mwatt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      }
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": [
+    "entsoe",
+    "oeds",
+    "capacity",
+    "adequacy",
+    "projects"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "Border",
+        "label": "Border",
+        "type": "query",
+        "query": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": false,
+          "text": "GB -> Netherlands (NL)",
+          "value": "GB -> Netherlands (NL)"
+        }
+      },
+      {
+        "name": "Contract_Type",
+        "label": "Contract Type",
+        "type": "query",
+        "query": "SELECT DISTINCT \"ContractType\" FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"ContractType\" FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": false,
+          "text": "Day-ahead",
+          "value": "Day-ahead"
+        }
+      },
+      {
+        "name": "Country",
+        "label": "Country / Zone",
+        "type": "query",
+        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1",
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": false,
+          "text": "Portugal (PT)",
+          "value": "Portugal (PT)"
+        }
+      },
+      {
+        "name": "Margin_Year",
+        "label": "Margin Year",
+        "type": "query",
+        "query": "SELECT DISTINCT \"Year\"::int FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT \"Year\"::int FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
+        "refresh": 1,
+        "sort": 3,
+        "current": {
+          "selected": false,
+          "text": "2026",
+          "value": "2026"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-365d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "ENTSOE Transfer Capacity, Adequacy & Projects",
+  "uid": "entsoe-transfer-adequacy",
+  "version": 1,
+  "weekStart": ""
+}

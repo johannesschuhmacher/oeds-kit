@@ -1,0 +1,4 @@
+---
+- import_playbook: oeds-update.yml
+  vars:
+    oeds_enable_crawlers: true
