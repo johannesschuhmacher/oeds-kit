@@ -16,6 +16,7 @@ from crawler_admin.config_service import (
     get_repo_root,
     update_crawler_schedule_config_text,
 )
+from crawler_admin.runtime_service import CrawlerRunService, PreparedAction
 
 
 class SchedulerAdminConfigTest(unittest.TestCase):
@@ -139,6 +140,45 @@ class SchedulerAdminConfigTest(unittest.TestCase):
         self.assertEqual(form["daily_hour"], "2")
         self.assertEqual(form["daily_minute"], "30")
         self.assertEqual(form["schedule"], "30 2 * * *")
+
+
+class CrawlerRunServiceTest(unittest.TestCase):
+    def test_skipped_crawler_run_is_recorded_as_skipped(self) -> None:
+        class CrawlerSkipped(Exception):
+            """Stands in for crawler.common.crawler_utils.CrawlerSkipped."""
+
+        def skip_run(_crawler: object) -> str | None:
+            raise CrawlerSkipped("ENTSOE_API_KEY is not configured")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous_state_dir = os.environ.get("OEDS_ADMIN_STATE_DIR")
+            os.environ["OEDS_ADMIN_STATE_DIR"] = temp_dir
+            try:
+                service = CrawlerRunService(repo_root=Path(temp_dir))
+                prepared = PreparedAction(
+                    crawler_name="entsoe_fms",
+                    action_id="run",
+                    action_label="Run once",
+                    description="Run once.",
+                    effective_config={},
+                    config_overrides={},
+                    action_payload={},
+                    run_post_scripts=False,
+                    executor=skip_run,
+                    requires_crawler=False,
+                )
+                run_id = service._create_run_record(prepared, trigger_source="manual")
+                service._execute_run(run_id, prepared)
+                record = service.get_run(run_id)
+            finally:
+                if previous_state_dir is None:
+                    os.environ.pop("OEDS_ADMIN_STATE_DIR", None)
+                else:
+                    os.environ["OEDS_ADMIN_STATE_DIR"] = previous_state_dir
+
+        self.assertEqual(record.status, "skipped")
+        self.assertEqual(record.summary, "ENTSOE_API_KEY is not configured")
+        self.assertIsNone(record.error_message)
 
 
 if __name__ == "__main__":
