@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from oeds_gapfill.config import BUILTIN_GAPFILL_TABLES_BY_JOB
+from oeds_scheduler_ui.runtime import is_crawler_skipped
 
 from crawler_admin.config_service import (
     CrawlerOverview,
@@ -323,7 +324,9 @@ class CrawlerRunService:
         records = [
             record
             for record in self.list_runs(crawler_name, limit=limit)
-            if record.duration_seconds is not None and not record.is_active
+            if record.duration_seconds is not None
+            and not record.is_active
+            and record.status != "skipped"
         ]
         grouped_records: dict[str, list[RunRecord]] = {}
         for record in records:
@@ -1141,12 +1144,18 @@ class CrawlerRunService:
                         summary = result_summary
                     print("[RESULT] Run completed.")
         except Exception as exc:
-            status = "failed"
-            error_message = str(exc).strip() or exc.__class__.__name__
-            summary = f"{prepared.action_label} failed."
+            message = str(exc).strip() or exc.__class__.__name__
             with log_path.open("a", encoding="utf-8", newline="") as handle:
-                handle.write("\n[TRACEBACK]\n")
-                handle.write(traceback.format_exc())
+                if is_crawler_skipped(exc):
+                    status = "skipped"
+                    summary = message
+                    handle.write(f"\n[SKIPPED] {message}\n")
+                else:
+                    status = "failed"
+                    error_message = message
+                    summary = f"{prepared.action_label} failed."
+                    handle.write("\n[TRACEBACK]\n")
+                    handle.write(traceback.format_exc())
                 handle.flush()
         finally:
             finished_at = self._utc_now()
