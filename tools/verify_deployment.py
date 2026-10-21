@@ -13,7 +13,6 @@ def main():
     _read_components(DEPLOYMENT_ROOT / 'compatibility.yml')
     for path in (DEPLOYMENT_ROOT / 'data/provisioning/grafana').rglob('*.json'):
         json.loads(path.read_text(encoding='utf-8'))
-    json.loads((DEPLOYMENT_ROOT / 'assembly/crawler-inventory.json').read_text())
     if not args.local_only:
         _verify_workspace(DEPLOYMENT_ROOT.parents[2])
     print('Deployment configuration valid')

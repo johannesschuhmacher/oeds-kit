@@ -15,9 +15,12 @@ for module in ../../sources/oeds-core ../oeds-crawler-pack ../oeds-post-scripts 
     exit 1
   fi
 done
+# The crawler pack depends on oeds (the core) from Git; the image installs the
+# core editable from the workspace instead, so only its dependencies are locked.
 uv pip compile --python-version 3.13 --python-platform linux \
   --custom-compile-command 'bash tools/update_requirements_lock.sh' \
   -c docker/constraints.txt \
+  --no-emit-package oeds \
   ../../sources/oeds-core/requirements.txt \
   ../../sources/oeds-core/pyproject.toml \
   ../oeds-crawler-pack/pyproject.toml \

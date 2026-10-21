@@ -6,7 +6,7 @@ Start here to install OEDS. You do not need to install the repositories by hand.
 | --- | --- |
 | [Official OEDS](https://github.com/open-energy-data-server/open-energy-data-server) | Upstream crawler and database library; current tests use the [core test branch](https://github.com/johannesschuhmacher/oeds-core) with fixes intended for upstream review |
 | [Crawler pack](https://github.com/johannesschuhmacher/oeds-crawler-pack) | Our enhanced/new crawlers and temporary BaseCrawler compatibility |
-| [Scheduler/UI](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | Scheduled jobs, post-run commands and browser administration |
+| [Scheduler/UI](https://github.com/johannesschuhmacher/oeds-scheduler-ui) | Scheduled jobs (each run is an `oeds-crawl` subprocess), post-run commands and browser administration |
 | [Post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts) | Gapfilling, backfill, forecasts and derived database views |
 | This repository | Installation, Docker Compose, Ansible and Grafana provisioning |
 
@@ -83,10 +83,10 @@ The managed installation lives in `/open_energy_data_server`:
 | Path | Purpose |
 | --- | --- |
 | `repo/` | Installed source code; replaced by an update |
-| `runtime/CRAWLER_CONFIG.yml` | Crawler settings, enable switches and schedules |
+| `runtime/CRAWLER_CONFIG.yml` | Crawler settings, enable switches, schedules and `default.max_parallel_runs` |
 | `runtime/crawler/.env` | Source API keys; never commit this file |
 | `runtime/crawler/data/` | Downloads and crawler working files |
-| `runtime/logs/`, `runtime/crawler_admin_state/` | Logs and admin run history |
+| `runtime/logs/`, `runtime/crawler_admin_state/` | Logs (`logs/runs/` has one file per scheduled run) and admin run history |
 
 Persistent data lives on the data partition (`oeds_data_root`, default `/home`):
 

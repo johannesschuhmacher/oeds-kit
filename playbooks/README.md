@@ -149,7 +149,7 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
 | `oeds-install-crawlers.yml` | Complete stack including scheduler/admin |
 | `oeds-update.yml`, `oeds-update-crawlers.yml` | Source update and database backup |
-| `oeds-smoke-test.yml` | Service/database health checks and an offline crawler run in the built image |
+| `oeds-smoke-test.yml` | Service/database health checks, `oeds-crawl --list` and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |
 | `oeds-rotate-passwords.yml` | Bitwarden-backed credential rotation |
 | `oeds-uninstall.yml` | Conservative removal or explicitly confirmed reset |

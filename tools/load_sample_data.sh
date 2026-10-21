@@ -188,21 +188,16 @@ import os
 from pathlib import Path
 
 from oeds_scheduler_ui.application import SchedulerApplication
-from oeds_scheduler_ui.runtime import CrawlerJobRunner
 
 expected = set(json.loads(os.environ["EXPECTED_CRAWLERS"]))
-app = SchedulerApplication(
-    config_path=Path("/app/CRAWLER_CONFIG.yml"),
-    inventory_path=Path("/app/modular_repos/docs/crawler-inventory.json"),
-    workspace_root=Path("/app/modular_repos"),
-)
+app = SchedulerApplication(config_path=Path("/app/CRAWLER_CONFIG.yml"))
 plans = [plan for plan in app.plan_result.plans if plan.crawler_name in expected]
 seen = {plan.crawler_name for plan in plans}
 missing = sorted(expected - seen)
 if missing:
     raise SystemExit(f"missing crawler plan(s): {', '.join(missing)}")
 
-runner = CrawlerJobRunner(app.factory)
+runner = app.dispatcher.runner
 payload = []
 for plan in sorted(plans, key=lambda item: item.crawler_name):
     result = runner.run(plan)
