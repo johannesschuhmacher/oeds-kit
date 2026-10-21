@@ -24,13 +24,13 @@ CONFIG_FILE = Path(
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from crawler_core.runtime_env import load_local_crawler_env  # noqa: E402
 from oeds_gapfill.config import (
     ENTSOE_FMS_TABLES,
     load_job_from_crawler_config,
 )  # noqa: E402
 from oeds_gapfill.core import GAPFILL_METHODS  # noqa: E402
 from oeds_gapfill.selftest import write_self_test_results  # noqa: E402
+from oeds_post_scripts.runtime_env import load_crawler_dotenv  # noqa: E402
 from scripts.lib.gapfiller.db import run_gapfill_job  # noqa: E402
 from scripts.lib.gapfiller.holdout import run_database_holdout_test  # noqa: E402
 
@@ -161,7 +161,7 @@ def main() -> int:
             print(f"{table.table_name}: {', '.join(table.value_columns)}")
         return 0
 
-    load_local_crawler_env(ROOT)
+    load_crawler_dotenv(ROOT / "crawler" / ".env")
     table_names = (
         [args.holdout_table]
         if args.holdout_test and args.holdout_table

@@ -95,10 +95,12 @@ called directly in-process; scripts with import-time side effects would run
 through the subprocess fallback.
 These packages and their SQL files are included in both source distributions
 and wheels. The repository can therefore be installed independently of the KIT
-monorepository. Database-backed commands use the shared runtime configuration
-helpers in `oeds-crawler-pack`; ENTSO-E backfill also uses its FMS crawler.
-The deployment installs that dependency before this module. Pure numerical
-gapfill/forecast functions and their tests do not need a crawler installation.
+monorepository and of `oeds-crawler-pack`. Database connection overrides
+(`OEDS_DB_HOST`, `OEDS_DB_PORT`, `OEDS_DB_PASSWORD`) and the optional
+`crawler/.env` file (or the file named by `OEDS_CRAWLER_ENV`) are handled by
+`oeds_post_scripts.runtime_env`. Only `oeds-post backfill entsoe-unavailability`
+imports the pack's ENTSO-E FMS crawler; the deployment installs it before this
+module.
 Set `OEDS_CRAWLER_CONFIG` when the operational `CRAWLER_CONFIG.yml` is not in
 the post-scripts repository root. The modular deployment sets this variable to
 `/app/CRAWLER_CONFIG.yml` inside its Python containers.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `oeds_post_scripts.runtime_env` with own `resolve_database_uri` and
+  `load_crawler_dotenv` helpers so post-scripts no longer import
+  `crawler_core` from `oeds-crawler-pack`. `python-dotenv` is now a declared
+  dependency and `OEDS_CRAWLER_ENV` can name the `.env` file to load.
+- Remove the unused `scripts/lib/gapfill.py`: it carried hard-coded localhost
+  credentials and its only caller was the removed SMARD gapfill.
 - Remove `oeds-post gapfill smard` and `scripts/gapfill_smard.py`: the script
   filled one hard-coded week (2–9 June 2024) against hard-coded localhost
   credentials and ran uselessly after every SMARD run.

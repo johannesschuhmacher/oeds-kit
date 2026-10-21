@@ -30,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from oeds_post_scripts.runtime_env import resolve_database_uri
 from oeds_price_forecast.model import (
     MODEL_NAME,
     MODEL_VERSION,
@@ -953,8 +954,6 @@ def run_self_test(args: argparse.Namespace) -> int:
 
 
 def run_db_forecast(args: argparse.Namespace) -> int:
-    from crawler_core.runtime_env import resolve_database_uri
-
     target_date = _parse_target_date(args.target_date)
     config = PriceForecastConfig(
         market_area=args.market_area,
