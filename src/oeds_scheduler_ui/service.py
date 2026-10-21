@@ -9,12 +9,10 @@ from typing import Protocol
 
 from oeds_scheduler_ui.planner import SchedulerJobPlan
 from oeds_scheduler_ui.runtime import (
-    CrawlerJobQueue,
-    CrawlerJobRunner,
     CrawlerRunResult,
+    JobDispatcher,
     ScheduledCrawlerJob,
     lock_keys_from_plan,
-    run_ready_jobs,
 )
 
 
@@ -84,19 +82,17 @@ def cron_schedule_factory(expression: str) -> CronConverterSchedule:
 
 
 class SchedulerService:
-    """Enqueue due planned jobs and dispatch unblocked runtime jobs."""
+    """Enqueue due planned jobs and hand unblocked jobs to the dispatcher."""
 
     def __init__(
         self,
         plans: Sequence[SchedulerJobPlan],
-        runner: CrawlerJobRunner,
+        dispatcher: JobDispatcher,
         schedule_factory: ScheduleFactory = cron_schedule_factory,
-        queue: CrawlerJobQueue | None = None,
         reference_time: datetime | None = None,
     ) -> None:
-        self._runner = runner
+        self._dispatcher = dispatcher
         self._schedule_factory = schedule_factory
-        self._queue = queue or CrawlerJobQueue()
         self._jobs: list[ScheduledPlan] = []
         self._issues: list[SchedulerServiceIssue] = []
 
@@ -115,6 +111,14 @@ class SchedulerService:
         if not self._jobs:
             return None
         return min(job.next_run_time for job in self._jobs)
+
+    @property
+    def active_run_count(self) -> int:
+        return self._dispatcher.active_count
+
+    @property
+    def pending_job_count(self) -> int:
+        return self._dispatcher.pending_count
 
     def reload_plans(
         self,
@@ -158,14 +162,19 @@ class SchedulerService:
         for job in self._jobs:
             if job.next_run_time <= ref_time:
                 scheduled_for = job.next_run_time
-                if self._queue.enqueue(job.to_runtime_job(), scheduled_for):
+                if self._dispatcher.queue.enqueue(job.to_runtime_job(), scheduled_for):
                     enqueued += 1
                 job.advance_after(ref_time)
         return enqueued
 
     def dispatch_ready_jobs(self) -> tuple[CrawlerRunResult, ...]:
-        return run_ready_jobs(self._queue, self._runner)
+        return self._dispatcher.dispatch()
+
+    def wait_for_runs(self, timeout: float | None = None) -> tuple[CrawlerRunResult, ...]:
+        return self._dispatcher.wait(timeout)
 
     def tick(self, now: datetime | None = None) -> tuple[CrawlerRunResult, ...]:
+        """Enqueue due jobs, start what fits, return runs finished since the last tick."""
+
         self.enqueue_due_jobs(now)
         return self.dispatch_ready_jobs()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,17 +10,18 @@ from pathlib import Path
 from typing import Any
 
 from oeds_scheduler_ui.config import file_signature, load_scheduler_config
-from oeds_scheduler_ui.distribution import load_inventory, registries_from_inventory
-from oeds_scheduler_ui.factory import CrawlerFactory
-from oeds_scheduler_ui.interfaces import merge_crawler_registries
+from oeds_scheduler_ui.factory import known_crawler_names
+from oeds_scheduler_ui.locks import lock_engine
 from oeds_scheduler_ui.planner import (
     SchedulerPlanIssue,
     SchedulerPlanResult,
     build_scheduler_job_plans,
 )
 from oeds_scheduler_ui.runtime import (
+    DEFAULT_MAX_PARALLEL_RUNS,
     CrawlerJobRunner,
     CrawlerRunResult,
+    JobDispatcher,
     PostRunExecutor,
 )
 from oeds_scheduler_ui.service import (
@@ -35,6 +37,8 @@ except ImportError:  # pragma: no cover - crawler pack is optional for the core.
     apply_email_env_overrides = None
 
 
+logger = logging.getLogger(__name__)
+
 ConfigLoader = Callable[[Path], Mapping[str, Any]]
 
 
@@ -43,8 +47,6 @@ class SchedulerApplicationSnapshot:
     """Observable state after building or reloading the scheduler app."""
 
     config_path: Path
-    inventory_path: Path
-    workspace_root: Path
     crawler_count: int
     planned_job_count: int
     skipped: tuple[SchedulerPlanIssue, ...]
@@ -57,38 +59,34 @@ class SchedulerApplicationSnapshot:
 
 
 class SchedulerApplication:
-    """Assemble registry, planning, service, and reload handling."""
+    """Assemble planning, dispatching, service, and reload handling."""
 
     def __init__(
         self,
         config_path: str | Path,
-        inventory_path: str | Path,
-        workspace_root: str | Path,
+        inventory_path: str | Path | None = None,
+        workspace_root: str | Path | None = None,
         *,
         schedule_factory: ScheduleFactory = cron_schedule_factory,
         post_run_executor: PostRunExecutor | None = None,
         config_loader: ConfigLoader = load_scheduler_config,
         reference_time: datetime | None = None,
     ) -> None:
+        # inventory_path and workspace_root are ignored: crawlers come from the
+        # oeds.crawlers entry points. Kept until the deployment stops passing them.
         self.config_path = Path(config_path).resolve()
-        self.inventory_path = Path(inventory_path).resolve()
-        self.workspace_root = Path(workspace_root).resolve()
         self._schedule_factory = schedule_factory
         self._post_run_executor = post_run_executor
         self._config_loader = config_loader
-        self._factory: CrawlerFactory | None = None
+        # The dispatcher outlives reloads so runs that are active during a
+        # config change are still tracked and reported.
+        self.dispatcher = JobDispatcher()
         self._plan_result: SchedulerPlanResult | None = None
         self._service: SchedulerService | None = None
         self._snapshot: SchedulerApplicationSnapshot | None = None
         self._config_signature: tuple[int, int] | None = None
 
         self.reload(reference_time=reference_time)
-
-    @property
-    def factory(self) -> CrawlerFactory:
-        if self._factory is None:
-            raise RuntimeError("scheduler application has not been loaded")
-        return self._factory
 
     @property
     def plan_result(self) -> SchedulerPlanResult:
@@ -112,13 +110,6 @@ class SchedulerApplication:
         self,
         reference_time: datetime | None = None,
     ) -> SchedulerApplicationSnapshot:
-        inventory = load_inventory(self.inventory_path)
-        registries = registries_from_inventory(
-            inventory,
-            workspace_root=self.workspace_root,
-        )
-        merged_registry = merge_crawler_registries(registries)
-        factory = CrawlerFactory(merged_registry)
         raw_config = self._config_loader(self.config_path)
         if apply_email_env_overrides is not None:
             # Same OEDS_EMAIL_* overrides the admin UI applies; the config file
@@ -126,29 +117,43 @@ class SchedulerApplication:
             raw_config = apply_email_env_overrides(
                 dict(raw_config), self.config_path.parent
             )
-        plan_result = build_scheduler_job_plans(raw_config, factory)
-        runner = CrawlerJobRunner(
-            factory,
+        crawler_names = known_crawler_names()
+        plan_result = build_scheduler_job_plans(raw_config, crawler_names)
+
+        default_config = raw_config.get("default") or {}
+        if not isinstance(default_config, Mapping):
+            raise ValueError("default config must be a mapping")
+        database_uri = default_config.get("database_uri") or default_config.get("db_uri")
+        if not database_uri:
+            logger.warning(
+                "default.database_uri is not set; runs are not protected by the "
+                "cross-process crawler lock"
+            )
+        max_parallel_runs = int(default_config.get("max_parallel_runs", DEFAULT_MAX_PARALLEL_RUNS))
+        if max_parallel_runs < 1:
+            raise ValueError("default.max_parallel_runs must be at least 1")
+
+        self.dispatcher.runner = CrawlerJobRunner(
+            self.config_path,
             post_run_executor=self._post_run_executor,
         )
+        self.dispatcher.lock_engine = lock_engine(database_uri) if database_uri else None
+        self.dispatcher.max_parallel_runs = max_parallel_runs
         service = SchedulerService(
             plan_result.plans,
-            runner,
+            self.dispatcher,
             schedule_factory=self._schedule_factory,
             reference_time=reference_time,
         )
 
         snapshot = SchedulerApplicationSnapshot(
             config_path=self.config_path,
-            inventory_path=self.inventory_path,
-            workspace_root=self.workspace_root,
-            crawler_count=len(merged_registry),
+            crawler_count=len(crawler_names),
             planned_job_count=len(plan_result.plans),
             skipped=plan_result.skipped,
             plan_errors=plan_result.errors,
             service_issues=service.issues,
         )
-        self._factory = factory
         self._plan_result = plan_result
         self._service = service
         self._snapshot = snapshot
