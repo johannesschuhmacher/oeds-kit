@@ -1,0 +1,26 @@
+# Both crawler containers (scheduler and admin UI) run as the image user, UID
+# 1000, and share the bind-mounted runtime directories. Files created by an
+# earlier root-run admin container (logs/<crawler>.log) made every scheduled
+# crawl fail with PermissionError, so an update repairs ownership recursively.
+# Imported by oeds-docker-config.yml and oeds-update.yml; crawler/.env stays
+# root:docker because only Docker Compose on the host reads it.
+- name: Give the runtime config file to the container user
+  ansible.builtin.file:
+    path: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
+    state: file
+    owner: "1000"
+    group: docker
+    mode: "0660"
+
+- name: Give existing runtime files to the container user
+  ansible.builtin.file:
+    path: "{{ oeds_runtime_dir_effective }}/{{ item }}"
+    state: directory
+    recurse: true
+    owner: "1000"
+    group: docker
+    mode: "u+rwX,g+rwX"
+  loop:
+    - crawler/data
+    - logs
+    - crawler_admin_state

@@ -3,6 +3,8 @@
   become: true
   vars:
     oeds_root: /open_energy_data_server
+    oeds_data_root: /home
+    oeds_backup_dir: "{{ oeds_data_root }}/oeds/backups"
     oeds_repo_dir: "{{ oeds_root }}/repo"
     oeds_compose_dir: "{{ oeds_repo_dir }}/modular_repos/modules/oeds-deployment"
     oeds_runtime_dir: "{{ oeds_root }}/runtime"
@@ -11,7 +13,7 @@
     oeds_source_db_user: opendata
     oeds_backup_include_runtime: true
     oeds_backup_run_id: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
-    oeds_backup_run_dir: "{{ oeds_root }}/backups/{{ oeds_backup_run_id }}"
+    oeds_backup_run_dir: "{{ oeds_backup_dir }}/{{ oeds_backup_run_id }}"
   tasks:
     - name: Ensure backup directories exist
       ansible.builtin.file:

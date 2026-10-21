@@ -23,8 +23,7 @@ smard:
   enable: false
   schema_name: smard
   schedule: 0 4 * * *
-  post_run_scripts:
-  - oeds-post gapfill smard
+  post_run_scripts: null
 ninja:
   schema_name: ninja
   enable: false

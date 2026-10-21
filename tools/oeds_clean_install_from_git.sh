@@ -17,7 +17,11 @@ CRAWLER_ENV_FILE=${OEDS_CRAWLER_ENV_FILE:-}
 usage() {
   cat <<'USAGE'
 Usage:
-  OEDS_GIT_TOKEN=<token> [OEDS_GIT_USERNAME=<github-user>] tools/oeds_clean_install_from_git.sh [options]
+  tools/oeds_clean_install_from_git.sh [options]
+
+All OEDS repositories are public; no GitHub account or token is needed.
+Re-running the script on an installed host updates it (the database is dumped
+to /home/oeds/backups/<timestamp> first).
 
 Options:
   --reset                 Run a destructive OEDS uninstall before installing.
@@ -32,13 +36,13 @@ Options:
   -h, --help              Show this help.
 
 Environment:
-  OEDS_GIT_TOKEN              GitHub personal access token for private HTTPS clones.
-  OEDS_GIT_USERNAME           GitHub username. Defaults to "x-access-token".
+  OEDS_GIT_TOKEN              Optional GitHub token, only for private forks.
+  OEDS_GIT_USERNAME           GitHub username for the token. Defaults to "x-access-token".
   OEDS_CRAWLER_ENV_FILE       Optional crawler .env installed before services start.
   OEDS_BECOME_PASSWORD_FILE   Optional sudo password file for non-interactive Ansible runs.
   OEDS_ANSIBLE_INVENTORY_FILE Optional inventory path outside the assembled workspace.
 
-The token is passed to git through a temporary GIT_ASKPASS helper and is removed
+A token is passed to git through a temporary GIT_ASKPASS helper and is removed
 when the script exits. It is not written to the repository or Ansible inventory.
 USAGE
 }

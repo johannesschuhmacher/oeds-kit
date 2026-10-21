@@ -17,8 +17,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY modular_repos/modules/oeds-deployment/docker/constraints.txt ./constraints.txt
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -26,35 +24,45 @@ RUN apt-get update && \
         libeccodes-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
-COPY crawler/data ./crawler/data
+# All third-party dependencies come from the lock file (see
+# tools/update_requirements_lock.sh); the module installs below never resolve
+# dependencies themselves. Keep this layer before any source so that source
+# changes do not reinstall dependencies.
+COPY modular_repos/modules/oeds-deployment/docker/constraints.txt ./constraints.txt
+COPY modular_repos/modules/oeds-deployment/docker/requirements.lock ./requirements.lock
+RUN uv venv /app/.venv --python /usr/local/bin/python && \
+    uv pip sync --python /app/.venv/bin/python /app/requirements.lock
 
 RUN mkdir -p ./modular_repos/docs
 COPY modular_repos/modules/oeds-deployment/assembly/crawler-inventory.json ./modular_repos/docs/crawler-inventory.json
 COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
-RUN uv venv /app/.venv --python /usr/local/bin/python && \
-    uv pip install --python /app/.venv/bin/python \
-        -r /app/modular_repos/sources/oeds-core/requirements.txt \
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
         -e /app/modular_repos/sources/oeds-core
 
 FROM core AS crawlers
 COPY modular_repos/modules/oeds-crawler-pack ./modular_repos/modules/oeds-crawler-pack
-RUN uv pip install --python /app/.venv/bin/python \
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
         -e /app/modular_repos/modules/oeds-crawler-pack
 
 FROM crawlers AS post
 COPY modular_repos/modules/oeds-post-scripts ./modular_repos/modules/oeds-post-scripts
-RUN uv pip install --python /app/.venv/bin/python \
-        -e '/app/modular_repos/modules/oeds-post-scripts[price-forecast]'
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
+        -e /app/modular_repos/modules/oeds-post-scripts
 
 FROM post AS runtime
 COPY modular_repos/modules/oeds-scheduler-ui ./modular_repos/modules/oeds-scheduler-ui
-RUN uv pip install --python /app/.venv/bin/python \
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
         -e /app/modular_repos/modules/oeds-scheduler-ui
 
+COPY CRAWLER_CONFIG.yml ./CRAWLER_CONFIG.yml
+COPY crawler/data ./crawler/data
+
+# /app itself must be writable: the admin UI writes CRAWLER_CONFIG.yml.tmp
+# next to the bind-mounted config before falling back to an in-place write.
 RUN useradd --create-home --shell /bin/bash oeds && \
     mkdir -p /app/logs /var/lib/oeds-admin && \
-    chown -R oeds:oeds /app/logs /app/crawler /var/lib/oeds-admin
+    chown -R oeds:oeds /app/logs /app/crawler /var/lib/oeds-admin && \
+    chown oeds:oeds /app
 
 USER oeds
 

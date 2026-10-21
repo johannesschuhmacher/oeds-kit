@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- Install the crawler image's third-party dependencies from the new
+  `docker/requirements.lock` (`uv pip sync`) instead of resolving them
+  unpinned at build time; a fresh build had pulled SQLAlchemy 2.1 and broke
+  every crawler. Modules are installed with `--no-deps` afterwards and the
+  Dockerfile copies sources after the dependency layer. Regenerate the lock
+  with `tools/update_requirements_lock.sh` when pins change.
+- Run the offline ninja crawler integration test (`tests/integration.py`)
+  inside the built scheduler image as part of `oeds-smoke-test.yml`, so an
+  image that cannot crawl fails the install instead of the first schedule.
+- Dump the database (`pg_dump -Fc` and globals) before every update, also
+  when the installer is re-run, into `oeds_backup_dir` (default
+  `/home/oeds/backups/<timestamp>`, on the data partition and included in the
+  filesystem-size preflight). Only the newest `oeds_backup_keep` (3)
+  directories are kept; `oeds_backup_before_update=false` skips the dump.
+  `oeds-db-backup.yml` writes to the same directory.
+- Run the crawler admin container as the image user (UID 1000) instead of
+  root, give the runtime config file and directories to that UID, and repair
+  the ownership of existing runtime files on every update. The root admin
+  created `logs/<crawler>.log` as root, after which every scheduled crawl in
+  the scheduler container failed with `PermissionError` for five days.
+- Remove the `oeds-post gapfill smard` post-run script from the default SMARD
+  config; it only filled a hard-coded week of June 2024.
+- Fix docs: `docker_data/` lives under `oeds_data_root` (`/home/oeds`), not
+  under `/open_energy_data_server`; no Git token is needed for the public
+  repositories.
+
 - Store Docker persistent volumes and Docker's own data-root (images, build
   cache, logs) on a large, separate data partition instead of the OS root
   filesystem. New `oeds_data_root` variable (default `/home`) drives
