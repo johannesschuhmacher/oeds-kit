@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- New `oeds-crawl` command: run one crawler by hand with the config the
+  scheduler would use (`oeds-crawl smard --config CRAWLER_CONFIG.yml [--job ...]`,
+  `--list`). Exit codes 0 ok, 1 failed, 3 skipped. Crawlers are found through
+  the `oeds.crawlers` entry points; `crawler.common.crawler_config` holds the
+  default/section/job merge for both the command and the scheduler.
 - BaseCrawler no longer aborts a run when its log file cannot be opened; it
   warns and continues without a file log. On intern every scheduled run had
   failed for five days because the admin container had created the log files

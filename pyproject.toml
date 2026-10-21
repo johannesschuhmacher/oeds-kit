@@ -29,6 +29,9 @@ dependencies = [
     "xarray",
 ]
 
+[project.scripts]
+oeds-crawl = "crawler.cli:main"
+
 [project.entry-points."oeds.crawlers"]
 smard = "crawler.smard:SmardCrawler"
 eurostat_crawler = "crawler.eurostat_crawler:EurostatCrawler"
