@@ -1,0 +1,108 @@
+# oeds-crawler-pack
+
+Installable repository for the KIT crawler extensions while upstream OEDS
+remains the base project.
+
+This repository is part of the modular OEDS stack. The shared crawler and
+database core remains in
+[open-energy-data-server](https://github.com/open-energy-data-server/open-energy-data-server),
+while deployment, scheduling/UI, and post-processing live in
+[oeds-deployment](https://github.com/johannesschuhmacher/oeds-deployment),
+[oeds-scheduler-ui](https://github.com/johannesschuhmacher/oeds-scheduler-ui),
+and [oeds-post-scripts](https://github.com/johannesschuhmacher/oeds-post-scripts).
+
+## Responsibility
+
+This module contains the KIT-enhanced crawler implementations and their shared
+base class `crawler.common.kit_base.KitCrawler`. It does not contain the
+scheduler, post-run scripts, or deployment.
+
+The generic parts of `KitCrawler` (per-crawler logging, database URI
+handling) are intended for an upstream contribution to OEDS. Until that
+contribution is accepted, they are kept here so the published modules work
+without the KIT monorepository.
+
+This package exists to prevent functionality loss while improved KIT crawlers
+are prepared for upstream OEDS or kept as extension crawlers.
+
+## Current Behavior
+
+- ships all current KIT crawler implementations as importable `crawler.*`
+- registers its crawlers as `oeds.crawlers` entry points such as
+  `crawler.smard:SmardCrawler` (`oeds-crawl --list` shows them)
+- gives KIT crawler specs priority over upstream OEDS when the deployment stack
+  merges registries
+- keeps upstream-only crawlers available through `oeds-core`
+
+The registry priority is:
+
+```text
+oeds-crawler-pack before oeds-core
+```
+
+## Base class
+
+`crawler.common.kit_base.KitCrawler` is upstream's `oeds.base_crawler.BaseCrawler`
+(engine, `search_path`, `create_schema`) plus the pack's additions: a rotating
+file log `logs/<crawler>.log` and rate-limited critical-error mails on the
+logger named after the crawler (`crawler.common.crawler_logging`), dotted
+config access `self.get("a.b")`, and `set_metadata` with
+`concave_hull_geometry`. Constructors take `(crawler_name, config)`; the
+`database_uri` config key (ending in `?options=--search_path=`) stays valid,
+`kit_db_uri` turns it into the `{DBNAME}` form upstream expects.
+Crawlers subclass `KitCrawler` directly; there is no other base-class import
+path. Other modules use `crawler.common.local_env` (dotenv, email overrides)
+and `crawler.common.runtime_env.resolve_database_uri`.
+
+## Local Development
+
+Install and test this repository directly:
+
+```powershell
+uv sync
+uv run --with pytest pytest tests
+uv run oeds-crawl --list
+```
+
+No checkout of `open-energy-data-server-KIT` is required.
+
+## Live Validation
+
+Run credentialed source checks through the deployment repository's
+`tools/test_live_crawlers.sh`, not through unit tests. It uses isolated databases
+and can exercise both KIT and upstream implementations. See the
+[live crawler report](https://github.com/johannesschuhmacher/oeds-deployment/blob/main/docs/crawler-live-tests.md)
+for commands, measured results and known failures. Registry availability does
+not mean that every remote source is operational.
+
+The package includes the NetCDF backend for Copernicus statistics. EPEX trade
+archives use the existing `database_batch_size` setting for CSV processing as
+well as database writes. Energy Forecast CSV history follows
+`OEDS_CRAWLER_DATA_DIR` (default: `crawler/data`).
+
+MaStR reads the remote ZIP with HTTP range requests. For a small test, set
+`tables: [EinheitenWind, Katalogkategorien, Katalogwerte]` and
+`max_rows_per_table: 100` in that crawler's configuration. Omit both settings
+for the full import. The bounded import is a sample, not a complete register;
+repeating it updates matching primary keys without adding duplicates.
+
+GIE keeps AGSI storage columns separate from ALSI LNG columns. The explicit
+`lng_*` fields distinguish GWh, thousand cubic metres and GWh/day; raw source
+payloads remain available. Existing inventory tables and the latest-inventory
+view are upgraded in place. SMARD metadata records actual stored date bounds.
+
+## Policy
+
+No crawler should be removed from the deployable crawler set until it has one of
+these documented outcomes:
+
+- merged into upstream OEDS
+- kept here as an extension crawler
+- replaced by a verified equivalent
+- explicitly deprecated
+
+## Out Of Scope
+
+- scheduler UI
+- deployment playbooks
+- post-run gapfill or forecast pipelines
