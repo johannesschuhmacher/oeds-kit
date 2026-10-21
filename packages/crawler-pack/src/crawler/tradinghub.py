@@ -26,8 +26,17 @@ from crawler.common.crawler_utils import (
 log = logging.getLogger("tradinghub")
 log.setLevel(logging.INFO)
 
-BASE_URL = "https://datenservice.tradinghub.eu/XmlInterface/getXML.ashx"
-DOCS_URL = "https://www.tradinghub.eu/Portals/0/DLC%20Datenformate/2024/240101_THE_XML_Interface_V1.1_en.pdf?ver=B38fHTVUA-mqEK7BVy-dWA%3D%3D"
+# THE replaced the XML interface at datenservice.tradinghub.eu/XmlInterface/getXML.ashx
+# (host gone since autumn 2026) with the DataExport API: same report ids, one path
+# per report, gas days as yyyy-mm-dd, no authentication, User-Agent mandatory.
+BASE_URL = "https://api.tradinghub.eu/api/dataexport/xmlexport"
+DOCS_URL = "https://api.tradinghub.eu/api/dataexport/manual/en"
+# Reports that always return the running gas day and take no date range.
+REPORTS_WITHOUT_DATE_RANGE = {
+    "PricesEnergyImbalancePreliminary",
+    "PricesFlexibilityChargeIntraday",
+    "AggregateImbalancePositions",
+}
 
 DEFAULT_REPORTS = [
     "PricesEnergyImbalance",
@@ -135,20 +144,19 @@ class TradingHubCrawler(KitCrawler):
         return datetime.combine(today - timedelta(days=lookback_days), datetime.min.time(), tzinfo=timezone.utc), datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
 
     def _format_the_date(self, value: datetime) -> str:
-        return value.strftime("%d-%m-%Y")
+        return value.strftime("%Y-%m-%d")
 
     def _fetch_report(self, report_id: str, date_from: datetime, date_to: datetime) -> tuple[str, list[dict[str, str]]]:
-        params = {"ReportId": report_id}
-        if report_id not in {"PricesEnergyImbalancePreliminary", "PricesFlexibilityChargeIntraday"}:
-            params["Start"] = self._format_the_date(date_from)
-            params["End"] = self._format_the_date(date_to)
-        response = self.session.get(BASE_URL, params=params, timeout=self.timeout_seconds)
+        params = {}
+        if report_id not in REPORTS_WITHOUT_DATE_RANGE:
+            params = {"startDate": self._format_the_date(date_from), "endDate": self._format_the_date(date_to)}
+        response = self.session.get(f"{BASE_URL}/{report_id}", params=params, timeout=self.timeout_seconds)
         response.raise_for_status()
         root = ET.fromstring(response.content)
         records = []
+        # Every child of the root is one record. Its tag usually repeats the report id,
+        # but not always (PricesEnergyImbalancePreliminary -> PreliminaryImbalancePrices).
         for child in root:
-            if local_name(child.tag) != report_id:
-                continue
             record = {local_name(field.tag): (field.text or "").strip() for field in child}
             if record:
                 records.append(record)
@@ -229,9 +237,9 @@ class TradingHubCrawler(KitCrawler):
         failures: list[str] = []
         write_access_status(
             self.engine,
-            source_name="Trading Hub Europe XML Interface",
+            source_name="Trading Hub Europe DataExport API",
             status="public",
-            access_model="Public XML interface; User-Agent is mandatory per THE documentation",
+            access_model="Public XML export; User-Agent is mandatory per THE documentation",
             credentials_required=False,
             configured_credentials=False,
             message="Crawler sends a technical User-Agent and limits the date window by configuration.",
