@@ -441,8 +441,8 @@ class EntsoeFMSCrawler(BaseCrawler):
     # ------------------------------------------------------------------
     # Initialization helpers
     # ------------------------------------------------------------------
-    def __init__(self, schema_name: str, config: dict):
-        super().__init__(schema_name, config)
+    def __init__(self, crawler_name: str, config: dict):
+        super().__init__(crawler_name, config)
         self._access_token: str | None = None
         self.session: requests.Session | None = None
         self._available_folders: list[str] | None = None

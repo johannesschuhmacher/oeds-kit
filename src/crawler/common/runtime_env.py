@@ -8,21 +8,14 @@ from pathlib import Path
 import os
 from urllib.parse import quote, urlsplit, urlunsplit
 
-from dotenv import load_dotenv
+from crawler.common.local_env import get_repo_root, load_crawler_dotenv
+
+__all__ = ["get_repo_root", "load_local_crawler_env", "resolve_database_uri"]
 
 
-def get_repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
-
-
-def load_local_crawler_env(repo_root: Path | None = None) -> Path | None:
-    root = repo_root or get_repo_root()
-    env_path = root / "crawler" / ".env"
-    if not env_path.exists():
-        return None
-
-    load_dotenv(dotenv_path=env_path, override=False)
-    return env_path
+def load_local_crawler_env(repo_root: Path | None = None) -> None:
+    """Alias kept for ``crawler_core.runtime_env``; use ``local_env.load_crawler_dotenv``."""
+    load_crawler_dotenv(repo_root)
 
 
 def resolve_database_uri(database_uri: str) -> str:

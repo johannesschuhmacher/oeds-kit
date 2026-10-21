@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- The pack's crawlers now run on upstream's `oeds.base_crawler.BaseCrawler`
+  through `crawler.common.kit_base.KitCrawler`, which adds only what the pack
+  needs on top (per-crawler file log and critical-error mails, dotted `get`,
+  metadata with `concave_hull_geometry`). `crawler.common.base_crawler.BaseCrawler`
+  is an alias of `KitCrawler`; crawler imports are unchanged. `oeds` is pulled
+  in as a direct git dependency on the fork.
+- `database_uri` configs keep working: `kit_db_uri` appends upstream's
+  `{DBNAME}` placeholder so the schema is still appended to
+  `?options=--search_path=`. Upstream additionally sets `search_path` on every
+  pooled connection and enables `pool_pre_ping`.
+- Fix: `energy_forecast_crawler`, `entsoe_fms` and `power_system_data` named
+  their first constructor parameter `schema_name`. The scheduler infers the
+  constructor style from parameter names and passed the schema name instead
+  of the crawler name, so `energy_forecast_crawler` logged as
+  `energy_forecast` and its alert mails were lost.
+- `runtime_env.load_local_crawler_env` and `get_repo_root` delegate to
+  `local_env`; the dotenv loading is no longer duplicated.
 - New `oeds-crawl` command: run one crawler by hand with the config the
   scheduler would use (`oeds-crawl smard --config CRAWLER_CONFIG.yml [--job ...]`,
   `--list`). Exit codes 0 ok, 1 failed, 3 skipped. Crawlers are found through
