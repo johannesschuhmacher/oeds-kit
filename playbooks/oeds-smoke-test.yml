@@ -158,6 +158,21 @@
           - DROP SCHEMA IF EXISTS oeds_test_crawlers CASCADE;
       when: oeds_expect_crawler_admin_effective
 
+    # Every scheduled run is an oeds-crawl subprocess; the command must find
+    # the crawler pack's oeds.crawlers entry points inside the image.
+    - name: List the registered crawlers in the scheduler image
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers run --rm --no-deps -T
+        scheduler oeds-crawl --list --config /app/CRAWLER_CONFIG.yml
+      args:
+        chdir: "{{ oeds_compose_dir_effective }}"
+      register: oeds_smoke_crawl_list
+      changed_when: false
+      failed_when: oeds_smoke_crawl_list.rc != 0 or (oeds_smoke_crawl_list.stdout_lines | length) < 20
+      when: oeds_expect_crawler_admin_effective
+
     - name: Write the smoke test summary
       ansible.builtin.debug:
         msg:
@@ -166,3 +181,4 @@
           - "postgrest={{ oeds_postgrest_url_effective }}"
           - "grafana={{ oeds_grafana_health_url_effective }}"
           - "crawler_test={{ (oeds_smoke_crawler_test.stdout_lines | default(['skipped']))[-1] }}"
+          - "registered_crawlers={{ oeds_smoke_crawl_list.stdout_lines | default([]) | length }}"

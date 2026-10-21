@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Pin oeds-core 13b508d (crawlers registered as `oeds.crawlers` entry
+  points), the crawler pack 7f4b4d1 (crawlers subclass upstream's
+  BaseCrawler through KitCrawler, `oeds-crawl` command, failure alert mail
+  sent from the run), the scheduler 19f5d22 (every scheduled job is an
+  `oeds-crawl` subprocess with its own log in `runtime/logs/runs/`; at most
+  `default.max_parallel_runs` (3) run at once) and post-scripts 14b525b
+  (runs without the crawler pack).
+- Remove `assembly/crawler-inventory.json` and the scheduler's `--inventory`
+  / `--workspace-root` arguments; crawlers are found through the entry
+  points. The lock omits `oeds` itself (`--no-emit-package`) because the
+  image installs the core editable from the workspace, not from Git.
+- Check `oeds-crawl --list` inside the built scheduler image during
+  `oeds-smoke-test.yml`.
 - Install the crawler image's third-party dependencies from the new
   `docker/requirements.lock` (`uv pip sync`) instead of resolving them
   unpinned at build time; a fresh build had pulled SQLAlchemy 2.1 and broke

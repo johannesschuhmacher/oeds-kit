@@ -9,7 +9,6 @@ standalone checkout into the workspace layout expected by Docker Compose:
     data/
   CRAWLER_CONFIG.yml
   modular_repos/
-    docs/
     sources/oeds-core/
     modules/oeds-deployment/
     modules/oeds-crawler-pack/
@@ -99,7 +98,6 @@ def main() -> int:
         else:
             _clone_component(component, target)
 
-    _install_modular_support(workspace)
     _install_runtime_support(workspace)
     _verify_workspace(workspace)
     print(f"assembled modular OEDS workspace at {workspace}")
@@ -271,16 +269,6 @@ def _copy_self_checkout(target: Path) -> None:
     )
 
 
-def _install_modular_support(workspace: Path) -> None:
-    modular_target = workspace / "modular_repos"
-    docs_target = modular_target / "docs"
-    docs_target.mkdir(parents=True, exist_ok=True)
-    inventory_source = DEFAULT_MODULAR_DOCS / "crawler-inventory.json"
-    if not inventory_source.is_file():
-        raise FileNotFoundError(inventory_source)
-    shutil.copy2(inventory_source, docs_target / "crawler-inventory.json")
-
-
 def _install_runtime_support(workspace: Path) -> None:
     dockerignore = DEPLOYMENT_ROOT / ".dockerignore"
     if dockerignore.is_file():
@@ -321,12 +309,11 @@ def _verify_workspace(workspace: Path) -> None:
         "crawler/data/mapping_eic_to_location.py",
         "crawler/data/mapping_p_to_g.json",
         "crawler/data/mapping_g_to_p.json",
-        "modular_repos/docs/crawler-inventory.json",
         "modular_repos/sources/oeds-core/oeds/base_crawler.py",
         "modular_repos/modules/oeds-deployment/compose.modular.yml",
         "modular_repos/modules/oeds-crawler-pack/pyproject.toml",
         "modular_repos/modules/oeds-crawler-pack/src/crawler/common/base_crawler.py",
-        "modular_repos/modules/oeds-crawler-pack/src/crawler_core/__init__.py",
+        "modular_repos/modules/oeds-crawler-pack/src/crawler/common/kit_base.py",
         "modular_repos/modules/oeds-scheduler-ui/pyproject.toml",
         "modular_repos/modules/oeds-post-scripts/pyproject.toml",
     ]

@@ -68,8 +68,8 @@ def schedule_test():
     # Two genuine minute boundaries, no simulated clock or mocked crawler.
     results = []
     stopped = threading.Event()
-    def post(command, plan):
-        result = execute_post_command(command, plan)
+    def post(command, plan, log):
+        result = execute_post_command(command, plan, log)
         results.append(result)
         if len(results) == 2 or not result.success:
             stopped.set()
@@ -85,8 +85,7 @@ def schedule_test():
                           'run_post_scripts': True,
                           'post_run_scripts': ['oeds-post gapfill entsoe-fms --self-test']}}
         config.write_text(yaml.safe_dump(data))
-        app = SchedulerApplication(config, '/app/modular_repos/docs/crawler-inventory.json',
-                                   '/app/modular_repos', post_run_executor=post)
+        app = SchedulerApplication(config, post_run_executor=post)
         assert app.snapshot.ready and app.snapshot.planned_job_count == 1, app.snapshot
         timer = threading.Timer(160, stopped.set)
         timer.start()

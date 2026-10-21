@@ -29,6 +29,7 @@ beautifulsoup4==4.15.0
     #   oeds (../../sources/oeds-core/pyproject.toml)
     #   entsoe-py
     #   jao-py
+    #   oeds
     #   yfinance
 brotli==1.2.0
     # via py7zr
@@ -186,6 +187,7 @@ netztransparenz==0.2.3
     # via
     #   -r ../../sources/oeds-core/requirements.txt
     #   oeds (../../sources/oeds-core/pyproject.toml)
+    #   oeds
 numpy==2.5.4
     # via
     #   -r ../../sources/oeds-core/requirements.txt
@@ -198,6 +200,7 @@ numpy==2.5.4
     #   geopandas
     #   matplotlib
     #   netcdf4
+    #   oeds
     #   open-mastr
     #   pandas
     #   pygrib
@@ -211,6 +214,7 @@ open-mastr==1.0.0
     # via
     #   -r ../../sources/oeds-core/requirements.txt
     #   oeds (../../sources/oeds-core/pyproject.toml)
+    #   oeds
 openpyxl==3.1.5
     # via
     #   -r ../../sources/oeds-core/requirements.txt
@@ -238,6 +242,7 @@ pandas==3.0.6
     #   geopandas
     #   jao-py
     #   netztransparenz
+    #   oeds
     #   open-mastr
     #   roiti-gie
     #   xarray
@@ -309,10 +314,12 @@ python-dateutil==2.9.0.post0
     #   jao-py
     #   matplotlib
     #   multiurl
+    #   oeds
     #   pandas
 python-dotenv==1.2.4
     # via
     #   oeds-crawler-pack (../oeds-crawler-pack/pyproject.toml)
+    #   oeds-post-scripts (../oeds-post-scripts/pyproject.toml)
     #   da-price-forecasting
 python-multipart==0.0.32
     # via oeds-scheduler-ui (../oeds-scheduler-ui/pyproject.toml)
@@ -328,6 +335,7 @@ pyyaml==6.0.3
     #   oeds-post-scripts (../oeds-post-scripts/pyproject.toml)
     #   oeds-scheduler-ui (../oeds-scheduler-ui/pyproject.toml)
     #   da-price-forecasting
+    #   oeds
     #   open-mastr
 pyzstd==0.20.0
     # via py7zr
@@ -439,3 +447,6 @@ yfinance==0.2.66
     #   da-price-forecasting
 zeep==4.3.3
     # via open-mastr
+
+# The following packages were excluded from the output:
+# oeds

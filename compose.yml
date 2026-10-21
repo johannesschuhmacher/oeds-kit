@@ -157,10 +157,6 @@ services:
       - oeds-scheduler
       - --config
       - /app/CRAWLER_CONFIG.yml
-      - --inventory
-      - /app/modular_repos/docs/crawler-inventory.json
-      - --workspace-root
-      - /app/modular_repos
       - --daemon
     environment:
       <<: *oeds-python-environment

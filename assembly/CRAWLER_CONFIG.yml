@@ -10,6 +10,8 @@ default:
   schedule: 0 4 * * *
   post_run_scripts: null
   database_uri: postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=
+  # Upper bound on concurrently running scheduled jobs (the scheduler's default).
+  max_parallel_runs: 3
 eurostat_crawler:
   enable: false
   schema_name: eurostat

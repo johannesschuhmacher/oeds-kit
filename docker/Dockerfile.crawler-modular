@@ -33,8 +33,6 @@ COPY modular_repos/modules/oeds-deployment/docker/requirements.lock ./requiremen
 RUN uv venv /app/.venv --python /usr/local/bin/python && \
     uv pip sync --python /app/.venv/bin/python /app/requirements.lock
 
-RUN mkdir -p ./modular_repos/docs
-COPY modular_repos/modules/oeds-deployment/assembly/crawler-inventory.json ./modular_repos/docs/crawler-inventory.json
 COPY modular_repos/sources/oeds-core ./modular_repos/sources/oeds-core
 RUN uv pip install --python /app/.venv/bin/python --no-deps \
         -e /app/modular_repos/sources/oeds-core
@@ -66,4 +64,4 @@ RUN useradd --create-home --shell /bin/bash oeds && \
 
 USER oeds
 
-CMD ["oeds-scheduler", "--config", "/app/CRAWLER_CONFIG.yml", "--inventory", "/app/modular_repos/docs/crawler-inventory.json", "--workspace-root", "/app/modular_repos", "--daemon"]
+CMD ["oeds-scheduler", "--config", "/app/CRAWLER_CONFIG.yml", "--daemon"]
