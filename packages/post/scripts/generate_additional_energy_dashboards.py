@@ -18,7 +18,6 @@ TARGET_DIRS = {
     "GIE_AGSI_ALSI.json": "gie_agsi_alsi",
     "Netztransparenz_WebAPI.json": "netztransparenz",
     "Open_Meteo.json": "open_meteo",
-    "OpenStreetMap_Power.json": "osm_power",
     "PRISMA_Capacity_API.json": "prisma_capacity",
     "Regelleistung_Datacenter.json": "regelleistung",
     "Trading_Hub_Europe.json": "tradinghub",
@@ -270,25 +269,6 @@ DASHBOARDS = {
             stat_panel(2, "Imported Rows", "SELECT now() AS time, count(*)::double precision AS value FROM prisma_capacity.raw_resources", 18, 0),
             table_panel(3, "Resource Summary", "SELECT * FROM prisma_capacity.resource_summary ORDER BY resource_id", 0, 4, 12, 9),
             table_panel(4, "Latest Raw Resources", "SELECT resource_id, source_url, fetched_at, row_number, payload_json FROM prisma_capacity.raw_resources ORDER BY fetched_at DESC, resource_id LIMIT 200", 12, 4, 12, 9),
-        ],
-    ),
-    "OpenStreetMap_Power.json": dashboard(
-        "OpenStreetMap Power",
-        "openstreetmap-power",
-        ["energy", "osm", "infrastructure"],
-        [
-            table_panel(1, "Access Status", access_sql("osm_power", "OpenStreetMap / Overpass power data"), 0, 0, 18, 4),
-            stat_panel(2, "Power Features", "SELECT now() AS time, count(*)::double precision AS value FROM osm_power.power_features", 18, 0),
-            geomap_panel(
-                3,
-                "Power Feature Map",
-                "SELECT 0 AS time, latitude, longitude, coalesce(name, osm_type || '/' || osm_id::text) AS name, power, operator, 1::double precision AS value FROM osm_power.power_features WHERE latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 5000",
-                0,
-                4,
-                12,
-                10,
-            ),
-            table_panel(4, "Feature Summary", "SELECT * FROM osm_power.power_feature_summary ORDER BY features DESC", 12, 4, 12, 10),
         ],
     ),
     "DWD_Climate_Data_Center.json": dashboard(
