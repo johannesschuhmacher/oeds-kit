@@ -27,3 +27,14 @@ def test_later_export_file_with_new_column_is_appended():
         later.to_sql("EinheitenSolar", conn, if_exists="append", index=False)
         rows = conn.execute(text('SELECT "EinheitMastrNummer", "Weic" FROM "EinheitenSolar" ORDER BY 1')).fetchall()
     assert rows == [("SEE1", None), ("SEE2", "x")]
+
+
+def test_full_xml_matches_pandas_read_xml():
+    xml = '<?xml version="1.0" encoding="utf-16"?><rows>' + ''.join(
+        f'<Einheit><EinheitMastrNummer>SEE{i}</EinheitMastrNummer><Ort>Georgenthal </Ort>'
+        + (f'<Bruttoleistung>{i * 2.5}</Bruttoleistung>' if i % 2 else '<Strasse></Strasse>')
+        + '</Einheit>' for i in range(6)) + '</rows>'
+    data = xml.encode('utf-16')
+    actual = MastrCrawler.read_xml(BytesIO(data))
+    expected = pd.read_xml(BytesIO(data), encoding="utf-16")
+    pd.testing.assert_frame_equal(actual, expected)
