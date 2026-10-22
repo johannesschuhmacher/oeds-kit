@@ -65,6 +65,8 @@ entsoe_fms:
       - EnergyPrices_12.1.D_r3
       - ForecastedTransferCapacities_11.1_r3
       - PhysicalFlows_12.1.G_r3
+      - AggregatedGenerationPerType_16.1.B_C_r3
+      - DayAheadAggregatedGeneration_14.1.C_r3
     revision_sweep_daily:
       enable: false
       schedule: 30 2 * * *
@@ -79,6 +81,9 @@ entsoe_fms:
       - EnergyPrices_12.1.D_r3
       - ForecastedTransferCapacities_11.1_r3
       - PhysicalFlows_12.1.G_r3
+      - AggregatedGenerationPerType_16.1.B_C_r3
+      - DayAheadAggregatedGeneration_14.1.C_r3
+      - InstalledGenerationCapacityAggregated_14.1.A_r3
   gapfill:
     enable: false
     target_schema: entsoe_fms_gapfilled
@@ -161,7 +166,7 @@ epex_spot:
   schedule: 20 * * * *
   start_date: '1970-01-01'
   update_interval_days: 14
-  database_batch_size: 5000
+  database_batch_size: 100000
   include_continuous_statistics: true
   include_continuous_indices: true
   include_intraday_auctions: true

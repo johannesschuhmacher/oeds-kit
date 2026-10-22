@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from sqlalchemy import text
 from urllib3.util.retry import Retry
 
+from crawler.common.crawler_utils import copy_insert
 from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
@@ -120,7 +121,7 @@ class EntsogCrawler(KitCrawler):
             return
 
         with self.engine.begin() as conn:
-            frame.to_sql(table_name, conn, schema=self.schema_name, if_exists="replace", index=False)
+            frame.to_sql(table_name, conn, schema=self.schema_name, if_exists="replace", index=False, method=copy_insert)
         self.logger.info("ENTSOG reference table %s refreshed with %s rows", table_name, len(frame))
 
     def _existing_start_date(self, table_name: str) -> date:
@@ -170,7 +171,7 @@ class EntsogCrawler(KitCrawler):
             pass
 
         with self.engine.begin() as conn:
-            frame.to_sql(table_name, conn, schema=self.schema_name, if_exists="append", index=False)
+            frame.to_sql(table_name, conn, schema=self.schema_name, if_exists="append", index=False, method=copy_insert)
 
     def _refresh_indicator(self, indicator: str, table_name: str) -> None:
         chunk_days = self._chunk_days()
