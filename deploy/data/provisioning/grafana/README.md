@@ -23,8 +23,7 @@ large deployments, configure a suitable tile provider and keep its attribution.
 `optional-dashboards/` keeps dashboards that need data a standard installation
 does not load: the public (external) variants of the ENTSO-E analyses, the 2026
 heatwave and negative-price event studies, hydro and transfer-capacity views,
-GloHydroRes, gapfill quality, OpenStreetMap power (Overpass blocks automated
-clients) and PRISMA (needs an API subscription). To use one, copy it into a
+GloHydroRes, gapfill quality and PRISMA (needs an API subscription). To use one, copy it into a
 subdirectory of `dashboards/` and check for duplicate UIDs.
 
 ## Check

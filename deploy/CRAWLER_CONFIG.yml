@@ -214,21 +214,6 @@ prisma_capacity:
     package subscription
   schedule: 0 6 * * *
   resources: []
-osm_power:
-  enable: false
-  schema_name: osm_power
-  description: Crawls OpenStreetMap power infrastructure features via Overpass
-  schedule: 0 3 * * 0
-  bbox:
-  - 47.2
-  - 5.5
-  - 55.2
-  - 15.5
-  power_tags:
-  - plant
-  - generator
-  - substation
-  max_elements: 50000
 dwd_cdc:
   enable: false
   schema_name: dwd_cdc
