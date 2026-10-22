@@ -127,15 +127,17 @@
   - name: Back up the database before any downtime
     ansible.builtin.import_tasks: tasks/oeds-db-backup-before-update.yml
   - name: Stop legacy compose project before switching to repo-root compose
-    ansible.builtin.shell: docker compose down --remove-orphans
+    ansible.builtin.shell: docker compose --profile crawlers down --remove-orphans
     args:
       chdir: "{{ oeds_root_effective }}"
     when: oeds_legacy_compose.stat.exists
+  # Scheduler and admin are in the crawlers profile; without it, down leaves them running
+  # and stops the database under the running crawls (alert mail on every update).
   - name: Stop current compose project before updating repo
     ansible.builtin.shell: >-
       docker compose
       {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
-      down --remove-orphans
+      --profile crawlers down --remove-orphans
     args:
       chdir: "{{ oeds_compose_dir_effective }}"
     when: oeds_selected_compose.stat.exists
