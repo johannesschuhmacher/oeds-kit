@@ -26,7 +26,7 @@ from typing import Callable, Iterator
 import pandas as pd
 import paramiko
 from dotenv import load_dotenv
-from sqlalchemy import Column, Date, DateTime, Float, MetaData, String, Table, UniqueConstraint, text
+from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, String, Table, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import insert
 
 from crawler.common.kit_base import KitCrawler
@@ -240,37 +240,87 @@ class EpexSpotCrawler(KitCrawler):
             ),
         )
 
+        # Remote files already written to the database, identified by path, size and
+        # modification time. Trade archives are 1M+ rows each and never change once
+        # published; without this every run re-imported the whole update window.
+        self.tables["imported_files"] = Table(
+            "imported_files",
+            self.metadata,
+            Column("remote_path", String, primary_key=True),
+            Column("file_size", BigInteger, primary_key=True),
+            Column("file_mtime", BigInteger, primary_key=True),
+            Column("rows", BigInteger, nullable=False),
+            Column("imported_at", DateTime(timezone=True), nullable=False),
+        )
+
     def _ensure_tables(self) -> None:
         self.metadata.create_all(self.engine)
+        # The trade table grows by about 1M rows a day. Without this index every run
+        # (MAX(delivery_start_utc)) and every dashboard query scans the whole table.
+        with self.engine.begin() as conn:
+            conn.execute(text(
+                f'CREATE INDEX IF NOT EXISTS idx_epex_continuous_trades_delivery_start '
+                f'ON "{self.schema_name}".continuous_trades (delivery_start_utc)'
+            ))
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame, constraint_name: str) -> int:
+        """Upsert through COPY into a temporary table and one INSERT ... ON CONFLICT.
+
+        Multi-row INSERT statements with 5000 x 19 bound values were the bottleneck
+        (about 8 minutes per daily trade archive).
+        """
         if df.empty:
             return 0
 
         table = self.tables[table_name]
-        table_columns = [column.name for column in table.columns]
-        df = df.reindex(columns=table_columns)
-        df = df.astype(object).where(pd.notnull(df), None)
-        records = df.to_dict(orient="records")
-        batch_size = int(self.config.get("database_batch_size", 5000))
+        columns = [column.name for column in table.columns]
+        constraint = next(c for c in table.constraints if c.name == constraint_name)
+        key_columns = list(constraint.columns.keys())
+        # ON CONFLICT DO UPDATE fails if one statement touches the same key twice.
+        df = df.reindex(columns=columns).drop_duplicates(subset=key_columns, keep="last")
 
-        affected = 0
-        for start in range(0, len(records), batch_size):
-            batch = records[start : start + batch_size]
-            stmt = insert(table).values(batch)
-            update_columns = {
-                column.name: stmt.excluded[column.name]
-                for column in table.columns
-                if not column.primary_key
-            }
-            stmt = stmt.on_conflict_do_update(
-                constraint=constraint_name,
-                set_=update_columns,
+        buffer = io.StringIO()
+        df.to_csv(buffer, index=False, header=False)
+        buffer.seek(0)
+
+        target = f'"{self.schema_name}"."{table.name}"'
+        column_list = ", ".join(f'"{column}"' for column in columns)
+        updates = ", ".join(
+            f'"{column}" = EXCLUDED."{column}"' for column in columns if column not in key_columns
+        )
+        with self.engine.begin() as conn:
+            cursor = conn.connection.cursor()
+            cursor.execute(f"CREATE TEMP TABLE epex_stage (LIKE {target}) ON COMMIT DROP")
+            cursor.copy_expert(f"COPY epex_stage ({column_list}) FROM STDIN WITH (FORMAT csv)", buffer)
+            cursor.execute(
+                f"INSERT INTO {target} ({column_list}) SELECT {column_list} FROM epex_stage "
+                f"ON CONFLICT ON CONSTRAINT {constraint_name} DO UPDATE SET {updates}"
             )
-            with self.engine.begin() as conn:
-                conn.execute(stmt)
-            affected += len(batch)
-        return affected
+        return len(df)
+
+    def _imported_file_keys(self, remote_dir: str) -> set[tuple[str, int, int]]:
+        prefix = remote_dir.rstrip("/") + "/"
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    f'SELECT remote_path, file_size, file_mtime FROM "{self.schema_name}".imported_files '
+                    "WHERE starts_with(remote_path, :prefix)"
+                ),
+                {"prefix": prefix},
+            )
+            return {(path, int(size), int(mtime)) for path, size, mtime in rows}
+
+    def _mark_imported(self, remote_path: str, entry: paramiko.SFTPAttributes, rows: int) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    f'INSERT INTO "{self.schema_name}".imported_files '
+                    "(remote_path, file_size, file_mtime, rows, imported_at) "
+                    "VALUES (:path, :size, :mtime, :rows, now()) ON CONFLICT DO NOTHING"
+                ),
+                {"path": remote_path, "size": int(entry.st_size or 0),
+                 "mtime": int(entry.st_mtime or 0), "rows": rows},
+            )
 
     def _latest_delivery_start(self, table_name: str) -> pd.Timestamp | None:
         table = self.tables[table_name]
@@ -548,7 +598,7 @@ class EpexSpotCrawler(KitCrawler):
                     header = csv_file.readline().decode("utf-8-sig", errors="replace")
                     csv_file.seek(0)
                     # Trade archives can expand to several GB; normalize and write one block at a time.
-                    batch_size = int(self.config.get("database_batch_size", 5000))
+                    batch_size = int(self.config.get("database_batch_size", 100000))
                     for df in pd.read_csv(csv_file, comment="#", chunksize=batch_size,
                                           dtype={"TradeId": "string", "RemoteTradeId": "string", "OrderID": "string"}):
                         df = df.rename(columns={
@@ -648,13 +698,18 @@ class EpexSpotCrawler(KitCrawler):
         start_time: pd.Timestamp,
     ) -> int:
         affected = 0
+        skipped = 0
         files = self._list_remote_files(remote_dir)
+        imported = self._imported_file_keys(remote_dir)
         for entry in files:
             period = self._file_period(entry.filename)
             if period is not None and period[1] < start_time:
                 continue
 
             remote_path = self._join_remote_path(remote_dir, entry.filename)
+            if (remote_path, int(entry.st_size or 0), int(entry.st_mtime or 0)) in imported:
+                skipped += 1
+                continue
             payload = self._download_bytes(remote_path)
             parsed = parser(payload, entry.filename)
             frames = [parsed] if isinstance(parsed, pd.DataFrame) else parsed
@@ -663,7 +718,10 @@ class EpexSpotCrawler(KitCrawler):
                 frame = self._filter_delivery_start(frame, start_time)
                 rows += self._upsert_dataframe(table_name, frame, constraint_name)
             affected += rows
+            self._mark_imported(remote_path, entry, rows)
             self.logger.info("Imported %s rows from %s", rows, remote_path)
+        if skipped:
+            self.logger.info("Skipped %s unchanged file(s) in %s", skipped, remote_dir)
         return affected
 
     def _import_continuous_statistics(self) -> int:

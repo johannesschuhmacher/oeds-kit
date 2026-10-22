@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from sqlalchemy import bindparam, inspect, text
 
+from crawler.common.crawler_utils import copy_insert
 from crawler.common.kit_base import KitCrawler
 
 metadata_info = {
@@ -170,7 +171,7 @@ class MastrCrawler(KitCrawler):
                         statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
                         conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
                                      {"ids": df[pk].dropna().tolist()})
-                    df.to_sql(table_name, conn, if_exists="append", index=False)
+                    df.to_sql(table_name, conn, if_exists="append", index=False, method=copy_insert)
 
                 if table_name not in tables.keys():
                     tables[table_name] = pk

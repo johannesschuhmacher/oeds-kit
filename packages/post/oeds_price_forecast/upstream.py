@@ -207,6 +207,11 @@ def forecast_day_upstream(
     modules = load_upstream_modules(repo_path)
     X, Y, _ = _build_upstream_xy(modules, price, exaa, covariates, target_date, config, variant)
     forecast_day_index = pd.DatetimeIndex([pd.Timestamp(target_date).tz_localize(BERLIN_TZ)])
+    # LEAR cannot train on a day without a complete price curve (a gap in the data,
+    # or a day before the price history starts); scikit-learn then fails with
+    # "Input y contains NaN". Drop such days; the target day itself has no prices yet.
+    usable = Y.notna().all(axis=1) | (Y.index == forecast_day_index[0])
+    X, Y = X[usable], Y[usable]
     train_rows = X[(X.index >= forecast_day_index[0] - pd.Timedelta(days=config.train_days)) & (X.index < forecast_day_index[0])]
     if len(train_rows) < max(7, config.min_training_rows // 96):
         raise ValueError(
