@@ -42,7 +42,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT status, access_model, credentials_required, configured_credentials, message, docs_url, checked_at FROM tradinghub.access_status WHERE source_name = 'Trading Hub Europe XML Interface' ORDER BY checked_at DESC LIMIT 1"
+          "rawSql": "SELECT status, access_model, credentials_required, configured_credentials, message, docs_url, checked_at FROM tradinghub.access_status WHERE source_name = 'Trading Hub Europe DataExport API' ORDER BY checked_at DESC LIMIT 1"
         }
       ],
       "options": {
