@@ -28,9 +28,13 @@ are prepared for upstream OEDS or kept as extension crawlers.
 - ships all current KIT crawler implementations as importable `crawler.*`
 - registers its crawlers as `oeds.crawlers` entry points such as
   `crawler.smard:SmardCrawler` (`oeds-crawl --list` shows them)
-- gives KIT crawler specs priority over upstream OEDS when the deployment stack
-  merges registries
-- keeps upstream-only crawlers available through `oeds-core`
+- `oeds-crawl` (and therefore the scheduler) also runs the built-in crawlers of
+  `oeds-core` (`oeds.crawler`, installed with the extra `oeds[crawlers]`); a pack
+  crawler replaces a core crawler of the same name (`smard`, `mastr`, `entsog`,
+  `netztransparenz`, `ninja`). Core crawlers get the pack's log file and alert
+  mail, and their API keys (`entsoe_api_key`, `gie_api_key`, `ipnt_client_id`,
+  `ipnt_client_secret`, `jao_api_key`) from the crawler `.env` unless the config
+  section sets them
 
 The registry priority is:
 

@@ -159,7 +159,7 @@
       when: oeds_expect_crawler_admin_effective
 
     # Every scheduled run is an oeds-crawl subprocess; the command must find
-    # the crawler pack's oeds.crawlers entry points inside the image.
+    # the crawler pack's entry points and the core crawlers (20 + 21) in the image.
     - name: List the registered crawlers in the scheduler image
       ansible.builtin.shell: >-
         docker compose
@@ -170,7 +170,7 @@
         chdir: "{{ oeds_compose_dir_effective }}"
       register: oeds_smoke_crawl_list
       changed_when: false
-      failed_when: oeds_smoke_crawl_list.rc != 0 or (oeds_smoke_crawl_list.stdout_lines | length) < 20
+      failed_when: oeds_smoke_crawl_list.rc != 0 or (oeds_smoke_crawl_list.stdout_lines | length) < 40
       when: oeds_expect_crawler_admin_effective
 
     - name: Write the smoke test summary
