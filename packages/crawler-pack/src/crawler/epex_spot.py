@@ -255,6 +255,13 @@ class EpexSpotCrawler(KitCrawler):
 
     def _ensure_tables(self) -> None:
         self.metadata.create_all(self.engine)
+        # The trade table grows by about 1M rows a day. Without this index every run
+        # (MAX(delivery_start_utc)) and every dashboard query scans the whole table.
+        with self.engine.begin() as conn:
+            conn.execute(text(
+                f'CREATE INDEX IF NOT EXISTS idx_epex_continuous_trades_delivery_start '
+                f'ON "{self.schema_name}".continuous_trades (delivery_start_utc)'
+            ))
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame, constraint_name: str) -> int:
         """Upsert through COPY into a temporary table and one INSERT ... ON CONFLICT.
