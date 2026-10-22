@@ -1,0 +1,614 @@
+{
+  "uid": "power-plants-ppm",
+  "title": "Power plants – powerplantmatching (PyPSA)",
+  "description": "European power plant database from PyPSA powerplantmatching (matched from ENTSO-E, OPSD, GEM, MaStR and other sources). Capacity is electrical output in MW; storage plants have set type 'Store'.",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Plants in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, count(*)::float AS value FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now()))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Capacity in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now()))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Renewable capacity in operation",
+      "description": "Wind, solar, hydro (including pumped storage), solid biomass, biogas and geothermal.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND fuel_type IN ('Wind', 'Solar', 'Hydro', 'Solid Biomass', 'Biogas', 'Geothermal')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Retired plants in the data",
+      "description": "Capacity of plants with a closure year up to this year; left out of all other panels.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND date_out <> 'NaN' AND date_out <= extract(year FROM now())"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Capacity in operation by fuel",
+      "description": "Small rooftop PV is largely missing from powerplantmatching; see the MaStR dashboard for Germany.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT fuel_type AS fuel, sum(capacity) * 1e6 AS capacity FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "none",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 14
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "geomap",
+      "title": "Plants on the map",
+      "description": "Plants in operation; marker size by capacity, colour by fuel; at most the 5000 largest plants.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 0 AS time, lat, lon, name, fuel_type AS fuel, nullif(technology, 'NaN') AS technology, capacity AS capacity_mw, nullif(date_in, 'NaN')::int AS commissioned FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND capacity >= $MinCapacity AND lat <> 'NaN' AND lon <> 'NaN' ORDER BY capacity DESC LIMIT 5000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "basemap": {
+          "name": "OpenStreetMap",
+          "type": "osm-standard"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showZoom": true,
+          "showScale": false,
+          "showMeasure": false
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Plants",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "lat",
+              "longitude": "lon"
+            },
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "fuel"
+                },
+                "opacity": 0.75,
+                "size": {
+                  "field": "capacity_mw",
+                  "fixed": 5,
+                  "min": 3,
+                  "max": 18
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "id": "coords",
+          "lat": 51.0,
+          "lon": 10.0,
+          "zoom": 5
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 14
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Capacity in operation by commissioning decade and fuel",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT decade, fuel_type, capacity FROM ( SELECT (floor(date_in / 10) * 10)::int AS d, (floor(date_in / 10) * 10)::int::text || 's' AS decade, fuel_type, sum(capacity) * 1e6 AS capacity FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND date_in <> 'NaN' GROUP BY 1, 2, 3) x ORDER BY d"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "stacking": "normal",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 10
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "fuel_type",
+            "rowField": "decade",
+            "valueField": "capacity",
+            "emptyValue": "null"
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Largest plants in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name, fuel_type AS fuel, nullif(technology, 'NaN') AS technology, nullif(set_type, 'NaN') AS \"set type\", round(capacity::numeric) AS \"capacity (MW)\", nullif(date_in, 'NaN')::int AS commissioned, nullif(date_retrofit, 'NaN')::int AS retrofit, nullif(date_out, 'NaN')::int AS \"planned closure\" FROM power_system_data.powersystemdata WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) ORDER BY capacity DESC LIMIT 50"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 10
+      },
+      "id": 8,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    }
+  ],
+  "refresh": "1d",
+  "schemaVersion": 39,
+  "tags": [
+    "power plants",
+    "capacity",
+    "pypsa"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "Country",
+        "label": "Country",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT country FROM power_system_data.powersystemdata ORDER BY 1",
+        "definition": "SELECT DISTINCT country FROM power_system_data.powersystemdata ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "Germany",
+          "value": "Germany"
+        }
+      },
+      {
+        "name": "MinCapacity",
+        "label": "Map: plants from (MW)",
+        "type": "custom",
+        "query": "1,10,50,100,500",
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": "50",
+          "value": "50"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "1",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "10",
+            "value": "10"
+          },
+          {
+            "selected": true,
+            "text": "50",
+            "value": "50"
+          },
+          {
+            "selected": false,
+            "text": "100",
+            "value": "100"
+          },
+          {
+            "selected": false,
+            "text": "500",
+            "value": "500"
+          }
+        ]
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "version": 1,
+  "fiscalYearStartMonth": 0,
+  "annotations": {
+    "list": []
+  }
+}
