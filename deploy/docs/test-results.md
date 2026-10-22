@@ -1,6 +1,49 @@
-# Intern-test results, 2026-09-05
+# Test results
 
-## Latest clean reinstall and crawler fixes
+## Release 1.0.0, 2026-10-22
+
+Checks of the oeds-kit release with `oeds-core` `69e6005` (pinned in `uv.lock`).
+
+**Installation.** On iip-vm-oeds-intern-test (CentOS Stream 10, operating system
+not reinstalled) the remains of the earlier test installations were moved
+aside and oeds-kit was installed from GitHub with
+`deploy/tools/oeds_clean_install_from_git.sh --ref main`. The smoke test passed:
+PostgreSQL, PostgREST, Grafana, pgAdmin and the admin UI answer, the offline
+ninja crawler reproduces 12 exact capacity factors in three tables, and
+`oeds-crawl --list` registers 41 crawlers (20 crawler pack, 21 core-only). An
+update while EPEX was importing stopped scheduler and admin before the
+database and produced no crawler failure.
+
+**Automated tests.** 155 tests pass: crawler pack 78, scheduler/admin 36,
+post-processing 35, deployment 6.
+
+**Scheduled operation.** On intern-test every enabled crawler of the pack ran
+once through `oeds-crawl`; 16 loaded data, PRISMA was skipped (no API
+subscription), EPEX, MaStR and ENTSOG were left to their schedules. A core
+crawler (`fernwaerme_preisuebersicht`) configured in `CRAWLER_CONFIG.yml` was
+started by the scheduler and wrote 716 rows. On iip-vm-oeds-intern the
+scheduler has run the pack crawlers since 21 October; MaStR (gross capacity in
+operation: solar 131 GW, wind onshore 71 GW, offshore 11.6 GW) and ENTSOG
+completed their nightly runs.
+
+**Dashboards.** `tools/check_dashboards.py --all` ran every query of the 26
+provisioned dashboards through Grafana on intern without SQL errors; one panel
+(EPEX trades of the last week) was empty while the trade backfill was running.
+On the fresh intern-test installation the check found two dashboard faults that
+older data had hidden on intern (Trading Hub access status, energyforecast.de
+time range); both are fixed.
+
+**Live sources.** `tools/test_live_crawlers.sh` loaded data for 35 of 52
+crawler implementations (crawler pack 18 of 20, core 17 of 32); see
+[crawler-live-tests.md](crawler-live-tests.md#release-100-2026-10-22) for each
+case.
+
+## Former module repositories, intern-test 2026-09-05
+
+These checks used the five former repositories (archived since 21 October
+2026); they are kept for reference.
+
+### Latest clean reinstall and crawler fixes
 
 This section supersedes the older installation revisions below. The final
 documented application reset/install used fresh private GitHub sources at
@@ -80,12 +123,12 @@ are disabled. The original Windows `.env` is unchanged. Private run logs are at
 `/home/oeds/oeds-test-logs-2026-09-05/crawler-fixes`; isolated source logs remain in
 `/home/oeds/oeds-crawler-validation/logs` without their temporary environment file.
 
-## Earlier installation audit
+### Earlier installation audit
 
 The following preserves the earlier test evidence and its original limitations.
 Use the latest section above for current revision and installation decisions.
 
-## Environment and scope
+### Environment and scope
 
 Tests ran on `iip-vm-oeds-intern-test.iip.kit.edu`, **CentOS Stream 10**,
 using Python 3.13 in the application image, PostgreSQL 18.3, TimescaleDB 2.26.3
@@ -113,7 +156,7 @@ the oeds-kit workspace and its `uv.lock`):
 | Scheduler/UI | `12bc91392918c1c59a1b66a6174adf04a59634c4` |
 | Post-scripts | `e1622ff538565ef92ff1300d85b9933f047f2ae2` |
 
-## Completed lifecycle checks
+### Completed lifecycle checks
 
 - Destructive uninstall followed by installation, using the documentation.
 - Independent Docker build/import stages: core, crawlers, post and runtime.
@@ -144,7 +187,7 @@ each implementation. The scheduling test waits for two real minute boundaries,
 executes the crawler and post-run CLI, and disables the job by config reload.
 It also runs numerical gapfill/forecast self-tests.
 
-## Live sample after the GitHub reset
+### Live sample after the GitHub reset
 
 | Table | Rows |
 | --- | ---: |
@@ -165,7 +208,7 @@ production/generation outages. Its availability-map refresh
 succeeded after the capacity reference was loaded. FMS selection is monthly:
 August 1-2 requests still download August packages, not a two-day-only dataset.
 
-## Fixes found by these tests
+### Fixes found by these tests
 
 - FMS uses the writable runtime data path and propagates top-level run failures.
 - Post-processing numerical imports no longer require an unrelated crawler runtime.
@@ -186,7 +229,7 @@ August 1-2 requests still download August packages, not a two-day-only dataset.
   displaying a missing API-key watermark. SQL-only tests did not catch this;
   browser inspection did.
 
-## Expanded crawler validation
+### Expanded crawler validation
 
 The later [53-implementation live audit](crawler-live-tests.md) supersedes the
 five-source coverage limitation below. It exercised both upstream and KIT
@@ -194,7 +237,7 @@ implementations, found additional defects and includes normal-user permission
 checks. It does **not** certify every crawler as operational. The earlier
 installation, scheduler and dashboard results remain separate evidence.
 
-## Limits and follow-up
+### Limits and follow-up
 
 - Ubuntu host provisioning and an empty OS image remain untested. Host preparation
   is CentOS-specific and changes SELinux to permissive mode.
