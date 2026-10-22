@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "oeds-kit: modular extensions of the Open Energy Data Server"
+abstract: >-
+  Crawler pack, scheduler with administration interface, post-processing and
+  deployment for the Open Energy Data Server (OEDS), in one repository. It
+  builds on oeds-core, a modified copy of the OEDS core, pinned in uv.lock.
+type: software
+version: 1.0.0
+date-released: "2026-10-22"
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/johannesschuhmacher/oeds-kit"
+keywords:
+  - energy data infrastructure
+  - FAIR principles
+  - reproducibility
+  - Open Energy Data Server
+authors:
+  - given-names: Johannes
+    family-names: Schuhmacher
+    email: johannes.schuhmacher@kit.edu
+    affiliation: &kit "Karlsruhe Institute of Technology (KIT), Institute for Industrial Production (IIP)"
+  - given-names: Felix
+    family-names: Maier
+    affiliation: *kit
+  - given-names: Haoshen
+    family-names: Zhang
+    affiliation: *kit
+  - given-names: Andre
+    family-names: Meyer
+    affiliation: *kit
+  - given-names: Kim-Gabriel
+    family-names: Deckert
+    affiliation: *kit
+  - given-names: Armin
+    family-names: Ardone
+    affiliation: *kit
+  - given-names: Wolf
+    family-names: Fichtner
+    affiliation: *kit

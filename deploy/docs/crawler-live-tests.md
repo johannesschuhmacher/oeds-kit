@@ -2,8 +2,9 @@
 
 This is a source-connectivity and database-ingestion test, not a guarantee that
 every source, historical period, subscription or data field works. It tests
-both implementations when the upstream and KIT names overlap: 21 KIT and 32
-upstream implementations, rather than only the 47 winners in the merged registry.
+both implementations when the core and crawler-pack names overlap: 20 crawler-pack
+and 32 core implementations (every core module with a crawler class), rather
+than only the 41 crawlers that `oeds-crawl --list` registers.
 
 ## Run it
 
@@ -77,8 +78,7 @@ docker network rm oeds-crawler-validation
 - EPEX requests one recent day and all four supported dataset groups. Regelleistung
   needs a completed month in the discovery window; at most three files are read.
 - Copernicus requests one temperature variable, time and small area; DWD CDC reads
-  January for all three variables. Weather/Open-Meteo use one location. OSM uses
-  a small Karlsruhe bounding box, not the whole country.
+  January for all three variables. Weather/Open-Meteo use one location.
 - The upstream generic incremental driver can ignore a requested start date on an
   empty database. Bounded checks call `crawl_from_to()` directly where available;
   ENTSOG calls its dated operational-data method. These are ingestion checks,
@@ -88,7 +88,80 @@ docker network rm oeds-crawler-validation
 - This does not test SMTP delivery, accept dataset terms, create paid subscriptions
   or bypass source access restrictions. PRISMA and JAO need additional credentials.
 
-## Initial baseline audit, 5 September 2026
+## Release 1.0.0, 2026-10-22
+
+Run on iip-vm-oeds-intern-test with the `oeds-test:runtime` image of oeds-kit
+1.0.0 (`oeds-core` `69e6005` with its crawler extra), UID 1000, two workers,
+2-GB memory per worker and empty validation databases (`--reset`). The first
+pass used the 240-s limit; six cases were repeated with `--timeout 900`,
+two of them (`core:e2watch`, `core:ecmwf_crawler`) after the core package
+included its data files. **35 of 52 implementations loaded data: crawler
+pack 18 of 20, core 17 of 32.** The September baseline counted 36 of 53 (21
+pack, 32 core); the OSM crawler has been removed since.
+
+| Case | Result | Rows | Note |
+| --- | --- | ---: | --- |
+| `kit:copernicus_cds` | timeout (900 s) | 2 | CDS request still queued; the configured crawler completed on both VMs |
+| `kit:dwd_cdc` | data | 6,257 | |
+| `kit:eia` | data | 1,561 | |
+| `kit:energy_forecast_crawler` | data | 1 | one forecast run per call |
+| `kit:entsoe_api` | data | 2,305 | |
+| `kit:entsoe_fms` | data | 506,526 | |
+| `kit:entsog` | data | 67,511 | 106 s; 240 s were too short in the first pass |
+| `kit:epex_spot` | data | 1,725,021 | |
+| `kit:eurostat_crawler` | data | 2,151 | |
+| `kit:gie_agsi_alsi` | data | 9 | |
+| `kit:mastr` | data | 300 | three tables, 100 rows each |
+| `kit:netztransparenz` | data | 11,501 | |
+| `kit:ninja` | data | 929,184 | |
+| `kit:open_meteo` | data | 338 | |
+| `kit:power_system_data` | data | 305,748 | |
+| `kit:prisma_capacity` | skipped | 1 | no API subscription; access status only |
+| `kit:regelleistung` | data | 16,925 | |
+| `kit:smard` | data | 4,587 | |
+| `kit:tradinghub` | data | 1,597 | DataExport API |
+| `kit:weather_forecast` | data | 42 | |
+| `core:chargepoint` | timeout (900 s) | 0 | download not finished |
+| `core:dwd` | failed | 0 | expects NUTS shapefiles in the package directory; `nuts_mapper` writes them to the data directory |
+| `core:e2watch` | failed | 163 | building list stored; the measurement API returned no JSON |
+| `core:ecmwf_crawler` | failed | 0 | needs the `nuts_mapper` table in the same database |
+| `core:eex` | failed | 0 | needs locally stored EEX files (`~/eex`) |
+| `core:entsoe_crawler` | data | 2,285 | |
+| `core:entsog` | data | 33,715 | |
+| `core:eon_grid_fees` | failed | 10,132 | NUTS prerequisite stored; geocoder (Nominatim) timed out |
+| `core:eview` | timeout, partial | 893,547 | 900-s limit |
+| `core:fernwaerme_preisuebersicht` | data | 716 | also run by the scheduler on intern-test |
+| `core:frequency` | data | 48 | |
+| `core:gie_crawler` | data | 331 | |
+| `core:instrat_pl` | failed | 0 | source returned no data for the test day |
+| `core:iwugebaeudetypen` | data | 370 | |
+| `core:jao_crawler` | failed | 0 | no JAO API key |
+| `core:jrc_idees` | data | 2,046 | |
+| `core:ladesaeulenregister` | data | 48 | |
+| `core:londondatastore` | data | 48 | |
+| `core:mastr` | timeout | 0 | `open-mastr` cannot map an XSD list type |
+| `core:netztransparenz` | failed | 1,091,520 | compares naive and aware datetimes after loading |
+| `core:ninja` | data | 929,184 | |
+| `core:nrw_kwp_waermedichte` | no data | 0 | |
+| `core:nuts_mapper` | data | 10,132 | |
+| `core:oep` | data | 48 | |
+| `core:opec` | failed | 0 | download refused |
+| `core:opsd` | data | 37,327 | |
+| `core:refit` | data | 48 | |
+| `core:regelleistung` | partial | 126 | not all required tables |
+| `core:smard` | data | 168 | |
+| `core:synpro` | data | 420,480 | |
+| `core:vea_industrial_load_profiles` | data | 140,546 | |
+| `core:windmodel` | failed | 0 | HTTP 403 from the power-curve site |
+
+No remaining failure is caused by the installation: the core cases that
+failed on missing package files (`e2watch`, `ecmwf_crawler`) now fail at the
+source or at a prerequisite. The `core:dwd`, `core:netztransparenz` and
+`core:mastr` failures are in the core code or its `open-mastr` dependency; the
+crawler pack replaces `netztransparenz` and `mastr` with working
+implementations.
+
+## Initial baseline audit, 5 September 2026 (former module repositories)
 
 This section is the historical unmodified-upstream baseline. See the follow-up
 below for corrected implementations; failures here are not the current result
