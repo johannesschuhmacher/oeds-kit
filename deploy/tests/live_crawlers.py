@@ -25,12 +25,12 @@ NETWORK = "oeds-crawler-validation"
 ROOT = Path(__file__).resolve().parent
 IMAGE = "oeds-test:runtime"
 BOOTSTRAP_LOCK = threading.Lock()
-# Crawler module directories inside the image (both packages are installed
-# into /app/.venv).
-SOURCES = {
-    "kit": Path(importlib.import_module("crawler").__file__).parent,
-    "core": Path(importlib.import_module("oeds.crawler").__file__).parent,
-}
+
+
+def core_dir():
+    """Core crawler modules inside the image; only workers and --list import them."""
+    return Path(importlib.import_module("oeds.crawler").__file__).parent
+
 REQUIRED_TABLES = {
     "kit:copernicus_cds": ("downloaded_files", "variable_statistics"),
     "kit:entsoe_api": ("day_ahead_prices", "load_forecasts", "wind_solar_forecasts"),
@@ -50,15 +50,24 @@ for _source in ("kit", "core"):
     REQUIRED_TABLES[f"{_source}:entsog"] = ("physical_flow", "allocation", "firm_technical")
 
 
+CORE_BASES = {"BaseCrawler", "ContinuousCrawler", "DownloadOnceCrawler"}
+
+
+def core_crawler_classes(path):
+    """Classes in a core module that derive directly from a core crawler base."""
+    tree = ast.parse(path.read_text())
+    return [node.name for node in tree.body if isinstance(node, ast.ClassDef)
+            and any(isinstance(base, ast.Name) and base.id in CORE_BASES for base in node.bases)]
+
+
 def inventory():
-    from oeds_scheduler_ui.discovery import discover_crawler_specs
-    result = {}
-    for source, path in SOURCES.items():
-        prefix = "crawler" if source == "kit" else "oeds.crawler"
-        discovered = discover_crawler_specs(source_name=source, source_path=path.parent,
-                                             crawler_package_path=path, module_prefix=prefix)
-        for name in discovered.crawlers:
-            result[f"{source}:{name}"] = str(path / f"{name}.py")
+    """kit: the crawler pack's registered crawlers; core: every core module with a crawler
+    class, including modules that the core registry does not list."""
+    from crawler.cli import crawler_entry_points
+    result = {f"kit:{name}": entry.value for name, entry in crawler_entry_points().items()}
+    for path in sorted(core_dir().glob("*.py")):
+        if path.stem != "__init__" and core_crawler_classes(path):
+            result[f"core:{path.stem}"] = str(path)
     return result
 
 
@@ -124,13 +133,14 @@ def execute_case(case):
             "product_type": ["reanalysis"], "variable": ["2m_temperature"],
             "year": ["2025"], "month": ["01"], "day": ["01"], "time": ["12:00"],
             "area": [49.5, 8.0, 49.0, 8.5], "data_format": "netcdf"})
-    module = importlib.import_module(("crawler." if source == "kit" else "oeds.crawler.") + name)
-    tree = ast.parse((SOURCES[source] / (name + ".py")).read_text())
-    candidates = [node.name for node in tree.body if isinstance(node, ast.ClassDef)
-                  and any(isinstance(base, ast.Name) and base.id in
-                          {"BaseCrawler", "ContinuousCrawler", "DownloadOnceCrawler"}
-                          for base in node.bases)]
-    cls = getattr(module, candidates[0])
+    if source == "kit":
+        from crawler.cli import crawler_entry_points
+        entry = crawler_entry_points()[name]
+        module = importlib.import_module(entry.module)
+        cls = entry.load()
+    else:
+        module = importlib.import_module("oeds.crawler." + name)
+        cls = getattr(module, core_crawler_classes(core_dir() / (name + ".py"))[0])
     if name == "open_meteo":
         config["locations"] = module.DEFAULT_LOCATIONS[:1]
     elif name == "weather_forecast":
