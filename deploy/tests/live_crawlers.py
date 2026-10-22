@@ -105,8 +105,6 @@ def execute_case(case):
     if name == "entsoe_fms":
         config.update(target_data_items=["EnergyPrices_12.1.D_r3", "ActualTotalLoad_6.1.A_r3"],
                       fms_package_window_months=1, fms_package_write_mode="full_upsert")
-    if name == "osm_power":
-        config.update(bbox=[49.0, 8.35, 49.05, 8.45], max_elements=100)
     if source == "kit" and name == "mastr":
         config.update(tables=["EinheitenWind", "Katalogkategorien", "Katalogwerte"], max_rows_per_table=100)
     if source == "core":
