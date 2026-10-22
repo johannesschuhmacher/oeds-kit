@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+from crawler.common.crawler_utils import copy_insert
 from crawler.common.kit_base import KitCrawler
 
 import pandas as pd
@@ -67,19 +68,19 @@ class NinjaCrawler(KitCrawler):
             if "ON" in col
         }
         df_on = pd.DataFrame(data=onshore, index=df.index)
-        df_on.to_sql("capacity_wind_on", self.engine, if_exists="replace")
+        df_on.to_sql("capacity_wind_on", self.engine, if_exists="replace", method=copy_insert)
         offshore = {
             col.split("_")[0].lower(): df[col].values
             for col in df.columns
             if "OFF" in col
         }
         df_off = pd.DataFrame(data=offshore, index=df.index)
-        df_off.to_sql("capacity_wind_off", self.engine, if_exists="replace")
+        df_off.to_sql("capacity_wind_off", self.engine, if_exists="replace", method=copy_insert)
 
     def write_solar_capacity_factors(self, df):
         df.index = pd.to_datetime(df.index)
         df.columns = [col.lower() for col in df.columns]
-        df.to_sql("capacity_solar_merra2", self.engine, if_exists="replace")
+        df.to_sql("capacity_solar_merra2", self.engine, if_exists="replace", method=copy_insert)
 
     def write_to_db(self, energy_type, file_name, download_url, df):
         if energy_type == 'wind':

@@ -13,7 +13,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from crawler.common.kit_base import KitCrawler
-from crawler.common.crawler_utils import build_session, parse_number, utc_now, write_access_status
+from crawler.common.crawler_utils import build_session, copy_insert, parse_number, utc_now, write_access_status
 
 
 log = logging.getLogger("dwd_cdc")
@@ -153,7 +153,7 @@ class DwdCdcCrawler(KitCrawler):
         with self.engine.begin() as conn:
             conn.execute(text("DELETE FROM regional_monthly"))
             if not combined.empty:
-                combined.to_sql("regional_monthly", conn, if_exists="append", index=False)
+                combined.to_sql("regional_monthly", conn, if_exists="append", index=False, method=copy_insert)
         temporal_start = combined["period_start"].min().isoformat() if not combined.empty else None
         temporal_end = combined["period_start"].max().isoformat() if not combined.empty else None
         self.set_metadata(
