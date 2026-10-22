@@ -1919,7 +1919,7 @@ wheels = [
 [[package]]
 name = "oeds"
 version = "0.0.1"
-source = { git = "https://github.com/johannesschuhmacher/oeds-core.git?rev=d3944f6aa37b72f02321af74293f77db0ea4852e#d3944f6aa37b72f02321af74293f77db0ea4852e" }
+source = { git = "https://github.com/johannesschuhmacher/oeds-core.git?rev=69e600579d02984197b44803b93559be26bc852e#69e600579d02984197b44803b93559be26bc852e" }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "netztransparenz" },
@@ -1994,7 +1994,7 @@ requires-dist = [
     { name = "eurostat" },
     { name = "lxml" },
     { name = "netcdf4" },
-    { name = "oeds", extras = ["crawlers"], git = "https://github.com/johannesschuhmacher/oeds-core.git?rev=d3944f6aa37b72f02321af74293f77db0ea4852e" },
+    { name = "oeds", extras = ["crawlers"], git = "https://github.com/johannesschuhmacher/oeds-core.git?rev=69e600579d02984197b44803b93559be26bc852e" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "paramiko" },
