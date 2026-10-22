@@ -14,8 +14,10 @@ commands and the deployment, in one repository and one `uv` workspace.
 The layering is `oeds < crawler-pack < scheduler < post`: the upstream `oeds`
 package (pinned to a Git revision of the
 [core test branch](https://github.com/johannesschuhmacher/oeds-core) in
-`pyproject.toml`) provides `BaseCrawler` and the upstream crawlers; the crawler
-pack subclasses it; the scheduler starts `oeds-crawl` subprocesses and imports
+`pyproject.toml`, with its crawler dependencies `oeds[crawlers]`) provides
+`BaseCrawler` and the upstream crawlers; the crawler pack subclasses it, and
+`oeds-crawl` runs both pack and core crawlers (`oeds-crawl --list`; a pack crawler
+replaces a core crawler of the same name); the scheduler starts `oeds-crawl` subprocesses and imports
 only `crawler.common.*`; the post-scripts are optional for the scheduler and
 need the pack only for `oeds-post backfill entsoe-unavailability` (extra
 `backfill`).
