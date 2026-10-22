@@ -122,13 +122,19 @@ def test_installed_core_provides_its_crawlers():
     assert {"opsd", "jao", "smard", "entsoe"} <= set(cli.core_crawlers())
 
 
-def test_core_credentials_come_from_the_crawler_env(monkeypatch):
+def test_core_config_gets_the_container_database_and_env_credentials(monkeypatch):
     monkeypatch.setattr(cli, "load_crawler_dotenv", lambda: None)
-    for name in ("ENTSOE_API_KEY", "ENTSOE_SECURITY_TOKEN"):
+    for name in ("ENTSOE_API_KEY", "ENTSOE_SECURITY_TOKEN", "OEDS_DB_PORT", "OEDS_DB_PASSWORD"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("ENTSOE_API", "token")
+    monkeypatch.setenv("OEDS_DB_HOST", "open-data")
 
-    config = cli.add_core_credentials({"gie_api_key": "configured"})
+    config = cli.prepare_core_config({
+        "gie_api_key": "configured",
+        "database_uri": "postgresql://u:p@localhost:6432/opendata?options=--search_path=",
+    })
 
     assert config["entsoe_api_key"] == "token"
     assert config["gie_api_key"] == "configured"
+    assert config["db_uri"].format(DBNAME="opsd") == (
+        "postgresql://u:p@open-data:6432/opendata?options=--search_path=opsd")

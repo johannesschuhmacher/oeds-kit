@@ -25,7 +25,7 @@ from crawler.common.crawler_config import (
 )
 from crawler.common.crawler_logging import setup_crawler_logging
 from crawler.common.crawler_utils import CrawlerSkipped
-from crawler.common.kit_base import KitCrawler
+from crawler.common.kit_base import KitCrawler, kit_db_uri
 from crawler.common.local_env import apply_email_env_overrides, load_crawler_dotenv
 
 EXIT_OK = 0
@@ -75,8 +75,13 @@ def load_crawler_class(crawler_name: str) -> type:
     )
 
 
-def add_core_credentials(config: dict) -> dict:
-    """Fill the credential keys of core crawlers from the crawler .env, unless configured."""
+def prepare_core_config(config: dict) -> dict:
+    """Database URI and API keys for a core crawler.
+
+    The URI is resolved like a pack crawler's (OEDS_DB_HOST/PORT/PASSWORD inside the
+    containers); the credential keys come from the crawler .env unless configured.
+    """
+    config["db_uri"] = kit_db_uri(config)
     load_crawler_dotenv()
     for key, variables in CORE_CREDENTIALS.items():
         if not config.get(key):
@@ -145,9 +150,9 @@ def main(argv: list[str] | None = None) -> int:
         crawler_class = load_crawler_class(args.crawler)
         if not issubclass(crawler_class, KitCrawler):
             # Core crawlers set up no logging of their own: give them the log file and
-            # alert mail of the pack crawlers, and their API keys from the crawler .env.
+            # alert mail of the pack crawlers, the resolved database URI and their API keys.
             setup_crawler_logging(args.crawler, config)
-            add_core_credentials(config)
+            prepare_core_config(config)
         crawler = crawler_class(args.crawler, config)
         log.info("Running %s (%s)", args.crawler, config["_scheduler_job_id"])
         run_crawler(crawler)
