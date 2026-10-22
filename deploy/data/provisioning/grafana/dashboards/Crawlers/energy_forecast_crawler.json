@@ -213,8 +213,8 @@
           "sort": "desc"
         }
       },
-      "title": "Energy Price — Actual vs Forecast Band",
-      "description": "Green = confirmed market price (H+0, ×1000 to EUR/MWh). Orange band = min/max range of all past forecasts for each time point. Orange dashed = forecast average.",
+      "title": "Price forecast: first hour of each run and 48 h band (EUR/MWh)",
+      "description": "energyforecast.de predictions. 'First forecast hour' is the prediction for the hour the run starts; the band shows average, minimum and maximum over all runs for each hour. These are forecasts, not market results.",
       "type": "timeseries",
       "targets": [
         {
@@ -225,7 +225,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT prediction_start AS time, p_h_00_m_00 * 1000 AS \"Actual Price\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start) ORDER BY prediction_start",
+          "rawSql": "SELECT prediction_start AS time, p_h_00_m_00 * 1000 AS \"First forecast hour\" FROM energy_forecast.predictions_48h WHERE $__timeFilter(prediction_start) ORDER BY prediction_start",
           "refId": "A"
         },
         {
@@ -293,7 +293,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Latest Price (EUR/MWh)",
+      "title": "Latest first-hour forecast (EUR/MWh)",
       "type": "stat",
       "targets": [
         {
@@ -361,7 +361,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Period Max Price (EUR/MWh)",
+      "title": "Highest first-hour forecast in period (EUR/MWh)",
       "type": "stat",
       "targets": [
         {
@@ -425,7 +425,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Period Min Price (EUR/MWh)",
+      "title": "Lowest first-hour forecast in period (EUR/MWh)",
       "type": "stat",
       "targets": [
         {
@@ -465,7 +465,7 @@
           "show": false
         }
       },
-      "title": "Raw Prediction Data",
+      "title": "Forecast runs (hours 0, 6, 12, ...)",
       "type": "table",
       "targets": [
         {
@@ -493,8 +493,8 @@
     "list": []
   },
   "time": {
-    "from": "now-90d",
-    "to": "now"
+    "from": "now-30d",
+    "to": "now+2d"
   },
   "timepicker": {},
   "timezone": "",
