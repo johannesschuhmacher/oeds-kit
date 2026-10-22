@@ -1,0 +1,412 @@
+{
+  "uid": "eurostat-renewable-capacity",
+  "title": "Eurostat – Renewable electricity capacity",
+  "description": "Eurostat table nrg_inf_epcrw: net maximum electrical capacity of renewable and waste plants per country and year (reported in MW). Solar PV as reported (CAP_NET_ELC). Hydro is split into pure, mixed and pumped hydro as reported.",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Latest reporting year",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, max(year)::float AS value FROM eurostat.eurostat"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Wind, latest year",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM eurostat.eurostat WHERE \"geo\\TIME_PERIOD\" = '$Country' AND plant_tec = 'CAP_NET_ELC' AND siec IN ('RA310', 'RA320') AND year = (SELECT max(year) FROM eurostat.eurostat)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Solar PV, latest year",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM eurostat.eurostat WHERE \"geo\\TIME_PERIOD\" = '$Country' AND plant_tec = 'CAP_NET_ELC' AND siec = 'RA420' AND year = (SELECT max(year) FROM eurostat.eurostat)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Hydro excl. pumped, latest year",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM eurostat.eurostat WHERE \"geo\\TIME_PERIOD\" = '$Country' AND plant_tec = 'CAP_NET_ELC' AND siec IN ('RA110', 'RA120') AND year = (SELECT max(year) FROM eurostat.eurostat)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Capacity by technology and year",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT year::text AS year, sum(capacity) FILTER (WHERE siec = 'RA310') * 1e6 AS \"Wind onshore\", sum(capacity) FILTER (WHERE siec = 'RA320') * 1e6 AS \"Wind offshore\", sum(capacity) FILTER (WHERE siec = 'RA420') * 1e6 AS \"Solar photovoltaic\", sum(capacity) FILTER (WHERE siec = 'RA410') * 1e6 AS \"Solar thermal\", sum(capacity) FILTER (WHERE siec = 'RA110') * 1e6 AS \"Pure hydro\", sum(capacity) FILTER (WHERE siec = 'RA120') * 1e6 AS \"Mixed hydro\", sum(capacity) FILTER (WHERE siec = 'RA130') * 1e6 AS \"Pumped hydro\", sum(capacity) FILTER (WHERE siec = 'RA200') * 1e6 AS \"Geothermal\", sum(capacity) FILTER (WHERE siec = 'RA500') * 1e6 AS \"Tide, wave, ocean\", sum(capacity) FILTER (WHERE siec = 'R5100') * 1e6 AS \"Solid biofuels\", sum(capacity) FILTER (WHERE siec = 'R5300') * 1e6 AS \"Biogases\", sum(capacity) FILTER (WHERE siec = 'R5290') * 1e6 AS \"Other liquid biofuels\", sum(capacity) FILTER (WHERE siec = 'W6100') * 1e6 AS \"Industrial waste (non-renewable)\", sum(capacity) FILTER (WHERE siec = 'W6200') * 1e6 AS \"Municipal waste\" FROM eurostat.eurostat WHERE \"geo\\TIME_PERIOD\" = '$Country' AND plant_tec = 'CAP_NET_ELC' GROUP BY year ORDER BY year"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "stacking": "normal",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 11
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Country comparison, latest year (MW)",
+      "description": "EU27_2020 and EA21 are the EU and euro-area totals.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \"geo\\TIME_PERIOD\" AS country, round(sum(capacity) FILTER (WHERE siec = 'RA310')) AS \"Wind onshore\", round(sum(capacity) FILTER (WHERE siec = 'RA320')) AS \"Wind offshore\", round(sum(capacity) FILTER (WHERE siec = 'RA420')) AS \"Solar PV\", round(sum(capacity) FILTER (WHERE siec IN ('RA110', 'RA120'))) AS \"Hydro excl. pumped\", round(sum(capacity) FILTER (WHERE siec = 'RA130')) AS \"Pumped hydro\", round(sum(capacity) FILTER (WHERE siec IN ('R5100', 'R5290', 'R5300'))) AS \"Bioenergy\" FROM eurostat.eurostat WHERE plant_tec = 'CAP_NET_ELC' AND year = (SELECT max(year) FROM eurostat.eurostat) GROUP BY 1 ORDER BY 4 DESC NULLS LAST"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 12
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    }
+  ],
+  "refresh": "1d",
+  "schemaVersion": 39,
+  "tags": [
+    "eurostat",
+    "capacity"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "Country",
+        "label": "Country",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT \"geo\\TIME_PERIOD\" FROM eurostat.eurostat ORDER BY 1",
+        "definition": "SELECT DISTINCT \"geo\\TIME_PERIOD\" FROM eurostat.eurostat ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "DE",
+          "value": "DE"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "version": 1,
+  "fiscalYearStartMonth": 0,
+  "annotations": {
+    "list": []
+  }
+}

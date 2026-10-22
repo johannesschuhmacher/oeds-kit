@@ -7,8 +7,8 @@ from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1] / 'data/provisioning/grafana/dashboards'
 DASHBOARDS = {
-    'd7e44e51-6f7f-4316-b9fb-1bb32c03fa18': 'smard/smard.json',
-    'weather-dashboard': 'weather_forecast/weather.json',
+    'd7e44e51-6f7f-4316-b9fb-1bb32c03fa18': 'Crawlers/smard.json',
+    'weather-dashboard': 'Crawlers/weather_forecast.json',
 }
 
 
@@ -26,7 +26,7 @@ def main():
             archive = ROOT.parent / 'optional-dashboards/smard/SMARD_ENTSOE_Comparison.json'
             archive.parent.mkdir(parents=True, exist_ok=True)
             archive.write_text(json.dumps(original, ensure_ascii=True, indent=2) + '\n')
-            dashboard['title'] = 'SMARD'
+            dashboard['title'] = 'SMARD – Generation, load and day-ahead price'
             generation, price = dashboard['panels']
             generation['title'] = 'Electricity generation and load (MW)'
             generation['fieldConfig']['defaults']['unit'] = 'suffix:MW'
@@ -50,6 +50,7 @@ def main():
                 panel['fieldConfig']['overrides'] = []
                 panel['fieldConfig']['defaults']['custom']['stacking']['mode'] = 'none'
         else:
+            dashboard['title'] = 'Weather – City forecasts (DWD ICON)'
             for panel in dashboard['panels']:
                 if panel.get('type') == 'geomap':
                     panel['options']['basemap'] = {'name': 'OpenStreetMap', 'type': 'osm-standard'}
