@@ -15,10 +15,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# git: uv fetches `oeds` (and the price-forecast pipeline) from Git. Every
-# other locked dependency ships a Linux wheel, so no compiler is needed.
+# git: uv fetches `oeds` (and the price-forecast pipeline) from Git. gcc: the
+# core crawler extra pins py7zr<1, whose pyppmd has no Linux wheel for Python
+# 3.13. Only this builder stage compiles; the runtime image gets no compiler.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git gcc libc6-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Third-party dependencies first (from uv.lock only), so a source change does

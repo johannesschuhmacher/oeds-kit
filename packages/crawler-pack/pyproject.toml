@@ -17,7 +17,7 @@ dependencies = [
     "eurostat",
     "lxml",
     "netCDF4",
-    "oeds",
+    "oeds[crawlers]",
     "openpyxl",
     "pandas",
     "paramiko",
