@@ -43,9 +43,11 @@ class MastrCrawler(KitCrawler):
 
     @staticmethod
     def _download_session() -> requests.Session:
-        # The export server occasionally resets connections; each ZIP member is
-        # fetched with its own range request, so retrying it is safe.
-        retry = Retry(total=5, backoff_factor=5, status_forcelist=(429, 500, 502, 503, 504),
+        # The export server occasionally resets connections, sometimes for several
+        # minutes (22.10.2026: 2.5 min, which exhausted 5 retries 70 min into a run).
+        # Each ZIP member is fetched with its own range request, so retrying is safe;
+        # these waits (10, 20, 40, 80, then 120 s) cover about 11 minutes.
+        retry = Retry(total=8, backoff_factor=10, status_forcelist=(429, 500, 502, 503, 504),
                       allowed_methods=("GET", "HEAD"))
         session = requests.Session()
         session.mount("https://", HTTPAdapter(max_retries=retry))
