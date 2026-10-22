@@ -65,6 +65,7 @@ def test_entry_points_register_the_pack_crawlers():
     [(None, cli.EXIT_OK), (CrawlerSkipped("no key"), cli.EXIT_SKIPPED), (RuntimeError("boom"), cli.EXIT_FAILED)],
 )
 def test_exit_codes(tmp_path, monkeypatch, outcome, expected):
+    monkeypatch.chdir(tmp_path)  # fake crawlers get the core logging setup (logs/)
     config_path = tmp_path / "CRAWLER_CONFIG.yml"
     config_path.write_text(yaml.safe_dump(RAW), encoding="utf-8")
 
@@ -88,6 +89,7 @@ def test_list_does_not_need_a_config(capsys):
 def test_failed_run_is_logged_critical_on_the_crawler_logger(tmp_path, monkeypatch, caplog):
     import logging
 
+    monkeypatch.chdir(tmp_path)
     config_path = tmp_path / "CRAWLER_CONFIG.yml"
     config_path.write_text(yaml.safe_dump(RAW), encoding="utf-8")
 
@@ -103,3 +105,30 @@ def test_failed_run_is_logged_critical_on_the_crawler_logger(tmp_path, monkeypat
         assert cli.main(["smard", "--config", str(config_path)]) == cli.EXIT_FAILED
     records = [r for r in caplog.records if r.name == "smard" and r.levelno == logging.CRITICAL]
     assert records and records[0].exc_info is not None
+
+
+def test_core_crawler_is_used_when_no_entry_point_has_the_name(monkeypatch):
+    class CoreCrawler:
+        pass
+
+    monkeypatch.setattr(cli, "core_crawlers", lambda: {"opsd": CoreCrawler, "smard": CoreCrawler})
+    assert cli.load_crawler_class("opsd") is CoreCrawler
+    assert cli.load_crawler_class("smard").__name__ == "SmardCrawler"  # the entry point wins
+    with pytest.raises(LookupError):
+        cli.load_crawler_class("nope")
+
+
+def test_installed_core_provides_its_crawlers():
+    assert {"opsd", "jao", "smard", "entsoe"} <= set(cli.core_crawlers())
+
+
+def test_core_credentials_come_from_the_crawler_env(monkeypatch):
+    monkeypatch.setattr(cli, "load_crawler_dotenv", lambda: None)
+    for name in ("ENTSOE_API_KEY", "ENTSOE_SECURITY_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ENTSOE_API", "token")
+
+    config = cli.add_core_credentials({"gie_api_key": "configured"})
+
+    assert config["entsoe_api_key"] == "token"
+    assert config["gie_api_key"] == "configured"
