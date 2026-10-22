@@ -3,7 +3,27 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## Unreleased
+## 1.0.0 (2026-10-22)
+
+First release of the merged repository; the archived module repositories end
+here.
+
+- Core crawlers: the pinned `oeds-core` installs `oeds.crawler`, its data
+  files and the extra `oeds[crawlers]`; `oeds-crawl` and the scheduler run core
+  crawlers when no crawler-pack entry point has the name (#11, #12).
+- Crawlers: Trading Hub Europe DataExport API, Copernicus zipped NetCDF (#4);
+  EPEX skips unchanged files and upserts through COPY, COPY inserts for MaStR,
+  ENTSOG, ninja and DWD, price forecast skips incomplete training days (#5);
+  faster MaStR XML parsing and longer download retries (#7); the OSM power
+  crawler is removed because Overpass blocks automated clients (#8). Earlier:
+  EPEX SFTP reconnects, Netztransparenz Hochrechnung paths (#2), ENTSO-E FMS
+  parsing, conditional upserts and UpdateTime indexes (#3).
+- Grafana: one dashboard per crawler in `Crawlers/` and cross-source views in
+  `Analyses/`; `check_dashboards.py --all` queries every provisioned panel
+  (#6, #9).
+- Deployment: install and update stop scheduler and admin before the database
+  (#10).
+- Workspace and image (#1):
 
 - Merge oeds-crawler-pack, oeds-scheduler-ui, oeds-post-scripts and
   oeds-deployment into this repository (`git subtree`, history preserved) as

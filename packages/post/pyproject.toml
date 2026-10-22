@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oeds-post-scripts"
-version = "0.1.0"
+version = "1.0.0"
 description = "Post-run processing CLI for Open Energy Data Server."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
