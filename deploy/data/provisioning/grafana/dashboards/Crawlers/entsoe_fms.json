@@ -1,0 +1,747 @@
+{
+  "uid": "FEg9kde7z",
+  "title": "ENTSO-E Transparency – Load, generation and prices",
+  "description": "ENTSO-E Transparency Platform, File Library (FMS) extracts, for one bidding zone. Power in MW (average per interval), prices in EUR/MWh (SDAC day-ahead, sequence 1). Times in the browser time zone.",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Load, latest",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"TotalLoad[MW]\" AS value FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' ORDER BY 1 DESC LIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Day-ahead price, now",
+      "description": "Day-ahead price of the current delivery period, EUR/MWh.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" <= now() ORDER BY 1 DESC LIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Wind and solar share, last 24 h",
+      "description": "Share of wind and solar in the actual generation reported for the zone.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(\"ActualGenerationOutput[MW]\") FILTER (WHERE \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) / nullif(sum(\"ActualGenerationOutput[MW]\"), 0) AS value FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '24 hours'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Net physical import, latest",
+      "description": "Physical imports minus exports over all borders in the latest reported period (positive = import).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS time, sum(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END AS mw FROM entsoe_fms.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" >= now() - interval '2 days') f GROUP BY ts ORDER BY ts DESC LIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load: actual and day-ahead forecast",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Actual load\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Day-ahead forecast\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_fms.\"DayAheadTotalLoadForecast\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Day-ahead price",
+      "description": "SDAC day-ahead price (sequence 1), EUR/MWh.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(price) AS \"Day-ahead price\" FROM ( SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Generation by production type",
+      "description": "Actual generation per production type, stacked. Pumped storage consumption is not shown.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 11
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Wind and solar: day-ahead forecast vs. actual",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' forecast' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"DayAheadGenerationForecast[MW]\" AS mw FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' actual' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() AND \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) x GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 10
+      },
+      "id": 8,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Physical cross-border flows (positive = import)",
+      "description": "Net physical flow per neighbour: flow into the zone minus flow out of it.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), neighbour AS metric, avg(mw) AS value FROM (SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"OutAreaDisplayName\" ELSE \"InAreaDisplayName\" END AS neighbour, sum(CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END) AS mw FROM entsoe_fms.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() GROUP BY 1, 2) x GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 10
+      },
+      "id": 9,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Installed capacity by production type",
+      "description": "Latest reported year (ENTSO-E 14.1.A).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \"ProductionType\" AS type, sum(\"AggregatedInstalledCapacity[MW]\") AS \"Installed capacity\" FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Year\" = (SELECT max(\"Year\") FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%') GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megwatt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "none",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 10
+      },
+      "id": 10,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Data coverage",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 'Actual total load' AS dataset, max(\"DateTime(UTC)\") AS last_value, max(\"UpdateTime(UTC)\") AS last_update FROM entsoe_fms.\"ActualTotalLoad\" UNION ALL SELECT 'Day-ahead load forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"DayAheadTotalLoadForecast\" UNION ALL SELECT 'Generation per type', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"AggregatedGenerationPerType\" UNION ALL SELECT 'Wind and solar forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" UNION ALL SELECT 'Day-ahead prices', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"EnergyPrices\" UNION ALL SELECT 'Physical flows', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"PhysicalFlows\" UNION ALL SELECT 'Transfer capacities', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"ForecastedTransferCapacities\""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 10
+      },
+      "id": 11,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    }
+  ],
+  "refresh": "15m",
+  "schemaVersion": 39,
+  "tags": [
+    "entsoe",
+    "load",
+    "generation",
+    "prices"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "country",
+        "label": "Bidding zone",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "DE-LU",
+          "value": "DE-LU"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now+1d"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "version": 1,
+  "fiscalYearStartMonth": 0,
+  "annotations": {
+    "list": []
+  }
+}

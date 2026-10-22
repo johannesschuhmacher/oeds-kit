@@ -1,0 +1,627 @@
+{
+  "uid": "mastr-installed-capacity",
+  "title": "MaStR – Installed capacity in Germany",
+  "description": "Marktstammdatenregister (Bundesnetzagentur), full export. Gross capacity (Bruttoleistung) of electricity generation and storage units. 'In operation' means Betriebsstatus 'In Betrieb'. Combustion covers all fuels in EinheitenVerbrennung (coal, gas, oil, waste, hydrogen).",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Solar, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Solar' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Wind onshore, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Wind onshore' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Wind offshore, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Wind offshore' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Battery storage, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Battery storage' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Biomass, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Biomass' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Combustion, in operation",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE tech = 'Combustion' AND status = 35"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Capacity in operation by federal state",
+      "description": "Offshore wind is registered in the exclusive economic zone ('Ausschließliche Wirtschaftszone').",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(k.\"Wert\", 'unknown') AS state, sum(kw) FILTER (WHERE tech = 'Solar') * 1000 AS \"Solar\", sum(kw) FILTER (WHERE tech = 'Wind onshore') * 1000 AS \"Wind onshore\", sum(kw) FILTER (WHERE tech = 'Wind offshore') * 1000 AS \"Wind offshore\", sum(kw) FILTER (WHERE tech = 'Battery storage') * 1000 AS \"Battery storage\", sum(kw) FILTER (WHERE tech IN ('Biomass', 'Hydro')) * 1000 AS \"Biomass and hydro\", sum(kw) FILTER (WHERE tech = 'Combustion') * 1000 AS \"Combustion\" FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u LEFT JOIN mastr.\"Katalogwerte\" k ON k.\"Id\" = u.state WHERE status = 35 GROUP BY 1 ORDER BY sum(kw) DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 11
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Commissioned capacity per month",
+      "description": "Gross capacity by commissioning month (Inbetriebnahmedatum) of all units not in planning, including units decommissioned since. Recent months still grow as late registrations arrive.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('month', ibn::date) AS time, tech AS metric, sum(kw) * 1000 AS value FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u WHERE status <> 31 AND ibn >= to_char($__timeFrom()::timestamptz, 'YYYY-MM-DD') AND ibn < to_char($__timeTo()::timestamptz, 'YYYY-MM-DD') GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 10
+      },
+      "id": 8,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Units by technology and status",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT tech AS technology, count(*) FILTER (WHERE status = 35) AS \"units in operation\", round((sum(kw) FILTER (WHERE status = 35) / 1e6)::numeric, 2) AS \"GW in operation\", round((sum(kw) FILTER (WHERE status = 31) / 1e6)::numeric, 2) AS \"GW in planning\", round((sum(kw) FILTER (WHERE status = 37) / 1e6)::numeric, 2) AS \"GW temporarily shut down\", round((sum(kw) FILTER (WHERE status = 38) / 1e6)::numeric, 2) AS \"GW decommissioned\" FROM ( SELECT 'Solar' AS tech, \"Bundesland\"::bigint AS state, \"Bruttoleistung\" AS kw, \"EinheitBetriebsstatus\" AS status, \"Inbetriebnahmedatum\" AS ibn FROM mastr.\"EinheitenSolar\" UNION ALL SELECT CASE \"WindAnLandOderAufSee\" WHEN 889 THEN 'Wind offshore' ELSE 'Wind onshore' END, \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWind\" UNION ALL SELECT 'Battery storage', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenStromSpeicher\" UNION ALL SELECT 'Biomass', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenBiomasse\" UNION ALL SELECT 'Hydro', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenWasser\" UNION ALL SELECT 'Combustion', \"Bundesland\"::bigint, \"Bruttoleistung\", \"EinheitBetriebsstatus\", \"Inbetriebnahmedatum\" FROM mastr.\"EinheitenVerbrennung\" ) u GROUP BY 1 ORDER BY 3 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 14,
+        "h": 8
+      },
+      "id": 9,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Combustion units in operation by fuel",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT k.\"Wert\" AS fuel, count(*) AS units, round((sum(\"Bruttoleistung\") / 1e6)::numeric, 2) AS \"GW\" FROM mastr.\"EinheitenVerbrennung\" e LEFT JOIN mastr.\"Katalogwerte\" k ON k.\"Id\" = e.\"Energietraeger\" WHERE \"EinheitBetriebsstatus\" = 35 GROUP BY 1 ORDER BY 3 DESC NULLS LAST"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        }
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 25,
+        "w": 10,
+        "h": 8
+      },
+      "id": 10,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    }
+  ],
+  "refresh": "1d",
+  "schemaVersion": 39,
+  "tags": [
+    "mastr",
+    "capacity",
+    "germany"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "version": 1,
+  "fiscalYearStartMonth": 0,
+  "annotations": {
+    "list": []
+  }
+}
