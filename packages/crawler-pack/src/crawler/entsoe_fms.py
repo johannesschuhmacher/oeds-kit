@@ -13,12 +13,10 @@ download loop in multiple spots.
 import csv
 import io
 import os
-import logging
 import re
 import time
 from typing import List, Dict
 
-import gc
 from dotenv import load_dotenv
 
 import pandas as pd
@@ -42,8 +40,6 @@ from entsoe.mappings import PSRTYPE_MAPPINGS, Area
 from urllib3.util.retry import Retry
 
 from crawler.common.kit_base import KitCrawler
-
-from datetime import datetime
 
 
 # Data items are identified without their extract version (such as "_r3").
@@ -117,11 +113,7 @@ FMS_FULL_UPSERT_TABLES = {
     "ProductionAndGenerationUnits",
     "TransmissionAssets",
     "UnavailabilityInTheTransmissionGrid",
-    "UnavailabilityOfGenerationUnits",
-    "UnavailabilityOfGenerationUnitsReasons",
     "UnavailabilityOfOffshoreGrid",
-    "UnavailabilityOfProductionUnits",
-    "UnavailabilityOfProductionUnitsReasons",
     "UnavailabilityOfProductionAndGenerationUnits",
 }
 
@@ -232,7 +224,6 @@ class EntsoeFMSCrawler(KitCrawler):
         "ExpansionAndDismantlingProjects": "unique_expansion_dismantling_projects",
         "ForecastedTransferCapacities": "unique_forecasted_transfer_capa",
         "InstalledGenerationCapacityPerProductionUnit": "unique_insta_capa_prod_unit",
-        "InstalledCapacityProductionUnit": "unique_insta_capa_prod_unit",
         "InstalledGenerationCapacityAggregated": "unique_insta_gen_capa_aggr",
         "PhysicalFlows": "unique_physical_flows",
         "ProductionAndGenerationUnits": "unique_prod_gen_units",
@@ -243,12 +234,7 @@ class EntsoeFMSCrawler(KitCrawler):
         "UnavailabilityInTheTransmissionGrid": "unique_unava_trans_grid",
         "UnavailabilityOfConsumptionUnits": "unique_plam_unava_cons_units",
         "UnavailabilityOfOffshoreGrid": "unique_unava_offshore_grid",
-        "PlannedUnavailabilityOfConsumptionUnits": "unique_plam_unava_cons_units",
         "UseOfTransferCapacity": "unique_use_of_transfer_capacity",
-        "UnavailabilityOfGenerationUnits": "unique_unava_gen_units",
-        "UnavailabilityOfGenerationUnitsReasons": "unique_unava_gen_reason",
-        "UnavailabilityOfProductionUnits": "unique_unava_pro_units",
-        "UnavailabilityOfProductionUnitsReasons": "unique_unava_pro_reasons",
         "UnavailabilityOfProductionAndGenerationUnits": "unique_unava_prod_gen_units",
         "YearAheadForecastMargin": "unique_year_ahead_forecast_margin",
         "ImplicitAllocationsNetPositions": "unique_implicit_alloc_net_pos",
@@ -290,15 +276,6 @@ class EntsoeFMSCrawler(KitCrawler):
         "ExpansionAndDismantlingProjects": [
             "DateTime(UTC)", "OutAreaDisplayName", "InAreaDisplayName", "ProjectType", "AssetCode", "EstimatedCompletionDate"
         ],
-        "InstalledCapacityProductionUnit": [
-            "EICCode",
-            "Name",
-            "ValidFrom",
-            "ValidTo",
-            "Status",
-            "Type",
-            "Location",
-        ],
         "InstalledGenerationCapacityAggregated": [
             "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ProductionType"
         ],
@@ -334,15 +311,6 @@ class EntsoeFMSCrawler(KitCrawler):
         "GenerationForecastsForWindAndSolar": [
             "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ProductionType"
         ],
-        "PlannedUnavailabilityOfConsumptionUnits": [
-            "DateTime",
-            "ResolutionCode",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-        ],
-
         "UnavailabilityOfConsumptionUnits": [
             "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode"
         ],
@@ -354,64 +322,10 @@ class EntsoeFMSCrawler(KitCrawler):
             "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)",
             "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "Status"
         ],
-        "UnavailabilityOfGenerationUnits": [
-            "StartOutage",
-            "EndOutage",
-            "StartTS",
-            "EndTS",
-            "TimeZone",
-            "MRID",
-            "Status",
-            "Type",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-            "PowerResourceEIC",
-            "UnitName",
-            "ProductionType",
-            "Version",
-            "OldVersion",
-        ],
         "UnavailabilityOfProductionAndGenerationUnits": [
             "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)",
             "StartTimeSeries(UTC)", "EndTimeSeries(UTC)",
             "AssetCode", "Status", "Type"
-        ],
-        "UnavailabilityOfGenerationUnitsReasons": [
-            "StartTS",
-            "EndTS",
-            "MRID",
-            "Version",
-            "OldVersion",
-            "ReasonCode",
-        ],
-        "UnavailabilityOfProductionUnits": [
-            "StartOutage",
-            "EndOutage",
-            "StartTS",
-            "EndTS",
-            "TimeZone",
-            "MRID",
-            "Status",
-            "Type",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-            "PowerResourceEIC",
-            "UnitName",
-            "ProductionType",
-            "Version",
-            "OldVersion",
-        ],
-        "UnavailabilityOfProductionUnitsReasons": [
-            "StartTS",
-            "EndTS",
-            "MRID",
-            "Version",
-            "OldVersion",
-            "ReasonCode",
         ],
         "YearAheadForecastMargin": [
             "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode"
@@ -482,11 +396,8 @@ class EntsoeFMSCrawler(KitCrawler):
     # ---------------------------
     # Read credentials from environment variables or a local dotenv file.
     load_dotenv()
-    KETCLOAK_URL = "https://keycloak.tp.entsoe.eu/realms/tp/protocol/openid-connect/token"
-    FMS_URL = "https://fms.tp.entsoe.eu/downloadFileContent"
     USERNAME = os.getenv("ENTSOE_USERNAME")
     PASSWORD = os.getenv("ENTSOE_PASSWORD")
-    CLIENT_ID = "tp-fms-public"
 
     # ---------------------------
     # Constant endpoints and paths
@@ -1055,9 +966,6 @@ class EntsoeFMSCrawler(KitCrawler):
         self._authenticate()
         self._available_folders = None
 
-        # Kept as a safe fallback if a future change re-introduces buffered writes.
-        df_insert_full = pd.DataFrame()
-        df_update_full = pd.DataFrame()
         failures: list[str] = []
 
         target_data_items = self._get_target_data_items()
@@ -1226,14 +1134,6 @@ class EntsoeFMSCrawler(KitCrawler):
                                 self._flush_to_database(table_name, pd.DataFrame(), df_update_chunk)
                                 total_file_updates += len(df_update_chunk)
 
-                            del df
-                            if 'df_update_chunk' in locals():
-                                del df_update_chunk
-                            if 'df_insert_chunk' in locals():
-                                del df_insert_chunk
-                            if chunk_idx % 5 == 0:
-                                gc.collect()
-
                     self.logger.info(f"File {fname} processed successfully. Total rows inserted: {total_file_inserts}, Total rows updated: {total_file_updates}.")
                     print(f"    -> Finished processing {fname}: {total_file_inserts} rows inserted, {total_file_updates} rows updated.")
 
@@ -1249,18 +1149,6 @@ class EntsoeFMSCrawler(KitCrawler):
                             os.remove(local_path)
                         except Exception:
                             pass
-
-                    if 'df' in locals():
-                        del df
-                    gc.collect()
-
-            # Flush accumulated data (safe fallback)
-            if not df_insert_full.empty or not df_update_full.empty:
-                print(f"--- Flushing data for {table_name} ({len(df_insert_full)} new, {len(df_update_full)} updates) ---")
-                self._flush_to_database(table_name, df_insert_full, df_update_full)
-
-            df_insert_full = pd.DataFrame()
-            df_update_full = pd.DataFrame()
 
         if failures:
             raise RuntimeError(
@@ -1336,9 +1224,7 @@ class EntsoeFMSCrawler(KitCrawler):
 
             df = df.rename(columns=column_mapping)
 
-            original_count = len(df)
             df = df.dropna(axis=0, subset=["lon", "lat"])  # Drop rows that cannot be shown on a map.
-            dropped_count = original_count - len(df)
 
             # Views in entsoe_availability_map depend on this table, so it must not be
             # dropped (to_sql replace). Keep it and swap its rows instead.
@@ -1588,26 +1474,6 @@ class EntsoeFMSCrawler(KitCrawler):
                         name="unique_forecasted_transfer_capa"
                     )
                 )
-            case 'InstalledCapacityProductionUnit':
-                table = Table(
-                    'InstalledCapacityProductionUnit', metadata,
-                    Column("EICCode", String),
-                    Column("Name", String),
-                    Column("ValidFrom", String),
-                    Column("ValidTo", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("Location", String),
-                    Column("InstalledCapacity", Float),
-                    Column("ControlArea", String),
-                    Column("BiddingZone", String),
-                    Column("Voltage", Float),
-                    UniqueConstraint(
-                        "EICCode", "Name", "ValidFrom", "ValidTo", "Status", "Type", "Location",
-                        name="unique_insta_capa_prod_unit"
-                    )
-                )
-
             case 'InstalledGenerationCapacityPerProductionUnit':
                 table = Table(
                     'InstalledGenerationCapacityPerProductionUnit', metadata,
@@ -1696,22 +1562,6 @@ class EntsoeFMSCrawler(KitCrawler):
                         "ProductionUnitCode", "GenerationUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode",
                         name="unique_prod_gen_units",
                         postgresql_nulls_not_distinct=True,
-                    )
-                )
-            case 'PlannedUnavailabilityOfConsumptionUnits':
-                table = Table(
-                    'PlannedUnavailabilityOfConsumptionUnits', metadata,
-                    Column("DateTime", DateTime(timezone=True)),
-                    Column("ResolutionCode", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("UnavailableCapacity", Float),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime", "ResolutionCode", "AreaCode", "AreaTypeCode", "AreaName", "MapCode",
-                        name="unique_plam_unava_cons_units"
                     )
                 )
             case 'TotalCapacityAlreadyAllocated':
@@ -1940,101 +1790,6 @@ class EntsoeFMSCrawler(KitCrawler):
                     UniqueConstraint(
                         "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "Status",
                         name="unique_unava_offshore_grid"
-                    )
-                )
-            case 'UnavailabilityOfGenerationUnits':
-                table = Table(
-                    'UnavailabilityOfGenerationUnits', metadata,
-                    Column("StartOutage", DateTime(timezone=True)),
-                    Column("EndOutage", DateTime(timezone=True)),
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("TimeZone", String),
-                    Column("MRID", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("PowerResourceEIC", String),
-                    Column("UnitName", String),
-                    Column("ProductionType", String),
-                    Column("InstalledCapacity", Float),
-                    Column("AvailableCapacity", Float),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("Reason", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartOutage", "EndOutage", "StartTS", "EndTS", "TimeZone", "MRID", "Status", "Type", "AreaCode",
-                        "AreaTypeCode", "AreaName", "MapCode", "PowerResourceEIC", "UnitName", "ProductionType", "Version", "OldVersion",
-                        name="unique_unava_gen_units"
-                    )
-                )
-            case 'UnavailabilityOfGenerationUnitsReasons':
-                table = Table(
-                    'UnavailabilityOfGenerationUnitsReasons', metadata,
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("MRID", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("ReasonCode", String),
-                    Column("Reason", String),
-                    Column("ReasonText", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartTS", "EndTS", "MRID", "Version", "OldVersion", "ReasonCode",
-                        name="unique_unava_gen_reason"
-                    )
-                )
-            case 'UnavailabilityOfProductionUnits':
-                table = Table(
-                    'UnavailabilityOfProductionUnits', metadata,
-                    Column("StartOutage", DateTime(timezone=True)),
-                    Column("EndOutage", DateTime(timezone=True)),
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("TimeZone", String),
-                    Column("MRID", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("PowerResourceEIC", String),
-                    Column("UnitName", String),
-                    Column("ProductionType", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("VoltageConnectionLevel", Float),
-                    Column("InstalledCapacity", Float),
-                    Column("AvailableCapacity", Float),
-                    Column("Reason", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartOutage", "EndOutage", "StartTS", "EndTS", "TimeZone", "MRID", "Status", "Type", "AreaCode",
-                        "AreaTypeCode", "AreaName", "MapCode", "PowerResourceEIC", "UnitName", "ProductionType", "Version", "OldVersion",
-                        name="unique_unava_pro_units"
-                    )
-                )
-            case 'UnavailabilityOfProductionUnitsReasons':
-                table = Table(
-                    'UnavailabilityOfProductionUnitsReasons', metadata,
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("MRID", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("ReasonCode", String),
-                    Column("Reason", String),
-                    Column("ReasonText", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartTS", "EndTS", "MRID", "Version", "OldVersion", "ReasonCode",
-                        name="unique_unava_pro_reasons"
                     )
                 )
             case 'YearAheadForecastMargin':
@@ -2440,11 +2195,6 @@ class EntsoeFMSCrawler(KitCrawler):
             df = pd.read_csv(local_path, encoding="utf-8-sig", sep="\t")
             df.columns = df.columns.str.strip()
 
-            if table_name == "InstalledCapacityProductionUnit":
-                self.logger.info(f"[_update_data_file] Flushing (special case) {len(df)} rows for {table_name}")
-                self._flush_to_database(table_name, pd.DataFrame(), df)
-                return
-
             with self.engine.connect() as conn:
                 table_exists_query = text(f"""
                 SELECT EXISTS (
@@ -2503,129 +2253,3 @@ class EntsoeFMSCrawler(KitCrawler):
         finally:
             if local_path and os.path.exists(local_path):
                 os.remove(local_path)
-
-
-    # ----------------------------------------------------------------------
-    # Outlier Detection Method
-    # ----------------------------------------------------------------------
-    '''
-    TABLE_CONFIG = {
-        "ActualGenerationOutputPerGenerationUnit": {"identifiers": ["GenerationUnitName"], "value_columns": ["ActualGenerationOutput(MW)", "ActualConsumption(MW)", "GenerationUnitInstalledCapacity(MW)"], "time_column": "DateTime (UTC)"},
-        "ActualTotalLoad": {"identifiers": ["AreaName"], "value_columns": ["TotalLoadValue"], "time_column": "DateTime"},
-        "AggregatedGenerationPerType": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["ActualGenerationOutput", "ActualConsumption"], "time_column": "DateTime"},
-        "DayAheadAggregatedGeneration": {"identifiers": ["AreaName"], "value_columns": ["ScheduledGeneration", "ScheduledConsumption"], "time_column": "DateTime"},
-        "DayAheadGenerationForecastForWindAndSolar": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["AggregatedGenerationForecast"], "time_column": "DateTime"},
-        "DayAheadTotalLoadForecast": {"identifiers": ["AreaName"], "value_columns": ["TotalLoadValue"], "time_column": "DateTime"},
-        "IntradayGenerationForecastForWindAndSolar": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["AggregatedGenerationForecast"], "time_column": "DateTime"}
-    }
-
-    def detect_outliers_in_table(self, table_name: str, start_date: datetime, end_date: datetime, warmup_days: int = 7):
-        """
-        Detects outliers in a specified database table for a given time period.
-        Automatically handles naive datetime inputs by assuming UTC.
-
-        Args:
-            table_name (str): The name of the database table to check.
-            start_date (datetime): The start time of the detection period.
-            end_date (datetime): The end time of the detection period.
-            warmup_days (int): A warm-up period in days to provide context for the filter.
-                            Data from this period will be fetched additionally.
-
-        Returns:
-            dict: A dictionary reporting the detection results.
-                Keys are the group identifiers (e.g., 'Germany' or ('Germany', 'Wind')).
-                Values are a list of column names where outliers were found for that group.
-                Example: {'Germany': ['TotalLoadValue'], ('France', 'Solar'): []}
-        """
-        # --- Added Section ---
-        # 1. Define the UTC timezone object
-        utc_tz = pytz.utc
-
-        # 2. Check start_date and localize to UTC if it's naive
-        if start_date.tzinfo is None:
-            print(f"  [INFO] start_date is timezone-naive. Localizing to UTC.")
-            start_date = utc_tz.localize(start_date)
-
-        # 3. Check end_date and localize to UTC if it's naive
-        if end_date.tzinfo is None:
-            print(f"  [INFO] end_date is timezone-naive. Localizing to UTC.")
-            end_date = utc_tz.localize(end_date)
-        # --- End of Added Section ---
-
-        # --- Subsequent logic remains unchanged ---
-        if table_name not in self.TABLE_CONFIG:
-            print(f"ERROR: Configuration for table '{table_name}' not found in TABLE_CONFIG.")
-            return {}
-
-        config = self.TABLE_CONFIG[table_name]
-        identifiers = config["identifiers"]
-        value_columns = config["value_columns"]
-        time_column = config["time_column"]
-
-        query_start_date = start_date - timedelta(days=warmup_days)
-
-        print(f"Fetching data from table '{table_name}' from {query_start_date} to {end_date}...")
-
-        query = text(f'SELECT * FROM "{table_name}" WHERE "{time_column}" >= :start AND "{time_column}" < :end')
-
-        try:
-            df = pd.read_sql(query, self.engine, params={"start": query_start_date, "end": end_date})
-        except Exception as e:
-            print(f"Database query failed: {e}")
-            return {}
-
-        if df.empty:
-            print(f"No data found for table '{table_name}' in the specified time period.")
-            return {}
-
-        df[time_column] = pd.to_datetime(df[time_column])
-
-        results = {}
-        grouped = df.groupby(identifiers)
-        print(f"Data has been split into {len(grouped)} groups by {identifiers}. Starting detection...")
-
-        for group_name, group_df in grouped:
-            results[group_name] = []
-            for value_col in value_columns:
-                ts_data = group_df.set_index(time_column)[value_col].sort_index()
-                ts_data = ts_data[~ts_data.index.duplicated(keep='first')]
-
-                if ts_data.empty:
-                    continue
-
-                transformer = HampelFilter(window_length=24, return_bool=True)
-                outlier_labels = transformer.fit_transform(ts_data)
-
-                target_period_outliers = outlier_labels.loc[start_date:end_date]
-
-                if target_period_outliers.any():
-                    print(f"  -> Outlier found in group '{group_name}' for column '{value_col}'!")
-                    results[group_name].append(value_col)
-
-        print("Detection complete.")
-        return results
-    '''
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": "entsoe_fms",
-    }
-    print("Entsoe_fms crawler start")
-    crawler = EntsoeFMSCrawler(schema_name, config)
-    print("EntsoeFMSCrawler created")
-    crawler.run()
-
-    # backward update test
-    # start = "2010-03"
-    # end = "2025_07"
-    # print("Start backwards updating")
-    # crawler.backwards_update(start=start, end=end, local_dir=local_dir, TARGET_FILES_DIR_index=0)
-
-    # outlier detector test
-    # table_to_check = "ActualTotalLoad"
-    # outlier_report = crawler.detect_outliers_in_table(table_to_check, start_time, end_time)
-    # print(len(outlier_report))
-
-if __name__ == "__main__":
-    main("entsoe_fms")
