@@ -147,8 +147,5 @@ identical to KIT. Test behavior, not source-file identity.
 
 ## Future Work
 
-- run the admin UI's specialised actions (ENTSO-E targeted/backfill, weather
-  window, Eurostat range) through `oeds-crawl` as well; they are still
-  in-process
 - upstream contribution of generic crawler-contract improvements currently
   provided by the `oeds-crawler-pack` compatibility facade

@@ -2,24 +2,22 @@ from __future__ import annotations
 
 import io
 import json
-import logging
 import os
 import sqlite3
 import subprocess
 import threading
 import traceback
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from crawler.common.crawler_utils import CrawlerSkipped
-from oeds_scheduler_ui.factory import load_crawler_class
 from oeds_scheduler_ui.locks import CrawlerLock, lock_engine
 from oeds_scheduler_ui.planner import CrawlerJobConfig, SchedulerJobPlan, job_plan
-from oeds_scheduler_ui.runtime import CrawlerJobRunner, execute_post_command
+from oeds_scheduler_ui.runtime import CrawlerJobRunner
 
 from crawler_admin import POST_INSTALLED
 from crawler_admin.config_service import (
@@ -28,69 +26,6 @@ from crawler_admin.config_service import (
     get_crawler_overview,
     get_repo_root,
 )
-
-FMS_ACTIVE_DATA_ITEMS = (
-    (
-        "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D_r3",
-        "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants",
-    ),
-    ("ActualTotalLoad_6.1.A_r3", "ActualTotalLoad"),
-    ("DayAheadTotalLoadForecast_6.1.B_r3", "DayAheadTotalLoadForecast"),
-    (
-        "ActualGenerationOutputPerGenerationUnit_16.1.A_r3",
-        "ActualGenerationOutputPerGenerationUnit",
-    ),
-    ("AggregatedGenerationPerType_16.1.B_C_r3", "AggregatedGenerationPerType"),
-    ("CommercialSchedulesNetPositions_12.1.F_r3", "CommercialSchedulesNetPositions"),
-    ("DayAheadAggregatedGeneration_14.1.C_r3", "DayAheadAggregatedGeneration"),
-    (
-        "GenerationForecastsForWindAndSolar_14.1.D_r3",
-        "GenerationForecastsForWindAndSolar",
-    ),
-    ("EnergyPrices_12.1.D_r3", "EnergyPrices"),
-    ("ExpansionAndDismantlingProjects_9.1_r3", "ExpansionAndDismantlingProjects"),
-    ("ForecastedTransferCapacities_11.1_r3", "ForecastedTransferCapacities"),
-    (
-        "InstalledGenerationCapacityPerProductionUnit_14.1.B_r3",
-        "InstalledGenerationCapacityPerProductionUnit",
-    ),
-    (
-        "InstalledGenerationCapacityAggregated_14.1.A_r3",
-        "InstalledGenerationCapacityAggregated",
-    ),
-    ("PhysicalFlows_12.1.G_r3", "PhysicalFlows"),
-    ("ProductionAndGenerationUnits_r3", "ProductionAndGenerationUnits"),
-    ("TotalCapacityAlreadyAllocated_12.1.C_r3", "TotalCapacityAlreadyAllocated"),
-    ("TotalCapacityNominated_12.1.B_r3", "TotalCapacityNominated"),
-    ("TotalLoadForecast_6.1.C_D_E_r3", "TotalLoadForecast"),
-    ("TransmissionAssets_r3", "TransmissionAssets"),
-    (
-        "UnavailabilityInTheTransmissionGrid_10.1.A_B_r3",
-        "UnavailabilityInTheTransmissionGrid",
-    ),
-    ("UnavailabilityOfConsumptionUnits_7.1.A_B_r3", "UnavailabilityOfConsumptionUnits"),
-    ("UnavailabilityOfOffshoreGrid_10.1.C_r3", "UnavailabilityOfOffshoreGrid"),
-    (
-        "UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D_r3",
-        "UnavailabilityOfProductionAndGenerationUnits",
-    ),
-    ("UseOfTransferCapacity_12.1.A_r3", "UseOfTransferCapacity"),
-    ("YearAheadForecastMargin_8.1_r3", "YearAheadForecastMargin"),
-)
-
-FMS_SINGLE_FILE_DATA_ITEMS = {
-    "InstalledGenerationCapacityAggregated_14.1.A_r3",
-    "InstalledGenerationCapacityPerProductionUnit_14.1.B_r3",
-    "ProductionAndGenerationUnits_r3",
-    "TransmissionAssets_r3",
-    "YearAheadForecastMargin_8.1_r3",
-}
-
-FMS_ANNUAL_FILE_DATA_ITEMS = {
-    "AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants_16.1.D_r3",
-    "ExpansionAndDismantlingProjects_9.1_r3",
-}
-
 
 @dataclass(frozen=True)
 class ActionOption:
@@ -166,11 +101,8 @@ class PreparedAction:
     effective_config: dict[str, Any]
     config_overrides: dict[str, Any]
     action_payload: dict[str, Any]
-    run_post_scripts: bool
-    # Receives the crawler instance (None when requires_crawler is False) and
-    # the open run log; returns the summary line.
-    executor: Callable[[Any, io.TextIOBase], str | None]
-    requires_crawler: bool = True
+    # Receives the open run log; returns the summary line.
+    executor: Callable[[io.TextIOBase], str | None]
 
 
 class ActionValidationError(Exception):
@@ -181,23 +113,6 @@ class ActionValidationError(Exception):
 
 class LockError(Exception):
     pass
-
-
-class _LogWriter(io.TextIOBase):
-    def __init__(self, handle: io.TextIOBase):
-        self.handle = handle
-
-    def write(self, data: str) -> int:
-        if self.handle.closed:
-            return 0
-        self.handle.write(data)
-        self.handle.flush()
-        return len(data)
-
-    def flush(self) -> None:
-        if self.handle.closed:
-            return
-        self.handle.flush()
 
 
 class CrawlerRunService:
@@ -462,166 +377,7 @@ class CrawlerRunService:
                 effective_config=effective_config,
                 config_overrides={},
                 action_payload={},
-                # The scheduler's runner runs the post-run commands itself.
-                run_post_scripts=False,
-                executor=lambda _crawler, log: self._run_oeds_crawl(plan, log),
-                requires_crawler=False,
-            )
-
-        if action_id == "weather_window":
-            forecast_hours = self._parse_int(
-                action_payload.get("forecast_hours"),
-                field_label="Forecast hours",
-                minimum=1,
-                maximum=336,
-            )
-            past_hours = self._parse_int(
-                action_payload.get("past_hours"),
-                field_label="Past hours",
-                minimum=0,
-                maximum=336,
-            )
-            location_ids = self._split_csv_values(action_payload.get("location_ids"))
-            config_overrides: dict[str, Any] = {
-                "forecast_hours": forecast_hours,
-                "past_hours": past_hours,
-            }
-            if location_ids:
-                locations = self._filter_weather_locations(overview, location_ids)
-                config_overrides["locations"] = locations
-
-            effective_config.update(config_overrides)
-            return PreparedAction(
-                crawler_name=crawler_name,
-                action_id=action_id,
-                action_label=definition.label,
-                description=f"Weather run with forecast_hours={forecast_hours}, past_hours={past_hours}.",
-                effective_config=effective_config,
-                config_overrides=config_overrides,
-                action_payload={"location_ids": location_ids},
-                run_post_scripts=True,
-                executor=lambda crawler, _log: self._run_default(crawler),
-            )
-
-        if action_id == "eurostat_range":
-            dataset_id = self._require_text(
-                action_payload.get("dataset_id"), "Dataset id"
-            )
-            start_year = self._parse_int(
-                action_payload.get("start_year"),
-                field_label="Start year",
-                minimum=1990,
-                maximum=2100,
-            )
-            end_year = self._parse_int(
-                action_payload.get("end_year"),
-                field_label="End year",
-                minimum=1990,
-                maximum=2100,
-            )
-            if end_year < start_year:
-                raise ActionValidationError(
-                    ["End year must not be earlier than start year."]
-                )
-
-            config_overrides = {
-                "dataset_id": dataset_id,
-                "start_year": start_year,
-                "end_year": end_year,
-            }
-            effective_config.update(config_overrides)
-            return PreparedAction(
-                crawler_name=crawler_name,
-                action_id=action_id,
-                action_label=definition.label,
-                description=f"Eurostat run for dataset {dataset_id} and years {start_year}-{end_year}.",
-                effective_config=effective_config,
-                config_overrides=config_overrides,
-                action_payload={},
-                run_post_scripts=True,
-                executor=lambda crawler, _log: self._run_default(crawler),
-            )
-
-        if action_id == "entsoe_targeted":
-            target_items = self._ensure_list(action_payload.get("target_data_items"))
-            invalid_items = sorted(
-                set(target_items) - {item for item, _ in FMS_ACTIVE_DATA_ITEMS}
-            )
-            if invalid_items:
-                raise ActionValidationError(
-                    [f"Unknown FMS data item(s): {', '.join(invalid_items)}."]
-                )
-
-            config_overrides: dict[str, Any] = {}
-            if target_items:
-                config_overrides["target_data_items"] = target_items
-                effective_config["target_data_items"] = list(target_items)
-
-            selection_label = (
-                f"{len(target_items)} selected item(s)"
-                if target_items
-                else "all active items"
-            )
-            return PreparedAction(
-                crawler_name=crawler_name,
-                action_id=action_id,
-                action_label=definition.label,
-                description=f"ENTSO-E targeted run for {selection_label}.",
-                effective_config=effective_config,
-                config_overrides=config_overrides,
-                action_payload={"target_data_items": target_items},
-                run_post_scripts=True,
-                executor=lambda crawler, _log: self._run_default(crawler),
-            )
-
-        if action_id == "entsoe_backfill":
-            data_item = self._require_text(action_payload.get("data_item"), "Data item")
-            valid_data_items = {item for item, _ in FMS_ACTIVE_DATA_ITEMS}
-            if data_item not in valid_data_items:
-                raise ActionValidationError([f"Unknown FMS data item '{data_item}'."])
-
-            cadence = self._get_entsoe_backfill_cadence(data_item)
-            start_value = str(action_payload.get("start", "")).strip()
-            end_value = str(action_payload.get("end", "")).strip()
-
-            if cadence != "single":
-                if not start_value or not end_value:
-                    raise ActionValidationError(
-                        [
-                            "Backfill start and end are required for monthly and annual files."
-                        ]
-                    )
-                self._validate_entsoe_backfill_range(data_item, start_value, end_value)
-            else:
-                start_value = ""
-                end_value = ""
-
-            target_index = next(
-                index
-                for index, item in enumerate(name for name, _ in FMS_ACTIVE_DATA_ITEMS)
-                if item == data_item
-            )
-            payload = {
-                "data_item": data_item,
-                "start": start_value,
-                "end": end_value,
-                "target_files_dir_index": target_index,
-                "cadence": cadence,
-            }
-            description = f"ENTSO-E backfill for {data_item}"
-            if cadence != "single":
-                description += f" ({start_value} to {end_value})"
-
-            return PreparedAction(
-                crawler_name=crawler_name,
-                action_id=action_id,
-                action_label=definition.label,
-                description=description + ".",
-                effective_config=effective_config,
-                config_overrides={},
-                action_payload=payload,
-                run_post_scripts=False,
-                executor=lambda crawler, _log: self._run_entsoe_backfill(crawler, payload),
+                executor=lambda log: self._run_oeds_crawl(plan, log),
             )
 
         if action_id == "gapfill_backfill":
@@ -674,9 +430,7 @@ class CrawlerRunService:
                 effective_config=effective_config,
                 config_overrides={},
                 action_payload=payload,
-                run_post_scripts=False,
-                executor=lambda _crawler, log: self._run_gapfill_backfill(payload, log),
-                requires_crawler=False,
+                executor=lambda log: self._run_gapfill_backfill(payload, log),
             )
 
         if action_id == "price_forecast":
@@ -735,9 +489,7 @@ class CrawlerRunService:
                 effective_config=effective_config,
                 config_overrides={},
                 action_payload=payload,
-                run_post_scripts=False,
-                executor=lambda _crawler, log: self._run_price_forecast(payload, log),
-                requires_crawler=False,
+                executor=lambda log: self._run_price_forecast(payload, log),
             )
 
         raise ActionValidationError(
@@ -756,153 +508,6 @@ class CrawlerRunService:
                 button_label="Start one-off run",
             )
         ]
-
-        if overview.crawler_name == "weather_forecast":
-            actions.append(
-                ActionDefinition(
-                    action_id="weather_window",
-                    label="Weather window override",
-                    description="Run the weather crawler with temporary forecast and history windows.",
-                    button_label="Start weather run",
-                    fields=[
-                        ActionField(
-                            name="forecast_hours",
-                            label="Forecast hours",
-                            input_type="number",
-                            required=True,
-                            min_value=1,
-                            max_value=336,
-                            default_value=effective_config.get("forecast_hours", 120),
-                        ),
-                        ActionField(
-                            name="past_hours",
-                            label="Past hours",
-                            input_type="number",
-                            required=True,
-                            min_value=0,
-                            max_value=336,
-                            default_value=effective_config.get("past_hours", 24),
-                        ),
-                        ActionField(
-                            name="location_ids",
-                            label="Location ids (optional)",
-                            input_type="text",
-                            placeholder="berlin,hamburg",
-                            help_text="Optional comma-separated subset of weather locations. Leave empty to use the configured set.",
-                            default_value="",
-                        ),
-                    ],
-                )
-            )
-
-        if overview.crawler_name == "eurostat_crawler":
-            actions.append(
-                ActionDefinition(
-                    action_id="eurostat_range",
-                    label="Eurostat range run",
-                    description="Run Eurostat with a temporary dataset id and year range.",
-                    button_label="Start Eurostat run",
-                    fields=[
-                        ActionField(
-                            name="dataset_id",
-                            label="Dataset id",
-                            input_type="text",
-                            required=True,
-                            default_value=effective_config.get(
-                                "dataset_id", "nrg_inf_epcrw"
-                            ),
-                        ),
-                        ActionField(
-                            name="start_year",
-                            label="Start year",
-                            input_type="number",
-                            required=True,
-                            min_value=1990,
-                            max_value=2100,
-                            default_value=effective_config.get("start_year", 2019),
-                        ),
-                        ActionField(
-                            name="end_year",
-                            label="End year",
-                            input_type="number",
-                            required=True,
-                            min_value=1990,
-                            max_value=2100,
-                            default_value=effective_config.get(
-                                "end_year", datetime.now().year
-                            ),
-                        ),
-                    ],
-                )
-            )
-
-        if overview.crawler_name == "entsoe_fms":
-            target_defaults = effective_config.get("target_data_items")
-            if not isinstance(target_defaults, list):
-                target_defaults = []
-
-            actions.append(
-                ActionDefinition(
-                    action_id="entsoe_targeted",
-                    label="ENTSO-E targeted run",
-                    description="Run ENTSO-E FMS only for a selected subset of active data items.",
-                    button_label="Start targeted run",
-                    fields=[
-                        ActionField(
-                            name="target_data_items",
-                            label="Target data items",
-                            input_type="multiselect",
-                            options=[
-                                ActionOption(
-                                    value=item_name, label=f"{table_name} ({item_name})"
-                                )
-                                for item_name, table_name in FMS_ACTIVE_DATA_ITEMS
-                            ],
-                            help_text="Leave the selection empty to process the full active item list.",
-                            default_value=list(target_defaults),
-                        )
-                    ],
-                )
-            )
-
-            actions.append(
-                ActionDefinition(
-                    action_id="entsoe_backfill",
-                    label="ENTSO-E backfill",
-                    description="Trigger the historical backfill helper for one FMS data item.",
-                    button_label="Start backfill",
-                    note="Monthly files use YYYY_MM. Annual files use YYYY. Single-file items ignore start and end.",
-                    fields=[
-                        ActionField(
-                            name="data_item",
-                            label="Data item",
-                            input_type="select",
-                            required=True,
-                            options=[
-                                ActionOption(
-                                    value=item_name,
-                                    label=f"{table_name} [{self._get_entsoe_backfill_cadence(item_name)}]",
-                                )
-                                for item_name, table_name in FMS_ACTIVE_DATA_ITEMS
-                            ],
-                        ),
-                        ActionField(
-                            name="start",
-                            label="Start",
-                            input_type="text",
-                            placeholder="2024_01 or 2024",
-                            help_text="Ignored for single-file items.",
-                        ),
-                        ActionField(
-                            name="end",
-                            label="End",
-                            input_type="text",
-                            placeholder="2024_06 or 2025",
-                            help_text="Ignored for single-file items.",
-                        ),
-                    ],
-                )
-            )
 
         # The price forecast and gapfill actions shell out to ``oeds-post``.
         if POST_INSTALLED and overview.crawler_name == "entsoe_api":
@@ -1131,64 +736,24 @@ class CrawlerRunService:
             )
             connection.commit()
 
-        root_logger = logging.getLogger()
-        root_handler = logging.StreamHandler(
-            log_path.open("a", encoding="utf-8", newline="")
-        )
-        formatter = logging.Formatter(
-            "[%(asctime)s] %(levelname)-8s %(message)s", "%Y-%m-%d %H:%M:%S"
-        )
-        root_handler.setFormatter(formatter)
-        previous_level = root_logger.level
-        if previous_level == logging.NOTSET or previous_level > logging.INFO:
-            root_logger.setLevel(logging.INFO)
-        root_logger.addHandler(root_handler)
-
-        duration_seconds: float | None = None
         summary = prepared.description
         error_message: str | None = None
         status = "succeeded"
 
         try:
             with log_path.open("a", encoding="utf-8", newline="") as handle:
-                writer = _LogWriter(handle)
-                with redirect_stdout(writer), redirect_stderr(writer):
-                    print(f"[RUN] {prepared.action_label}")
-                    print(f"[CRAWLER] {prepared.crawler_name}")
-                    print(f"[STARTED] {started_at}")
-                    if prepared.config_overrides:
-                        print(
-                            "[OVERRIDES] "
-                            + json.dumps(
-                                prepared.config_overrides, ensure_ascii=True, indent=2
-                            )
-                        )
-                    if prepared.action_payload:
-                        print(
-                            "[PAYLOAD] "
-                            + json.dumps(
-                                prepared.action_payload, ensure_ascii=True, indent=2
-                            )
-                        )
-
-                    crawler = (
-                        self._build_crawler_instance(
-                            prepared.crawler_name, prepared.effective_config
-                        )
-                        if prepared.requires_crawler
-                        else None
-                    )
-                    result_summary = prepared.executor(crawler, handle)
-                    if prepared.run_post_scripts:
-                        self._run_post_scripts(
-                            self._crawler_plan(
-                                prepared.crawler_name, prepared.effective_config
-                            ),
-                            handle,
-                        )
-                    if result_summary:
-                        summary = result_summary
-                    print("[RESULT] Run completed.")
+                handle.write(f"[RUN] {prepared.action_label}\n")
+                handle.write(f"[CRAWLER] {prepared.crawler_name}\n")
+                handle.write(f"[STARTED] {started_at}\n")
+                if prepared.action_payload:
+                    payload = json.dumps(prepared.action_payload, ensure_ascii=True, indent=2)
+                    handle.write(f"[PAYLOAD] {payload}\n")
+                # The executors hand the log to subprocesses.
+                handle.flush()
+                result_summary = prepared.executor(handle)
+                if result_summary:
+                    summary = result_summary
+                handle.write("[RESULT] Run completed.\n")
         except Exception as exc:
             message = str(exc).strip() or exc.__class__.__name__
             with log_path.open("a", encoding="utf-8", newline="") as handle:
@@ -1202,16 +767,11 @@ class CrawlerRunService:
                     summary = f"{prepared.action_label} failed."
                     handle.write("\n[TRACEBACK]\n")
                     handle.write(traceback.format_exc())
-                handle.flush()
         finally:
             if lock is not None:
                 lock.release()
             finished_at = self._utc_now()
             duration_seconds = self._duration_seconds(started_at, finished_at)
-            root_logger.removeHandler(root_handler)
-            root_handler.close()
-            if previous_level == logging.NOTSET or previous_level > logging.INFO:
-                root_logger.setLevel(previous_level)
 
             with self._connect() as connection:
                 connection.execute(
@@ -1238,10 +798,6 @@ class CrawlerRunService:
             with self._guard:
                 self._active_runs.pop(prepared.crawler_name, None)
                 self._active_threads.pop(run_id, None)
-
-    def _run_default(self, crawler: Any) -> str | None:
-        crawler.run()
-        return "Run completed successfully."
 
     def _crawler_plan(
         self, crawler_name: str, effective_config: dict[str, Any]
@@ -1278,19 +834,6 @@ class CrawlerRunService:
             ]
             raise RuntimeError("Post-run command failed: " + ", ".join(failed))
         return "Run completed successfully."
-
-    def _run_entsoe_backfill(self, crawler: Any, payload: dict[str, Any]) -> str | None:
-        local_dir = str((self.repo_root / "crawler" / "data").resolve())
-        crawler.backwards_update(
-            start=payload["start"],
-            end=payload["end"],
-            local_dir=local_dir,
-            TARGET_FILES_DIR_index=int(payload["target_files_dir_index"]),
-        )
-
-        if payload["cadence"] == "single":
-            return f"Backfill completed for {payload['data_item']}."
-        return f"Backfill completed for {payload['data_item']} from {payload['start']} to {payload['end']}."
 
     def _run_gapfill_backfill(
         self, payload: dict[str, Any], handle: io.TextIOBase
@@ -1365,22 +908,6 @@ class CrawlerRunService:
         if payload.get("target_date"):
             return f"Price forecast completed for {payload['target_date']}."
         return "Price forecast completed."
-
-    def _run_post_scripts(self, plan: SchedulerJobPlan, handle: io.TextIOBase) -> None:
-        """Post-run commands after an in-process action, as the scheduler runs them."""
-
-        if not plan.run_post_scripts:
-            return
-        handle.flush()
-        for command in plan.post_run_scripts:
-            result = execute_post_command(command, plan, handle)
-            if not result.success:
-                raise RuntimeError(f"Post-run command '{command}' failed: {result.error}.")
-
-    def _build_crawler_instance(
-        self, crawler_name: str, effective_config: dict[str, Any]
-    ) -> Any:
-        return load_crawler_class(crawler_name)(crawler_name, effective_config)
 
     def _row_to_record(self, row: sqlite3.Row) -> RunRecord:
         return RunRecord(
@@ -1466,92 +993,6 @@ class CrawlerRunService:
             return [str(item).strip() for item in value if str(item).strip()]
         text_value = str(value).strip()
         return [text_value] if text_value else []
-
-    def _split_csv_values(self, value: Any) -> list[str]:
-        text_value = str(value or "").strip()
-        if not text_value:
-            return []
-
-        parts = []
-        for chunk in text_value.replace("\n", ",").split(","):
-            candidate = chunk.strip()
-            if candidate:
-                parts.append(candidate)
-        return parts
-
-    def _filter_weather_locations(
-        self, overview: CrawlerOverview, location_ids: list[str]
-    ) -> list[dict[str, Any]]:
-        try:
-            from crawler.weather_forecast import WeatherForecastCrawler
-        except Exception as exc:
-            raise ActionValidationError(
-                [
-                    f"Weather location filtering is unavailable because the weather module could not be imported: {exc}."
-                ]
-            ) from exc
-
-        available_locations = overview.effective_config.get("locations")
-        if not isinstance(available_locations, list) or not available_locations:
-            available_locations = list(WeatherForecastCrawler.DEFAULT_LOCATIONS)
-
-        selected_locations = []
-        missing = []
-        for location_id in location_ids:
-            match = next(
-                (
-                    location
-                    for location in available_locations
-                    if isinstance(location, dict)
-                    and str(location.get("location_id")) == location_id
-                ),
-                None,
-            )
-            if match is None:
-                missing.append(location_id)
-            else:
-                selected_locations.append(dict(match))
-
-        if missing:
-            raise ActionValidationError(
-                [f"Unknown weather location id(s): {', '.join(missing)}."]
-            )
-
-        if not selected_locations:
-            raise ActionValidationError(
-                ["At least one weather location must be selected."]
-            )
-
-        return selected_locations
-
-    def _get_entsoe_backfill_cadence(self, data_item: str) -> str:
-        if data_item in FMS_SINGLE_FILE_DATA_ITEMS:
-            return "single"
-        if data_item in FMS_ANNUAL_FILE_DATA_ITEMS:
-            return "annual"
-        return "monthly"
-
-    def _validate_entsoe_backfill_range(
-        self, data_item: str, start_value: str, end_value: str
-    ) -> None:
-        from datetime import datetime as dt
-
-        cadence = self._get_entsoe_backfill_cadence(data_item)
-        format_string = "%Y" if cadence == "annual" else "%Y_%m"
-
-        try:
-            start_dt = dt.strptime(start_value, format_string)
-            end_dt = dt.strptime(end_value, format_string)
-        except ValueError as exc:
-            expected = "YYYY" if cadence == "annual" else "YYYY_MM"
-            raise ActionValidationError(
-                [f"{data_item} expects {expected} values for start and end."]
-            ) from exc
-
-        if end_dt < start_dt:
-            raise ActionValidationError(
-                ["Backfill end must not be earlier than start."]
-            )
 
     def _duration_seconds(self, started_at: str, finished_at: str) -> float:
         start_dt = datetime.fromisoformat(started_at)
