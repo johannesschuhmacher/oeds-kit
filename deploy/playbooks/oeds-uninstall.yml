@@ -3,32 +3,7 @@
   hosts: oeds
   become: true
   vars:
-    oeds_default_root: /open_energy_data_server
-    oeds_default_compose_project_name: oeds
-    oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
-    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
-    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
-    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_data_root_effective ~ '/oeds/docker_data') }}"
-    oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
-    oeds_compose_project_name_effective: "{{ oeds_compose_project_name | default(oeds_default_compose_project_name) }}"
-    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/deploy') }}"
-    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
-
-    # Safe default: remove running containers/networks, keep repo, runtime,
-    # backups and Docker volumes.
-    oeds_default_uninstall_destroy_data: false
-    oeds_default_uninstall_remove_repo: false
-    oeds_default_uninstall_remove_runtime: false
-    oeds_default_uninstall_remove_backups: false
-    oeds_default_uninstall_remove_images: false
-    oeds_default_uninstall_confirm: ""
-    oeds_uninstall_destroy_data_effective: "{{ oeds_uninstall_destroy_data | default(oeds_default_uninstall_destroy_data) | bool }}"
-    oeds_uninstall_remove_repo_effective: "{{ oeds_uninstall_remove_repo | default(oeds_default_uninstall_remove_repo) | bool }}"
-    oeds_uninstall_remove_runtime_effective: "{{ oeds_uninstall_remove_runtime | default(oeds_default_uninstall_remove_runtime) | bool }}"
-    oeds_uninstall_remove_backups_effective: "{{ oeds_uninstall_remove_backups | default(oeds_default_uninstall_remove_backups) | bool }}"
-    oeds_uninstall_remove_images_effective: "{{ oeds_uninstall_remove_images | default(oeds_default_uninstall_remove_images) | bool }}"
-    oeds_uninstall_confirm_effective: "{{ oeds_uninstall_confirm | default(oeds_default_uninstall_confirm) }}"
-    oeds_uninstall_compose_volume_args: "{{ oeds_uninstall_destroy_data_effective | ternary(['-v'], []) }}"
+    oeds_uninstall_compose_volume_args: "{{ (oeds_uninstall_destroy_data | bool) | ternary(['-v'], []) }}"
 
     oeds_uninstall_container_names:
       - open-data
@@ -49,7 +24,7 @@
       - grafana-etc
 
     oeds_uninstall_network_names:
-      - "{{ oeds_compose_project_name_effective }}_netlocalhost"
+      - "{{ oeds_compose_project_name }}_netlocalhost"
       - oeds_netlocalhost
       - netlocalhost
 
@@ -62,60 +37,59 @@
     - name: Validate uninstall target paths
       ansible.builtin.assert:
         that:
-          - (oeds_root_effective | string | trim) != ""
-          - oeds_root_effective is match('^/')
-          - oeds_root_effective != "/"
-          - (oeds_root_effective | length) >= 8
-          - oeds_repo_dir_effective is match('^/')
-          - oeds_data_dir_effective is match('^/')
-          - oeds_runtime_dir_effective is match('^/')
-          - oeds_repo_dir_effective != "/"
-          - oeds_data_dir_effective != "/"
-          - oeds_runtime_dir_effective != "/"
+          - (oeds_root | string | trim) != ""
+          - oeds_root is match('^/')
+          - oeds_root != "/"
+          - (oeds_root | length) >= 8
+          - oeds_repo_dir is match('^/')
+          - oeds_data_dir is match('^/')
+          - oeds_runtime_dir is match('^/')
+          - oeds_repo_dir != "/"
+          - oeds_data_dir != "/"
+          - oeds_runtime_dir != "/"
         fail_msg: "Refusing uninstall because one of the target paths is unsafe."
 
     - name: Require explicit confirmation for destructive data removal
       ansible.builtin.assert:
         that:
-          - oeds_uninstall_confirm_effective == "DELETE_OEDS_DATA"
+          - oeds_uninstall_confirm == "DELETE_OEDS_DATA"
         fail_msg: >-
           Destructive uninstall requested. Re-run with
           -e oeds_uninstall_confirm=DELETE_OEDS_DATA if this is intentional.
       when: >-
-        oeds_uninstall_destroy_data_effective
-        or oeds_uninstall_remove_runtime_effective
-        or oeds_uninstall_remove_backups_effective
+        (oeds_uninstall_destroy_data | bool)
+        or (oeds_uninstall_remove_runtime | bool)
+        or (oeds_uninstall_remove_backups | bool)
 
     - name: Show selected uninstall mode
       ansible.builtin.debug:
         msg:
-          - "repo={{ oeds_repo_dir_effective }}"
-          - "runtime={{ oeds_runtime_dir_effective }}"
-          - "data={{ oeds_data_dir_effective }}"
-          - "remove_repo={{ oeds_uninstall_remove_repo_effective }}"
-          - "remove_runtime={{ oeds_uninstall_remove_runtime_effective }}"
-          - "destroy_data={{ oeds_uninstall_destroy_data_effective }}"
-          - "remove_backups={{ oeds_uninstall_remove_backups_effective }}"
-          - "remove_images={{ oeds_uninstall_remove_images_effective }}"
+          - "repo={{ oeds_repo_dir }}"
+          - "runtime={{ oeds_runtime_dir }}"
+          - "data={{ oeds_data_dir }}"
+          - "remove_repo={{ oeds_uninstall_remove_repo }}"
+          - "remove_runtime={{ oeds_uninstall_remove_runtime }}"
+          - "destroy_data={{ oeds_uninstall_destroy_data }}"
+          - "remove_backups={{ oeds_uninstall_remove_backups }}"
+          - "remove_images={{ oeds_uninstall_remove_images }}"
 
     - name: Check whether the repo-root compose file exists
       ansible.builtin.stat:
-        path: "{{ oeds_compose_dir_effective }}/{{ oeds_compose_files_effective[0] }}"
+        path: "{{ oeds_compose_dir }}/{{ oeds_compose_files[0] }}"
       register: oeds_uninstall_repo_compose
 
     - name: Check whether a legacy root compose file exists
       ansible.builtin.stat:
-        path: "{{ oeds_root_effective }}/compose.yml"
+        path: "{{ oeds_root }}/compose.yml"
       register: oeds_uninstall_legacy_compose
 
     - name: Stop repo-root compose project
       ansible.builtin.shell: >-
-        docker compose
-        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        {{ oeds_compose }}
         down --remove-orphans
-        {% if oeds_uninstall_destroy_data_effective %} -v{% endif %}
+        {% if oeds_uninstall_destroy_data | bool %} -v{% endif %}
       args:
-        chdir: "{{ oeds_compose_dir_effective }}"
+        chdir: "{{ oeds_compose_dir }}"
       register: oeds_uninstall_repo_down
       changed_when: oeds_uninstall_repo_down.rc == 0
       failed_when: false
@@ -123,12 +97,11 @@
 
     - name: Stop repo-root compose project including crawler profile
       ansible.builtin.shell: >-
-        docker compose
-        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        {{ oeds_compose }}
         --profile crawlers down --remove-orphans
-        {% if oeds_uninstall_destroy_data_effective %} -v{% endif %}
+        {% if oeds_uninstall_destroy_data | bool %} -v{% endif %}
       args:
-        chdir: "{{ oeds_compose_dir_effective }}"
+        chdir: "{{ oeds_compose_dir }}"
       register: oeds_uninstall_repo_profile_down
       changed_when: oeds_uninstall_repo_profile_down.rc == 0
       failed_when: false
@@ -138,7 +111,7 @@
       ansible.builtin.command:
         argv: "{{ ['docker', 'compose', 'down', '--remove-orphans'] + oeds_uninstall_compose_volume_args }}"
       args:
-        chdir: "{{ oeds_root_effective }}"
+        chdir: "{{ oeds_root }}"
       register: oeds_uninstall_legacy_down
       changed_when: oeds_uninstall_legacy_down.rc == 0
       failed_when: false
@@ -148,7 +121,7 @@
       ansible.builtin.command:
         argv: "{{ ['docker', 'compose', '--profile', 'crawlers', 'down', '--remove-orphans'] + oeds_uninstall_compose_volume_args }}"
       args:
-        chdir: "{{ oeds_root_effective }}"
+        chdir: "{{ oeds_root }}"
       register: oeds_uninstall_legacy_profile_down
       changed_when: oeds_uninstall_legacy_profile_down.rc == 0
       failed_when: false
@@ -178,7 +151,7 @@
         name: "{{ item }}"
         state: absent
       loop: "{{ oeds_uninstall_volume_names }}"
-      when: oeds_uninstall_destroy_data_effective
+      when: oeds_uninstall_destroy_data | bool
 
     - name: Remove cached OEDS images when requested
       ansible.builtin.command:
@@ -192,28 +165,28 @@
       register: oeds_uninstall_image_rm
       changed_when: oeds_uninstall_image_rm.rc == 0
       failed_when: false
-      when: oeds_uninstall_remove_images_effective
+      when: oeds_uninstall_remove_images | bool
 
     - name: Remove selected OEDS filesystem paths
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
       loop:
-        - path: "{{ oeds_repo_dir_effective }}"
-          enabled: "{{ oeds_uninstall_remove_repo_effective }}"
-        - path: "{{ oeds_runtime_dir_effective }}"
-          enabled: "{{ oeds_uninstall_remove_runtime_effective }}"
-        - path: "{{ oeds_data_dir_effective }}"
-          enabled: "{{ oeds_uninstall_destroy_data_effective }}"
-        - path: "{{ oeds_root_effective }}/backups"
-          enabled: "{{ oeds_uninstall_remove_backups_effective }}"
+        - path: "{{ oeds_repo_dir }}"
+          enabled: "{{ oeds_uninstall_remove_repo }}"
+        - path: "{{ oeds_runtime_dir }}"
+          enabled: "{{ oeds_uninstall_remove_runtime }}"
+        - path: "{{ oeds_data_dir }}"
+          enabled: "{{ oeds_uninstall_destroy_data }}"
+        - path: "{{ oeds_root }}/backups"
+          enabled: "{{ oeds_uninstall_remove_backups }}"
       when: item.enabled | bool
 
     - name: Write uninstall summary
       ansible.builtin.debug:
         msg:
           - "OEDS containers and networks have been removed."
-          - "Docker volumes removed={{ oeds_uninstall_destroy_data_effective }}"
-          - "Repository removed={{ oeds_uninstall_remove_repo_effective }}"
-          - "Runtime removed={{ oeds_uninstall_remove_runtime_effective }}"
-          - "Backups removed={{ oeds_uninstall_remove_backups_effective }}"
+          - "Docker volumes removed={{ oeds_uninstall_destroy_data }}"
+          - "Repository removed={{ oeds_uninstall_remove_repo }}"
+          - "Runtime removed={{ oeds_uninstall_remove_runtime }}"
+          - "Backups removed={{ oeds_uninstall_remove_backups }}"

@@ -2,12 +2,6 @@
   hosts: oeds
   become: true
   vars:
-    oeds_root: /open_energy_data_server
-    oeds_data_root: /home
-    oeds_backup_dir: "{{ oeds_data_root }}/oeds/backups"
-    oeds_repo_dir: "{{ oeds_root }}/repo"
-    oeds_compose_dir: "{{ oeds_repo_dir }}/deploy"
-    oeds_runtime_dir: "{{ oeds_root }}/runtime"
     oeds_source_container_name: open-data
     oeds_source_db_name: opendata
     oeds_source_db_user: opendata

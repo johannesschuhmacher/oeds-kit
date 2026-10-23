@@ -8,29 +8,6 @@
   hosts: oeds
   become: true
   vars:
-    oeds_default_root: /open_energy_data_server
-    oeds_default_compose_project_name: oeds
-    oeds_default_enable_crawlers: false
-    oeds_root_effective: "{{ oeds_root | default(oeds_default_root) }}"
-    oeds_repo_dir_effective: "{{ oeds_repo_dir | default(oeds_root_effective ~ '/repo') }}"
-    oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
-    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
-    oeds_data_dir_effective: "{{ oeds_data_dir | default(oeds_data_root_effective ~ '/oeds/docker_data') }}"
-    oeds_docker_data_root_effective: "{{ oeds_docker_data_root | default(oeds_data_root_effective ~ '/docker') }}"
-    oeds_min_data_filesystem_gb_effective: "{{ oeds_min_data_filesystem_gb | default(200) }}"
-    oeds_runtime_dir_effective: "{{ oeds_runtime_dir | default(oeds_root_effective ~ '/runtime') }}"
-    oeds_compose_project_name_effective: "{{ oeds_compose_project_name | default(oeds_default_compose_project_name) }}"
-    oeds_enable_crawlers_effective: "{{ oeds_enable_crawlers | default(oeds_default_enable_crawlers) }}"
-    oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/deploy') }}"
-    oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
-    oeds_backup_before_update_effective: "{{ oeds_backup_before_update | default(false) }}"
-    oeds_backup_dir_effective: "{{ oeds_backup_dir | default(oeds_data_root_effective ~ '/oeds/backups') }}"
-    oeds_backup_keep_effective: "{{ oeds_backup_keep | default(3) }}"
-    oeds_wait_for_crawls_minutes_effective: "{{ oeds_update_wait_for_crawls_minutes | default(15) }}"
-    oeds_db_container_name_effective: "{{ oeds_db_container_name | default('open-data') }}"
-    oeds_db_name_effective: "{{ oeds_db_name | default('opendata') }}"
-    oeds_db_user_effective: "{{ oeds_db_user | default('opendata') }}"
-    oeds_allow_pg_major_upgrade: false
     oeds_target_pg_major: 18
     oeds_runtime_crawler_data_files:
       - packages/crawler-pack/src/crawler/data/mapping_eic_to_location.py
@@ -38,20 +15,16 @@
       - packages/crawler-pack/src/crawler/data/mapping_g_to_p.json
     oeds_persisted_volumes:
       - name: grafana-varlib
-        mountpoint: "{{ oeds_data_dir_effective }}/grafana-varlib"
+        mountpoint: "{{ oeds_data_dir }}/grafana-varlib"
       - name: postgres-home
-        mountpoint: "{{ oeds_data_dir_effective }}/postgres-home"
+        mountpoint: "{{ oeds_data_dir }}/postgres-home"
       - name: pgadmin-varlib
-        mountpoint: "{{ oeds_data_dir_effective }}/pgadmin-varlib"
-    # docker compose with the selected files, run in the given directory.
-    oeds_compose: >-
-      docker compose
-      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        mountpoint: "{{ oeds_data_dir }}/pgadmin-varlib"
   tasks:
   # --- Checks and directories ------------------------------------------------
   - name: Check the oeds-kit checkout on the control node
     ansible.builtin.stat:
-      path: "{{ oeds_repo_local_src_effective }}"
+      path: "{{ oeds_repo_local_src }}"
     delegate_to: localhost
     become: false
     run_once: true
@@ -59,7 +32,7 @@
   - name: Require an oeds-kit checkout as the source
     ansible.builtin.assert:
       that:
-        - oeds_repo_local_src_effective | length > 0
+        - oeds_repo_local_src | length > 0
         - oeds_repo_local_src_stat.stat.isdir | default(false)
       fail_msg: Set oeds_repo_local_src to an oeds-kit checkout on the control node.
       quiet: true
@@ -73,16 +46,16 @@
     changed_when: false
     register: oeds_fs_size
     loop:
-      - "{{ oeds_data_dir_effective }}"
-      - "{{ oeds_docker_data_root_effective }}"
-      - "{{ oeds_backup_dir_effective }}"
+      - "{{ oeds_data_dir }}"
+      - "{{ oeds_docker_data_root }}"
+      - "{{ oeds_backup_dir }}"
   - name: Refuse to place OEDS data on a filesystem that is too small
     ansible.builtin.assert:
       that:
-        - item.stdout | int >= oeds_min_data_filesystem_gb_effective | int
+        - item.stdout | int >= oeds_min_data_filesystem_gb | int
       fail_msg: >-
         {{ item.item }} is on a filesystem of {{ item.stdout }} GB, smaller than
-        oeds_min_data_filesystem_gb ({{ oeds_min_data_filesystem_gb_effective }} GB).
+        oeds_min_data_filesystem_gb ({{ oeds_min_data_filesystem_gb }} GB).
         Set oeds_data_root to a larger data partition, or lower
         oeds_min_data_filesystem_gb if this is intended.
       quiet: true
@@ -91,7 +64,7 @@
       label: "{{ item.item }} ({{ item.stdout }} GB)"
   - name: Check whether the database container is running
     ansible.builtin.command:
-      argv: [docker, ps, --filter, "name=^/{{ oeds_db_container_name_effective }}$", --filter, status=running, -q]
+      argv: [docker, ps, --filter, "name=^/{{ oeds_db_container_name }}$", --filter, status=running, -q]
     register: oeds_db_running
     changed_when: false
   - name: Capture the running PostgreSQL major version
@@ -99,12 +72,12 @@
       argv:
         - docker
         - exec
-        - "{{ oeds_db_container_name_effective }}"
+        - "{{ oeds_db_container_name }}"
         - psql
         - -U
-        - "{{ oeds_db_user_effective }}"
+        - "{{ oeds_db_user }}"
         - -d
-        - "{{ oeds_db_name_effective }}"
+        - "{{ oeds_db_name }}"
         - -tAc
         - SELECT current_setting('server_version_num')::int / 10000;
     register: oeds_current_pg_major
@@ -120,7 +93,7 @@
     when:
       - (oeds_db_running.stdout | trim) != ""
       - (oeds_current_pg_major.stdout | trim) != (oeds_target_pg_major | string)
-      - not oeds_allow_pg_major_upgrade
+      - not (oeds_allow_pg_major_upgrade | bool)
   - name: Create OEDS directories
     ansible.builtin.file:
       path: "{{ item }}"
@@ -129,16 +102,16 @@
       group: root
       mode: "0755"
     loop:
-      - "{{ oeds_root_effective }}"
-      - "{{ oeds_data_dir_effective }}"
-      - "{{ oeds_runtime_dir_effective }}"
-      - "{{ oeds_runtime_dir_effective }}/crawler"
-      - "{{ oeds_root_effective }}/backups"
+      - "{{ oeds_root }}"
+      - "{{ oeds_data_dir }}"
+      - "{{ oeds_runtime_dir }}"
+      - "{{ oeds_runtime_dir }}/crawler"
+      - "{{ oeds_root }}/backups"
   # Both crawler containers run as the image user, UID 1000, and share these
   # bind-mounted directories.
   - name: Create writable runtime directories
     ansible.builtin.file:
-      path: "{{ oeds_runtime_dir_effective }}/{{ item }}"
+      path: "{{ oeds_runtime_dir }}/{{ item }}"
       state: directory
       owner: "1000"
       group: docker
@@ -165,18 +138,18 @@
     loop: "{{ oeds_persisted_volumes }}"
   - name: Check grafana directory
     ansible.builtin.file:
-      path: "{{ oeds_data_dir_effective }}/grafana-varlib"
+      path: "{{ oeds_data_dir }}/grafana-varlib"
       owner: "472"
       group: "472"
       mode: "0750"
       state: directory
   - name: Check whether the repo checkout exists
     ansible.builtin.stat:
-      path: "{{ oeds_repo_dir_effective }}"
+      path: "{{ oeds_repo_dir }}"
     register: oeds_repo_stat
   - name: Check whether a legacy compose project exists
     ansible.builtin.stat:
-      path: "{{ oeds_root_effective }}/compose.yml"
+      path: "{{ oeds_root }}/compose.yml"
     register: oeds_legacy_compose
 
   # --- Stage and build; the current services keep running ---------------------
@@ -207,7 +180,7 @@
         - -cf
         - "{{ oeds_repo_archive.path }}"
         - .
-      chdir: "{{ oeds_repo_local_src_effective }}"
+      chdir: "{{ oeds_repo_local_src }}"
     delegate_to: localhost
     become: false
     run_once: true
@@ -220,11 +193,11 @@
     run_once: true
   - name: Remove a staging directory left by an earlier run
     ansible.builtin.file:
-      path: "{{ oeds_repo_dir_effective }}.next"
+      path: "{{ oeds_repo_dir }}.next"
       state: absent
   - name: Create the staging directory
     ansible.builtin.file:
-      path: "{{ oeds_repo_dir_effective }}.next"
+      path: "{{ oeds_repo_dir }}.next"
       state: directory
       owner: root
       group: root
@@ -232,7 +205,7 @@
   - name: Unpack the checkout into the staging directory
     ansible.builtin.unarchive:
       src: "{{ oeds_repo_archive.path }}"
-      dest: "{{ oeds_repo_dir_effective }}.next"
+      dest: "{{ oeds_repo_dir }}.next"
   - name: Remove the temporary archive on the control node
     ansible.builtin.file:
       path: "{{ oeds_repo_archive.path }}"
@@ -242,32 +215,32 @@
     run_once: true
   - name: Check for existing Compose settings
     ansible.builtin.stat:
-      path: "{{ oeds_compose_dir_effective }}/.env"
+      path: "{{ oeds_compose_dir }}/.env"
     register: oeds_existing_compose_env
   - name: Read service passwords and port overrides of the installation
     ansible.builtin.slurp:
-      src: "{{ oeds_compose_dir_effective }}/.env"
+      src: "{{ oeds_compose_dir }}/.env"
     register: oeds_saved_compose_env
     no_log: true
     when: oeds_existing_compose_env.stat.exists
   - name: Write the Compose settings into the staged source
     ansible.builtin.copy:
-      dest: "{{ oeds_repo_dir_effective }}.next/deploy/.env"
+      dest: "{{ oeds_repo_dir }}.next/deploy/.env"
       owner: root
       group: docker
       mode: "0640"
       content: |
         {{ oeds_saved_compose_env.content | default('') | b64decode | regex_replace('(?m)^(COMPOSE_PROJECT_NAME|OEDS_RUNTIME_DIR)=.*\n?', '') }}
-        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name_effective }}
-        OEDS_RUNTIME_DIR={{ oeds_runtime_dir_effective }}
+        COMPOSE_PROJECT_NAME={{ oeds_compose_project_name }}
+        OEDS_RUNTIME_DIR={{ oeds_runtime_dir }}
     no_log: true
   - name: Build the crawler images
-    when: oeds_enable_crawlers_effective | bool
+    when: oeds_enable_crawlers | bool
     block:
       - name: Build the crawler images while the current services keep running
         ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers build"
         args:
-          chdir: "{{ oeds_repo_dir_effective }}.next/deploy"
+          chdir: "{{ oeds_repo_dir }}.next/deploy"
     rescue:
       # A damaged build cache ("parent snapshot does not exist") broke the
       # 23 October 2026 update on intern; an empty cache fixed it.
@@ -276,20 +249,20 @@
       - name: Build the crawler images again with an empty cache
         ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers build"
         args:
-          chdir: "{{ oeds_repo_dir_effective }}.next/deploy"
+          chdir: "{{ oeds_repo_dir }}.next/deploy"
   - name: Pull the service images while the current services keep running
     ansible.builtin.shell: "{{ oeds_compose }} pull"
     args:
-      chdir: "{{ oeds_repo_dir_effective }}.next/deploy"
+      chdir: "{{ oeds_repo_dir }}.next/deploy"
 
   # --- Optional backup ---------------------------------------------------------
   # Off by default: over 30 min for 140 GB, and an update does not change the
   # database. oeds-db-backup.yml makes the same dump on its own.
   - name: Back up the database before switching
     vars:
-      oeds_backup_run_dir: "{{ oeds_backup_dir_effective }}/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+      oeds_backup_run_dir: "{{ oeds_backup_dir }}/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
     when:
-      - oeds_backup_before_update_effective | bool
+      - oeds_backup_before_update | bool
       - (oeds_db_running.stdout | trim) != ""
     block:
       - name: Create the backup directory
@@ -301,21 +274,21 @@
           mode: "0700"
       - name: Dump roles and other global objects
         ansible.builtin.shell: >-
-          docker exec {{ oeds_db_container_name_effective | quote }}
-          pg_dumpall -U {{ oeds_db_user_effective | quote }} --globals-only
+          docker exec {{ oeds_db_container_name | quote }}
+          pg_dumpall -U {{ oeds_db_user | quote }} --globals-only
           > {{ (oeds_backup_run_dir ~ '/globals.sql') | quote }}
         args:
           executable: /bin/bash
       - name: Dump the database in custom format
         ansible.builtin.shell: >-
-          docker exec {{ oeds_db_container_name_effective | quote }}
-          pg_dump -U {{ oeds_db_user_effective | quote }} -d {{ oeds_db_name_effective | quote }} -Fc
-          > {{ (oeds_backup_run_dir ~ '/' ~ oeds_db_name_effective ~ '.bak') | quote }}
+          docker exec {{ oeds_db_container_name | quote }}
+          pg_dump -U {{ oeds_db_user | quote }} -d {{ oeds_db_name | quote }} -Fc
+          > {{ (oeds_backup_run_dir ~ '/' ~ oeds_db_name ~ '.bak') | quote }}
         args:
           executable: /bin/bash
       - name: List the backup directories
         ansible.builtin.find:
-          paths: "{{ oeds_backup_dir_effective }}"
+          paths: "{{ oeds_backup_dir }}"
           file_type: directory
           recurse: false
         register: oeds_backup_dirs
@@ -323,7 +296,7 @@
         ansible.builtin.file:
           path: "{{ item }}"
           state: absent
-        loop: "{{ (oeds_backup_dirs.files | map(attribute='path') | sort(reverse=true) | list)[(oeds_backup_keep_effective | int):] }}"
+        loop: "{{ (oeds_backup_dirs.files | map(attribute='path') | sort(reverse=true) | list)[(oeds_backup_keep | int):] }}"
 
   # --- Switch --------------------------------------------------------------------
   # Recreating the scheduler kills its running crawls after Docker's 10-s stop
@@ -335,44 +308,44 @@
       argv:
         - docker
         - exec
-        - "{{ oeds_db_container_name_effective }}"
+        - "{{ oeds_db_container_name }}"
         - psql
         - -U
-        - "{{ oeds_db_user_effective }}"
+        - "{{ oeds_db_user }}"
         - -d
-        - "{{ oeds_db_name_effective }}"
+        - "{{ oeds_db_name }}"
         - -tAc
         - >-
           SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
           WHERE l.locktype = 'advisory' AND l.granted AND a.backend_type = 'client backend'
     register: oeds_running_crawls
     until: (oeds_running_crawls.stdout | trim) == "0"
-    retries: "{{ (oeds_wait_for_crawls_minutes_effective | int) * 2 }}"
+    retries: "{{ (oeds_update_wait_for_crawls_minutes | int) * 2 }}"
     delay: 30
     changed_when: false
     # After the wait the update goes on regardless.
     ignore_errors: true
     when:
-      - oeds_enable_crawlers_effective | bool
-      - (oeds_wait_for_crawls_minutes_effective | int) > 0
+      - oeds_enable_crawlers | bool
+      - (oeds_update_wait_for_crawls_minutes | int) > 0
       - (oeds_db_running.stdout | trim) != ""
   - name: Stop legacy compose project before switching to repo-root compose
     ansible.builtin.shell: docker compose --profile crawlers down --remove-orphans
     args:
-      chdir: "{{ oeds_root_effective }}"
+      chdir: "{{ oeds_root }}"
     when: oeds_legacy_compose.stat.exists
   - name: Swap the staged source into place
     ansible.builtin.shell: |
       set -e
-      rm -rf {{ (oeds_repo_dir_effective ~ '.prev') | quote }}
-      if [ -e {{ oeds_repo_dir_effective | quote }} ]; then
-        mv {{ oeds_repo_dir_effective | quote }} {{ (oeds_repo_dir_effective ~ '.prev') | quote }}
+      rm -rf {{ (oeds_repo_dir ~ '.prev') | quote }}
+      if [ -e {{ oeds_repo_dir | quote }} ]; then
+        mv {{ oeds_repo_dir | quote }} {{ (oeds_repo_dir ~ '.prev') | quote }}
       fi
-      mv {{ (oeds_repo_dir_effective ~ '.next') | quote }} {{ oeds_repo_dir_effective | quote }}
+      mv {{ (oeds_repo_dir ~ '.next') | quote }} {{ oeds_repo_dir | quote }}
   - name: Seed static crawler data files into runtime mount
     ansible.builtin.copy:
-      src: "{{ oeds_repo_dir_effective }}/{{ item }}"
-      dest: "{{ oeds_runtime_dir_effective }}/crawler/data/{{ item | basename }}"
+      src: "{{ oeds_repo_dir }}/{{ item }}"
+      dest: "{{ oeds_runtime_dir }}/crawler/data/{{ item | basename }}"
       remote_src: true
       owner: "1000"
       group: docker
@@ -380,8 +353,8 @@
     loop: "{{ oeds_runtime_crawler_data_files }}"
   - name: Copy the initial crawler config from the repo on the first install
     ansible.builtin.copy:
-      src: "{{ oeds_repo_dir_effective }}/deploy/CRAWLER_CONFIG.yml"
-      dest: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
+      src: "{{ oeds_repo_dir }}/deploy/CRAWLER_CONFIG.yml"
+      dest: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
       remote_src: true
       force: false
       owner: "1000"
@@ -390,16 +363,16 @@
   - name: Install supplied crawler credentials
     ansible.builtin.copy:
       src: "{{ oeds_crawler_env_file }}"
-      dest: "{{ oeds_runtime_dir_effective }}/crawler/.env"
+      dest: "{{ oeds_runtime_dir }}/crawler/.env"
       owner: root
       group: docker
       mode: "0640"
     no_log: true
-    when: oeds_crawler_env_file | default('') | length > 0
+    when: oeds_crawler_env_file | length > 0
   # Only Docker Compose on the host reads crawler/.env.
   - name: Create or protect the crawler credentials file
     ansible.builtin.file:
-      path: "{{ oeds_runtime_dir_effective }}/crawler/.env"
+      path: "{{ oeds_runtime_dir }}/crawler/.env"
       state: touch
       owner: root
       group: docker
@@ -411,14 +384,14 @@
   # repaired recursively on every run.
   - name: Give the runtime config file to the container user
     ansible.builtin.file:
-      path: "{{ oeds_runtime_dir_effective }}/CRAWLER_CONFIG.yml"
+      path: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
       state: file
       owner: "1000"
       group: docker
       mode: "0660"
   - name: Give existing runtime files to the container user
     ansible.builtin.file:
-      path: "{{ oeds_runtime_dir_effective }}/{{ item }}"
+      path: "{{ oeds_runtime_dir }}/{{ item }}"
       state: directory
       recurse: true
       owner: "1000"
@@ -433,25 +406,25 @@
   - name: Run docker compose up
     ansible.builtin.shell: >-
       {{ oeds_compose }}
-      {% if oeds_enable_crawlers_effective | bool %} --profile crawlers{% endif %}
+      {% if oeds_enable_crawlers | bool %} --profile crawlers{% endif %}
       up -d --remove-orphans
     args:
-      chdir: "{{ oeds_compose_dir_effective }}"
+      chdir: "{{ oeds_compose_dir }}"
   # Grafana and pgAdmin bind-mount files from the repo; after the swap their
   # mounts still point to the old checkout until they are recreated.
   - name: Recreate the services that mount repo files
     ansible.builtin.shell: "{{ oeds_compose }} up -d --no-deps --force-recreate grafana pgadmin"
     args:
-      chdir: "{{ oeds_compose_dir_effective }}"
+      chdir: "{{ oeds_compose_dir }}"
     when: oeds_repo_stat.stat.exists
   - name: Remove the previous repo content
     ansible.builtin.file:
-      path: "{{ oeds_repo_dir_effective }}.prev"
+      path: "{{ oeds_repo_dir }}.prev"
       state: absent
   - name: Wait for PostgreSQL to become ready
     ansible.builtin.shell: "{{ oeds_compose }} exec -T open-data pg_isready -h 127.0.0.1 -U opendata -d opendata"
     args:
-      chdir: "{{ oeds_compose_dir_effective }}"
+      chdir: "{{ oeds_compose_dir }}"
     register: oeds_pg_ready
     changed_when: false
     retries: 20

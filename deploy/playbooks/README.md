@@ -13,6 +13,11 @@ ansible-galaxy collection install -r requirements.yml
 ansible -i inventory.local.yml oeds -m ping
 ```
 
+The defaults of all playbooks, with comments, are in `group_vars/all.yml`. To
+change one for a host, set it in `group_vars/oeds.yml` (ignored by Git), as a
+host variable in the inventory or with `-e`. Group `vars:` inside the
+inventory file rank below `group_vars/all.yml` and have no effect.
+
 The automated host preparation targets CentOS Stream and currently sets SELinux
 to permissive mode. Review this host-wide security change with your administrator.
 Ubuntu host setup has not been verified. Docker access grants host-level control;
