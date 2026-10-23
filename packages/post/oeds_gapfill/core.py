@@ -273,7 +273,7 @@ def fill_group(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DONOR MATCHING  (unchanged from upstream)
+# DONOR MATCHING  (upstream scoring, evaluated for all donor starts at once)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _build_fill_candidate(series: pd.Series, config: SeriesFillConfig) -> pd.Series:
@@ -385,20 +385,25 @@ def _best_donor_candidate(
     context_points: int,
     search_radius: pd.Timedelta,
 ) -> _DonorCandidate | None:
-    best: _DonorCandidate | None = None
-    best_distance: int | None    = None
-    starts = _donor_start_candidates(
-        index=index, gap=gap, frequency=frequency,
-        candidate_periods=candidate_periods, search_radius=search_radius,
+    starts = np.asarray(
+        _donor_start_candidates(
+            index=index, gap=gap, frequency=frequency,
+            candidate_periods=candidate_periods, search_radius=search_radius,
+        ),
+        dtype=np.int64,
+    )
+    starts = starts[_valid_donor_starts(values, gap, starts, context_points)]
+    if len(starts) == 0:
+        return None
+    scores = _score_donor_candidates(
+        values=values, index=index, gap=gap, donor_starts=starts,
+        candidate_periods=candidate_periods, context_points=context_points,
     )
 
-    for start in starts:
-        if not _is_valid_donor_start(values, gap, start, context_points):
-            continue
-        score    = _score_donor_candidate(
-            values=values, index=index, gap=gap, donor_start=start,
-            candidate_periods=candidate_periods, context_points=context_points,
-        )
+    # Highest score wins; a score within 1e-12 of the best goes to the donor closer to the gap.
+    best: _DonorCandidate | None = None
+    best_distance: int | None    = None
+    for start, score in zip(starts.tolist(), scores.tolist()):
         distance = abs(gap.start - start)
         if best is None or score > best.score + 1e-12:
             best          = _DonorCandidate(start=start, score=score)
@@ -442,131 +447,135 @@ def _donor_start_candidates(
     return sorted(s for s in starts if 0 <= s <= last_start)
 
 
-def _is_valid_donor_start(
-    values: np.ndarray, gap: _GapRange, start: int, context_points: int,
-) -> bool:
-    end = start + gap.length - 1
-    if end >= len(values):
-        return False
-    if start <= gap.end and end >= gap.start:
-        return False
+def _valid_donor_starts(
+    values: np.ndarray, gap: _GapRange, starts: np.ndarray, context_points: int,
+) -> np.ndarray:
+    """Mask of the starts whose donor is fully known and stays clear of the gap and its context."""
+    ends      = starts + gap.length - 1
     ctx_start = max(0, gap.start - context_points)
     ctx_end   = min(len(values) - 1, gap.end + context_points)
-    if start <= ctx_end and end >= ctx_start:
-        return False
-    return not bool(np.isnan(values[start: end + 1]).any())
+    nan_count = np.concatenate([[0], np.cumsum(np.isnan(values))])
+    return ((starts > ctx_end) | (ends < ctx_start)) & (nan_count[ends + 1] == nan_count[starts])
 
 
-def _score_donor_candidate(
+def _score_donor_candidates(
     *,
     values: np.ndarray,
     index: pd.DatetimeIndex,
     gap: _GapRange,
-    donor_start: int,
+    donor_starts: np.ndarray,
     candidate_periods: tuple[pd.Timedelta, ...],
     context_points: int,
-) -> float:
-    donor_end = donor_start + gap.length - 1
+) -> np.ndarray:
+    donor_ends = donor_starts + gap.length - 1
 
-    context_scores = []
-    before_gap   = values[max(0, gap.start - context_points): gap.start]
-    before_donor = values[max(0, donor_start - context_points): donor_start]
-    bs = _array_similarity(before_gap, before_donor, align="right")
-    if bs is not None:
-        context_scores.append(bs)
-
-    after_gap   = values[gap.end + 1: min(len(values), gap.end + 1 + context_points)]
-    after_donor = values[donor_end + 1: min(len(values), donor_end + 1 + context_points)]
-    as_ = _array_similarity(after_gap, after_donor, align="left")
-    if as_ is not None:
-        context_scores.append(as_)
-
-    context_score  = float(np.mean(context_scores)) if context_scores else 0.5
-    boundary_score = _boundary_similarity(values, gap, donor_start, donor_end)
-    seasonal_score = _seasonality_similarity(index, gap.start, donor_start, candidate_periods)
+    # With c context points, windows[p] holds values[p - c : p] and windows[p + 1 + c]
+    # holds values[p + 1 : p + 1 + c], NaN outside the series.
+    c       = context_points
+    padded  = np.concatenate([np.full(c, np.nan), values, np.full(c, np.nan)])
+    windows = np.lib.stride_tricks.sliding_window_view(padded, c)
+    context_scores = np.vstack([
+        _array_similarity(windows[gap.start], windows[donor_starts]),
+        _array_similarity(windows[gap.end + 1 + c], windows[donor_ends + 1 + c]),
+    ])
+    known_context = ~np.isnan(context_scores)
+    context_score = np.where(
+        known_context.any(axis=0),
+        np.nansum(context_scores, axis=0) / np.maximum(known_context.sum(axis=0), 1),
+        0.5,
+    )
+    boundary_score = _boundary_similarity(values, gap, donor_starts, donor_ends)
+    seasonal_score = _seasonality_similarity(index, gap.start, donor_starts, candidate_periods)
     return 0.5 * context_score + 0.3 * boundary_score + 0.2 * seasonal_score
 
 
-def _array_similarity(
-    left: np.ndarray, right: np.ndarray, *, align: Literal["left", "right"],
-) -> float | None:
-    length = min(len(left), len(right))
-    if length == 0:
-        return None
-    left  = left[-length:] if align == "right" else left[:length]
-    right = right[-length:] if align == "right" else right[:length]
+def _array_similarity(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    """Similarity of the window `left` to each row of `right`, over the positions known in both.
 
-    clean = ~(np.isnan(left) | np.isnan(right))
-    left  = left[clean]
-    right = right[clean]
-    if len(left) == 0:
-        return None
-    if len(left) == 1:
-        return _level_similarity(float(left[0]), float(right[0]))
+    NaN for a row without such a position.
+    """
+    left  = np.broadcast_to(left, right.shape)
+    known = ~(np.isnan(left) | np.isnan(right))
+    count = known.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        left_mean  = np.where(known, left, 0.0).sum(axis=1) / count
+        right_mean = np.where(known, right, 0.0).sum(axis=1) / count
+        left_dev   = np.where(known, left - left_mean[:, None], 0.0)
+        right_dev  = np.where(known, right - right_mean[:, None], 0.0)
+        left_std   = np.sqrt((left_dev ** 2).sum(axis=1) / count)
+        right_std  = np.sqrt((right_dev ** 2).sum(axis=1) / count)
+        corr       = (left_dev * right_dev).sum(axis=1) / count / (left_std * right_std)
 
-    left_std = float(np.std(left))
-    right_std = float(np.std(right))
-    if left_std > 1e-12 and right_std > 1e-12:
-        corr       = float(np.corrcoef(left, right)[0, 1])
-        corr_score = (max(-1.0, min(1.0, corr if np.isfinite(corr) else 0.0)) + 1.0) / 2.0
-    else:
-        corr_score = _level_similarity(left_std, right_std)
+        corr_score = np.where(
+            (left_std > 1e-12) & (right_std > 1e-12),
+            (np.clip(np.where(np.isfinite(corr), corr, 0.0), -1.0, 1.0) + 1.0) / 2.0,
+            _level_similarity(left_std, right_std),
+        )
+        mean_score = _level_similarity(left_mean, right_mean)
+        std_score  = _level_similarity(left_std, right_std)
+        rmse       = np.sqrt(np.where(known, (left - right) ** 2, 0.0).sum(axis=1) / count)
+        scale      = np.maximum(
+            np.maximum(
+                np.where(known, np.abs(left), 0.0).sum(axis=1) / count,
+                np.where(known, np.abs(right), 0.0).sum(axis=1) / count,
+            ),
+            1.0,
+        )
+        rmse_score = np.maximum(0.0, 1.0 - rmse / scale)
 
-    mean_score = _level_similarity(float(np.mean(left)), float(np.mean(right)))
-    std_score  = _level_similarity(left_std, right_std)
-    rmse       = float(np.sqrt(np.mean((left - right) ** 2)))
-    scale      = max(float(np.nanmean(np.abs(left))), float(np.nanmean(np.abs(right))), 1.0)
-    rmse_score = max(0.0, 1.0 - rmse / scale)
-    return 0.35 * corr_score + 0.30 * mean_score + 0.20 * std_score + 0.15 * rmse_score
+    score = 0.35 * corr_score + 0.30 * mean_score + 0.20 * std_score + 0.15 * rmse_score
+    # A single known pair is compared by level only (the means are the values themselves).
+    score = np.where(count == 1, mean_score, score)
+    return np.where(count == 0, np.nan, score)
 
 
 def _boundary_similarity(
-    values: np.ndarray, gap: _GapRange, donor_start: int, donor_end: int,
-) -> float:
+    values: np.ndarray, gap: _GapRange, donor_starts: np.ndarray, donor_ends: np.ndarray,
+) -> np.ndarray | float:
     scores = []
     if gap.start > 0 and not np.isnan(values[gap.start - 1]):
-        scores.append(_level_similarity(float(values[gap.start - 1]), float(values[donor_start])))
+        scores.append(_level_similarity(values[gap.start - 1], values[donor_starts]))
     if gap.end + 1 < len(values) and not np.isnan(values[gap.end + 1]):
-        scores.append(_level_similarity(float(values[gap.end + 1]), float(values[donor_end])))
-    return float(np.mean(scores)) if scores else 0.5
+        scores.append(_level_similarity(values[gap.end + 1], values[donor_ends]))
+    return np.mean(scores, axis=0) if scores else 0.5
 
 
 def _seasonality_similarity(
     index: pd.DatetimeIndex,
     gap_start: int,
-    donor_start: int,
+    donor_starts: np.ndarray,
     candidate_periods: tuple[pd.Timedelta, ...],
-) -> float:
+) -> np.ndarray:
     gap_ts    = pd.Timestamp(index[gap_start])
-    donor_ts  = pd.Timestamp(index[donor_start])
+    donor_ts  = index[donor_starts]
     spd       = 24 * 60 * 60
-    sec_delta = abs(
+    sec_delta = np.abs(
         gap_ts.hour * 3600 + gap_ts.minute * 60 + gap_ts.second
-        - donor_ts.hour * 3600 - donor_ts.minute * 60 - donor_ts.second
+        - (donor_ts.hour * 3600 + donor_ts.minute * 60 + donor_ts.second).to_numpy()
     )
-    clock_delta = min(sec_delta, spd - sec_delta)
-    clock_score   = max(0.0, 1.0 - clock_delta / (spd / 2))
-    weekday_score = 1.0 if gap_ts.weekday() == donor_ts.weekday() else 0.5
+    clock_delta   = np.minimum(sec_delta, spd - sec_delta)
+    clock_score   = np.maximum(0.0, 1.0 - clock_delta / (spd / 2))
+    weekday_score = np.where(donor_ts.weekday.to_numpy() == gap_ts.weekday(), 1.0, 0.5)
 
-    distance = abs(gap_ts - donor_ts)
-    period_scores = [_period_alignment_score(distance, p) for p in candidate_periods]
-    period_score  = max(period_scores) if period_scores else 0.5
+    # Donors never overlap the gap, so the distance is positive.
+    distance     = abs(donor_ts - gap_ts)
+    period_score = np.max([_period_alignment_score(distance, p) for p in candidate_periods], axis=0)
     return 0.45 * clock_score + 0.25 * weekday_score + 0.30 * period_score
 
 
-def _period_alignment_score(distance: pd.Timedelta, period: pd.Timedelta) -> float:
-    if distance <= pd.Timedelta(0) or period <= pd.Timedelta(0):
-        return 0.0
-    ratio   = distance / period
-    nearest = max(1, int(round(ratio)))
-    return max(0.0, 1.0 - 4.0 * abs(ratio - nearest) / nearest)
+def _period_alignment_score(distance: pd.TimedeltaIndex, period: pd.Timedelta) -> np.ndarray:
+    ratio   = np.asarray(distance / period, dtype="float64")
+    nearest = np.maximum(1.0, np.round(ratio))
+    return np.maximum(0.0, 1.0 - 4.0 * np.abs(ratio - nearest) / nearest)
 
 
-def _level_similarity(left: float, right: float) -> float:
-    if not (np.isfinite(left) and np.isfinite(right)):
-        return 0.0
-    scale = max(abs(left), abs(right), 1.0)
-    return max(0.0, 1.0 - abs(left - right) / scale)
+def _level_similarity(left: np.ndarray | float, right: np.ndarray | float) -> np.ndarray:
+    left  = np.asarray(left, dtype="float64")
+    right = np.asarray(right, dtype="float64")
+    with np.errstate(invalid="ignore"):
+        scale = np.maximum(np.maximum(np.abs(left), np.abs(right)), 1.0)
+        score = np.maximum(0.0, 1.0 - np.abs(left - right) / scale)
+    return np.where(np.isfinite(left) & np.isfinite(right), score, 0.0)
 
 
 def _refine_donor_segment(
