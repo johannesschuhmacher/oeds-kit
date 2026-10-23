@@ -8,12 +8,7 @@ from datetime import datetime
 from typing import Protocol
 
 from oeds_scheduler_ui.planner import SchedulerJobPlan
-from oeds_scheduler_ui.runtime import (
-    CrawlerRunResult,
-    JobDispatcher,
-    ScheduledCrawlerJob,
-    lock_keys_from_plan,
-)
+from oeds_scheduler_ui.runtime import CrawlerRunResult, JobDispatcher
 
 
 class ScheduleAdapter(Protocol):
@@ -40,7 +35,6 @@ class ScheduledPlan:
 
     plan: SchedulerJobPlan
     schedule: ScheduleAdapter
-    lock_keys: frozenset[str]
     next_run_time: datetime
 
     @property
@@ -53,9 +47,6 @@ class ScheduledPlan:
 
     def advance_after(self, ref_time: datetime) -> None:
         self.next_run_time = self.schedule.next_after(ref_time)
-
-    def to_runtime_job(self) -> ScheduledCrawlerJob:
-        return ScheduledCrawlerJob(plan=self.plan, lock_keys=self.lock_keys)
 
 
 class CronConverterSchedule:
@@ -151,7 +142,6 @@ class SchedulerService:
                 ScheduledPlan(
                     plan=plan,
                     schedule=schedule,
-                    lock_keys=lock_keys_from_plan(plan),
                     next_run_time=next_run_time,
                 )
             )
@@ -161,8 +151,7 @@ class SchedulerService:
         enqueued = 0
         for job in self._jobs:
             if job.next_run_time <= ref_time:
-                scheduled_for = job.next_run_time
-                if self._dispatcher.queue.enqueue(job.to_runtime_job(), scheduled_for):
+                if self._dispatcher.queue.enqueue(job.plan):
                     enqueued += 1
                 job.advance_after(ref_time)
         return enqueued

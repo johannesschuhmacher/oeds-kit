@@ -60,9 +60,8 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
   The admin UI takes the same lock for every manual action, so scheduler and
   admin cannot run one crawler at the same time. A job whose lock is busy is
   retried on the next tick.
-- Up to `default.max_parallel_runs` (default 3) runs execute concurrently; the
-  per-job `lock_keys` (for example ENTSO-E data items) still serialise
-  conflicting jobs inside the daemon.
+- Up to `default.max_parallel_runs` (default 3) runs execute concurrently, at
+  most one per crawler: a second job of a running crawler waits in the queue.
 - `run_timeout_seconds` on a crawler or job kills the process after that time
   and marks the run failed.
 - Post-run commands (`post_run_scripts`) run as subprocesses after a

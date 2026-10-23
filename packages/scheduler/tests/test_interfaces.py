@@ -25,8 +25,6 @@ from oeds_scheduler_ui.runtime import (
     JobDispatcher,
     PostRunCommandResult,
     execute_post_command,
-    lock_keys_from_plan,
-    scheduled_job_from_plan,
 )
 from oeds_scheduler_ui.service import SchedulerService
 
@@ -375,44 +373,27 @@ def test_post_run_command_without_installed_executable_is_skipped_not_failed(cra
 # --- queue, locks, dispatcher ------------------------------------------------
 
 
-def test_runtime_queue_blocks_conflicting_lock_keys_and_honours_limit():
-    plans = _plan(
-        jobs={
-            "a": {"enable": True, "lock_keys": ["shared"]},
-            "b": {"enable": True, "lock_keys": ["shared"]},
-            "c": {"enable": True, "lock_keys": ["c"]},
-            "d": {"enable": True, "lock_keys": ["d"]},
-        }
-    )
-    jobs = [scheduled_job_from_plan(plan) for plan in plans]
+def test_runtime_queue_runs_one_job_per_crawler_and_honours_limit():
+    a, b = _plan(jobs={"a": {"enable": True}, "b": {"enable": True}})
+    (other,) = _plan("other", known=("other",))
+    (third,) = _plan("third", known=("third",))
     queue = CrawlerJobQueue()
 
-    assert queue.enqueue(jobs[0]) is True
-    assert queue.enqueue(jobs[0]) is False
-    for job in jobs[1:]:
-        assert queue.enqueue(job) is True
-    first_ready = queue.pop_ready_jobs(limit=2)
-    assert [queued.job.job_id for queued in first_ready] == ["stub:a", "stub:c"]
+    assert queue.enqueue(a) is True
+    assert queue.enqueue(a) is False
+    for plan in (b, other, third):
+        assert queue.enqueue(plan) is True
+    assert [plan.job_id for plan in queue.pop_ready_jobs(limit=2)] == ["stub:a", "other:default"]
     assert queue.pending_count == 2
-    assert [queued.job.job_id for queued in queue.pop_ready_jobs()] == ["stub:d"]
-    queue.mark_finished(jobs[0])
-    assert [queued.job.job_id for queued in queue.pop_ready_jobs()] == ["stub:b"]
-
-
-def test_runtime_lock_keys_for_entsoe_fms_target_data_items():
-    plan = _plan(
-        "entsoe_fms",
-        extra={"target_data_items": ["ActualTotalLoad_6.1.A_r3"]},
-        known=("entsoe_fms",),
-    )[0]
-
-    assert lock_keys_from_plan(plan) == frozenset({"entsoe_fms:ActualTotalLoad_6.1.A_r3"})
+    assert [plan.job_id for plan in queue.pop_ready_jobs()] == ["third:default"]
+    queue.mark_finished(a)
+    assert [plan.job_id for plan in queue.pop_ready_jobs()] == ["stub:b"]
 
 
 def test_dispatcher_requeues_job_when_advisory_lock_is_busy(caplog):
     runner = FakeRunner()
     dispatcher = JobDispatcher(runner=runner, lock_engine=FakeEngine(lock_free=False))
-    dispatcher.queue.enqueue(scheduled_job_from_plan(_plan()[0]))
+    dispatcher.queue.enqueue(_plan()[0])
 
     with caplog.at_level(logging.INFO, logger="oeds_scheduler_ui.runtime"):
         assert dispatcher.dispatch() == ()
@@ -432,7 +413,7 @@ def test_dispatcher_holds_advisory_lock_until_the_run_ends():
     engine = FakeEngine(lock_free=True)
     runner = FakeRunner(block=True)
     dispatcher = JobDispatcher(runner=runner, lock_engine=engine)
-    dispatcher.queue.enqueue(scheduled_job_from_plan(_plan()[0]))
+    dispatcher.queue.enqueue(_plan()[0])
 
     dispatcher.dispatch()
     _wait_until(lambda: runner.started == ["stub:default"])
@@ -457,10 +438,9 @@ def test_crawler_lock_try_acquire_closes_connection_when_busy():
 def test_dispatcher_respects_max_parallel_runs():
     runner = FakeRunner(block=True)
     dispatcher = JobDispatcher(runner=runner, max_parallel_runs=2)
-    # Distinct lock keys: jobs of one crawler would otherwise block each other.
-    plans = _plan(jobs={name: {"enable": True, "lock_keys": [name]} for name in "abc"})
-    for plan in plans:
-        dispatcher.queue.enqueue(scheduled_job_from_plan(plan))
+    # Distinct crawlers: jobs of one crawler would otherwise run one at a time.
+    for name in "abc":
+        dispatcher.queue.enqueue(_plan(name, known=(name,))[0])
 
     assert dispatcher.dispatch() == ()
     _wait_until(lambda: len(runner.started) == 2)
@@ -471,10 +451,10 @@ def test_dispatcher_respects_max_parallel_runs():
 
     runner.release.set()
     finished = dispatcher.wait()
-    assert sorted(result.job_id for result in finished) == ["stub:a", "stub:b"]
+    assert sorted(result.job_id for result in finished) == ["a:default", "b:default"]
     results = [*dispatcher.dispatch(), *dispatcher.wait()]
-    assert [result.job_id for result in results] == ["stub:c"]
-    assert runner.started == ["stub:a", "stub:b", "stub:c"]
+    assert [result.job_id for result in results] == ["c:default"]
+    assert runner.started == ["a:default", "b:default", "c:default"]
 
 
 # --- service, daemon, application --------------------------------------------
