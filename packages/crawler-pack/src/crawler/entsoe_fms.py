@@ -21,7 +21,6 @@ from dotenv import load_dotenv
 
 import pandas as pd
 import requests
-from requests.adapters import HTTPAdapter
 from sqlalchemy import (
     text,
     Table,
@@ -37,8 +36,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
-from urllib3.util.retry import Retry
 
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
 
 
@@ -392,14 +391,6 @@ class EntsoeFMSCrawler(KitCrawler):
             psrtype.to_sql("psrtype", conn, if_exists="replace")
 
     # ---------------------------
-    # Authentication and session setup
-    # ---------------------------
-    # Read credentials from environment variables or a local dotenv file.
-    load_dotenv()
-    USERNAME = os.getenv("ENTSOE_USERNAME")
-    PASSWORD = os.getenv("ENTSOE_PASSWORD")
-
-    # ---------------------------
     # Constant endpoints and paths
     # ---------------------------
     TOKEN_URL = "https://keycloak.tp.entsoe.eu/realms/tp/protocol/openid-connect/token"
@@ -409,14 +400,18 @@ class EntsoeFMSCrawler(KitCrawler):
     def _authenticate(self) -> None:
         """Fetch an OAuth2 access token and initialize the retry-enabled session."""
 
-        if not self.USERNAME or not self.PASSWORD:
+        # Credentials come from the environment or a local dotenv file.
+        load_dotenv()
+        username = os.getenv("ENTSOE_USERNAME")
+        password = os.getenv("ENTSOE_PASSWORD")
+        if not username or not password:
             print("Error: ENTSOE_USERNAME or ENTSOE_PASSWORD is not set in .env")
 
         payload = (
             f"client_id={self.CLIENT_ID}"
             f"&grant_type=password"
-            f"&username={self.USERNAME}"
-            f"&password={self.PASSWORD}"
+            f"&username={username}"
+            f"&password={password}"
         )
 
         headers = {
@@ -428,22 +423,13 @@ class EntsoeFMSCrawler(KitCrawler):
 
         self._access_token = response.json().get("access_token")
 
-        retries = Retry(
-            total=5,
-            backoff_factor=2,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["POST"],
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-
-        self.session = requests.Session()
+        self.session = build_session(retries=5, backoff_factor=2)
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
             }
         )
-        self.session.mount("https://", adapter)
         self.logger.info("FMS Token received and session established.")
 
     # ---------------------------
