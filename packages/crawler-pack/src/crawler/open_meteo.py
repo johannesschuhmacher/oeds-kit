@@ -15,6 +15,7 @@ from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     config_or_env,
+    copy_insert,
     has_credential,
     parse_number,
     utc_now,
@@ -200,7 +201,7 @@ class OpenMeteoCrawler(KitCrawler):
         with self.engine.begin() as conn:
             conn.execute(text("DELETE FROM locations"))
             if not location_frame.empty:
-                location_frame.to_sql("locations", conn, if_exists="append", index=False)
+                location_frame.to_sql("locations", conn, if_exists="append", index=False, method=copy_insert)
             if not forecast.empty:
                 min_time = forecast["valid_time"].min()
                 max_time = forecast["valid_time"].max()
@@ -213,7 +214,7 @@ class OpenMeteoCrawler(KitCrawler):
                     ),
                     {"min_time": min_time, "max_time": max_time},
                 )
-                forecast.to_sql("hourly_forecast", conn, if_exists="append", index=False)
+                forecast.to_sql("hourly_forecast", conn, if_exists="append", index=False, method=copy_insert)
         temporal_start = forecast["valid_time"].min().isoformat() if not forecast.empty else None
         temporal_end = forecast["valid_time"].max().isoformat() if not forecast.empty else None
         self.set_metadata(
@@ -229,16 +230,3 @@ class OpenMeteoCrawler(KitCrawler):
             }
         )
         self.logger.info("Open-Meteo crawler wrote %s hourly forecast values.", len(forecast))
-
-
-def main(schema_name: str = "open_meteo"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    OpenMeteoCrawler("open_meteo", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

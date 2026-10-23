@@ -169,16 +169,3 @@ class DwdCdcCrawler(KitCrawler):
             }
         )
         self.logger.info("DWD CDC crawler wrote %s monthly regional observations.", len(combined))
-
-
-def main(schema_name: str = "dwd_cdc"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    DwdCdcCrawler("dwd_cdc", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

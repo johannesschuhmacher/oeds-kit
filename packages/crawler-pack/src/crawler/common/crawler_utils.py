@@ -36,7 +36,9 @@ def copy_insert(pd_table, conn, keys, data_iter) -> None:
     # written as integers; a double precision column reads them unchanged.
     rows = ([int(v) if isinstance(v, float) and v.is_integer() else v for v in row] for row in data_iter)
     buffer = io.StringIO()
-    csv.writer(buffer).writerows(rows)
+    # COPY reads an unquoted empty field as NULL; quoting every non-None value
+    # keeps an empty string an empty string, as INSERT does.
+    csv.writer(buffer, quoting=csv.QUOTE_NOTNULL).writerows(rows)
     buffer.seek(0)
     target = f'"{pd_table.schema}"."{pd_table.name}"' if pd_table.schema else f'"{pd_table.name}"'
     columns = ", ".join(f'"{key}"' for key in keys)
@@ -82,10 +84,6 @@ class CrawlerSkipped(Exception):
 
 def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
-
-
-def qident(identifier: str) -> str:
-    return '"' + identifier.replace('"', '""') + '"'
 
 
 def stable_hash(*parts: Any) -> str:
@@ -208,15 +206,3 @@ def write_access_status(
                 "checked_at": utc_now(),
             },
         )
-
-
-def replace_table(engine, frame: pd.DataFrame, table_name: str) -> None:
-    with engine.begin() as conn:
-        frame.to_sql(table_name, conn, if_exists="replace", index=False)
-
-
-def append_table(engine, frame: pd.DataFrame, table_name: str) -> None:
-    if frame.empty:
-        return
-    with engine.begin() as conn:
-        frame.to_sql(table_name, conn, if_exists="append", index=False)

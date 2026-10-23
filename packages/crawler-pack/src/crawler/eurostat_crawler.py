@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import hashlib
-import logging
 import re
-import sys
 
 from sqlalchemy import (
     Column,
@@ -190,29 +188,3 @@ class EurostatCrawler(KitCrawler):
             return
 
         self._write_to_db(df)
-
-
-def main(schema_name):
-    ec = EurostatCrawler(
-        "eurostat_crawler",
-        {
-            "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-            "schema_name": schema_name,
-            "dataset_id": LEGACY_DATASET_ID,
-            "start_year": 2022,
-            "end_year": 2023,
-        },
-    )
-    ec.run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler("eurostat.log"),
-        ],
-        encoding="utf-8",
-        level=logging.INFO,
-    )
-    main("eurostat")
