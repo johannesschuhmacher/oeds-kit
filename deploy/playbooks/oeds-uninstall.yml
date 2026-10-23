@@ -45,9 +45,11 @@
           - oeds_repo_dir is match('^/')
           - oeds_data_dir is match('^/')
           - oeds_runtime_dir is match('^/')
+          - oeds_backup_dir is match('^/')
           - oeds_repo_dir != "/"
           - oeds_data_dir != "/"
           - oeds_runtime_dir != "/"
+          - oeds_backup_dir != "/"
         fail_msg: "Refusing uninstall because one of the target paths is unsafe."
 
     - name: Require explicit confirmation for destructive data removal
@@ -68,6 +70,7 @@
           - "repo={{ oeds_repo_dir }}"
           - "runtime={{ oeds_runtime_dir }}"
           - "data={{ oeds_data_dir }}"
+          - "backups={{ oeds_backup_dir }}"
           - "remove_repo={{ oeds_uninstall_remove_repo }}"
           - "remove_runtime={{ oeds_uninstall_remove_runtime }}"
           - "destroy_data={{ oeds_uninstall_destroy_data }}"
@@ -179,6 +182,9 @@
           enabled: "{{ oeds_uninstall_remove_runtime }}"
         - path: "{{ oeds_data_dir }}"
           enabled: "{{ oeds_uninstall_destroy_data }}"
+        - path: "{{ oeds_backup_dir }}"
+          enabled: "{{ oeds_uninstall_remove_backups }}"
+        # Backups of oeds-db-migrate.yml and oeds-db-rollback.yml.
         - path: "{{ oeds_root }}/backups"
           enabled: "{{ oeds_uninstall_remove_backups }}"
       when: item.enabled | bool
