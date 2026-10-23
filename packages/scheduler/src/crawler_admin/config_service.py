@@ -174,12 +174,6 @@ def get_file_mtime_display(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def discover_crawler_modules() -> list[str]:
-    """Crawler names registered under the ``oeds.crawlers`` entry points."""
-
-    return list(known_crawler_names())
-
-
 def is_gapfill_command(command: str) -> bool:
     return command.split()[:2] == ["oeds-post", "gapfill"]
 
@@ -234,7 +228,7 @@ def validate_config_text(yaml_text: str, available_crawlers: list[str] | None = 
         return parsed_result
 
     issues = list(parsed_result.issues)
-    available = set(available_crawlers or discover_crawler_modules())
+    available = set(available_crawlers or known_crawler_names())
     config = parsed_result.data
 
     default_config = config.get("default")
@@ -629,7 +623,7 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
     root = repo_root or get_repo_root()
     config_path = get_config_path(root)
     yaml_text = read_config_text(root)
-    available_crawlers = discover_crawler_modules()
+    available_crawlers = list(known_crawler_names())
     validation = validate_config_text(yaml_text, available_crawlers=available_crawlers)
     runtime_config = apply_email_env_overrides(validation.data, root) if validation.data is not None else None
 
