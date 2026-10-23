@@ -10,13 +10,13 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scripts.lib.gapfiller.config import GapfillJobConfig, TimeSeriesTableConfig
-from scripts.lib.gapfiller.core import (
+from oeds_gapfill.config import GapfillJobConfig, TimeSeriesTableConfig
+from oeds_gapfill.core import (
     GAPFILL_METHODS,
     fill_table,
     group_key_from_values,
 )
-from scripts.lib.gapfiller.db import (
+from oeds_gapfill.db import (
     ensure_control_tables,
     qualified,
     quote_identifier,

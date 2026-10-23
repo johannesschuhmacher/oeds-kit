@@ -40,9 +40,8 @@ packages = [
     "oeds_price_forecast",
     "scripts",
     "scripts.lib",
-    "scripts.lib.gapfiller",
 ]
-package-dir = {oeds_post_scripts = "src/oeds_post_scripts", oeds_gapfill = "oeds_gapfill", oeds_price_forecast = "oeds_price_forecast", scripts = "scripts", "scripts.lib" = "scripts/lib", "scripts.lib.gapfiller" = "scripts/lib/gapfiller"}
+package-dir = {oeds_post_scripts = "src/oeds_post_scripts", oeds_gapfill = "oeds_gapfill", oeds_price_forecast = "oeds_price_forecast", scripts = "scripts", "scripts.lib" = "scripts/lib"}
 
 [tool.setuptools.package-data]
 "scripts.lib" = ["*.sql"]

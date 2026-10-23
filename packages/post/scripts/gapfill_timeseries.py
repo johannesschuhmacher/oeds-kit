@@ -29,10 +29,10 @@ from oeds_gapfill.config import (
     load_job_from_crawler_config,
 )  # noqa: E402
 from oeds_gapfill.core import GAPFILL_METHODS  # noqa: E402
+from oeds_gapfill.db import run_gapfill_job  # noqa: E402
+from oeds_gapfill.holdout import run_database_holdout_test  # noqa: E402
 from oeds_gapfill.selftest import write_self_test_results  # noqa: E402
 from oeds_post_scripts.runtime_env import load_crawler_dotenv  # noqa: E402
-from scripts.lib.gapfiller.db import run_gapfill_job  # noqa: E402
-from scripts.lib.gapfiller.holdout import run_database_holdout_test  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

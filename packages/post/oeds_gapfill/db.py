@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
-from scripts.lib.gapfiller.config import GapfillJobConfig, TimeSeriesTableConfig
-from scripts.lib.gapfiller.core import GroupMetric, fill_table
+from oeds_gapfill.config import GapfillJobConfig, TimeSeriesTableConfig
+from oeds_gapfill.core import GroupMetric, fill_table
 from sqlalchemy import Engine, text
 
 @dataclass(frozen=True)
