@@ -30,13 +30,7 @@ from crawler_admin.config_service import (
     write_config_text_atomic,
 )
 from crawler_admin.gapfill_service import (
-    GapfillHoldoutView,
-    GapfillSelfTestView,
-    build_gapfill_holdout_catalog,
-    build_gapfill_holdout_view,
     build_gapfill_runtime_view,
-    build_gapfill_selftest_catalog,
-    build_gapfill_selftest_view,
     gapfill_method_options,
 )
 from crawler_admin.price_forecast_service import build_price_forecast_runtime_view
@@ -51,8 +45,6 @@ BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["post_installed"] = POST_INSTALLED
 run_service = CrawlerRunService()
-latest_gapfill_selftest_view: GapfillSelfTestView | None = None
-latest_gapfill_holdout_view: GapfillHoldoutView | None = None
 SCHEDULER_WEEKDAY_ORDER = ["1", "2", "3", "4", "5", "6", "0"]
 SCHEDULER_WEEKDAY_OPTIONS = [
     {"value": "1", "label": "Monday"},
@@ -124,112 +116,10 @@ def dashboard(
 
 
 def _require_post() -> None:
-    """The gapfill pages exist only when oeds-post-scripts is installed."""
+    """The gapfill settings exist only when oeds-post-scripts is installed."""
 
     if not POST_INSTALLED:
         raise HTTPException(status_code=404, detail="Post-processing package is not installed.")
-
-
-@app.get("/admin/gapfill", response_class=HTMLResponse)
-def gapfill_dashboard(
-    request: Request,
-    self_tested: int | None = Query(default=None),
-    holdout_tested: int | None = Query(default=None),
-) -> HTMLResponse:
-    _require_post()
-    message_kind = None
-    message_text = None
-    if holdout_tested and latest_gapfill_holdout_view:
-        message_kind = "success" if latest_gapfill_holdout_view.passed else "error"
-        message_text = (
-            "Gapfill holdout test completed."
-            if latest_gapfill_holdout_view.passed
-            else "Gapfill holdout test completed with missing comparison points."
-        )
-    elif self_tested and latest_gapfill_selftest_view:
-        message_kind = "success" if latest_gapfill_selftest_view.all_passed else "error"
-        message_text = (
-            "Gapfill self-tests completed."
-            if latest_gapfill_selftest_view.all_passed
-            else "Gapfill self-tests completed with failures."
-        )
-
-    return _render_gapfill_dashboard(
-        request=request,
-        latest_selftest_view=latest_gapfill_selftest_view,
-        latest_holdout_view=latest_gapfill_holdout_view,
-        message_kind=message_kind,
-        message_text=message_text,
-    )
-
-
-@app.post("/admin/gapfill/self-tests", response_class=HTMLResponse)
-async def run_gapfill_self_tests(request: Request) -> HTMLResponse:
-    global latest_gapfill_selftest_view
-
-    _require_post()
-    form = await request.form()
-    selected_names = [str(value) for value in form.getlist("test_names")]
-
-    try:
-        view = build_gapfill_selftest_view(selected_names)
-    except ValueError as exc:
-        return _render_gapfill_dashboard(
-            request=request,
-            latest_selftest_view=latest_gapfill_selftest_view,
-            latest_holdout_view=latest_gapfill_holdout_view,
-            message_kind="error",
-            message_text=str(exc),
-            selected_names=selected_names,
-        )
-
-    latest_gapfill_selftest_view = view
-
-    return RedirectResponse(url="/admin/gapfill?self_tested=1", status_code=303)
-
-
-@app.post("/admin/gapfill/holdout-tests", response_class=HTMLResponse)
-async def run_gapfill_holdout_test(request: Request) -> HTMLResponse:
-    global latest_gapfill_holdout_view
-
-    _require_post()
-    form = await request.form()
-    dataset_name = str(form.get("dataset_name") or "").strip()
-    fault_type = str(form.get("fault_type") or "value_gap").strip()
-    method = str(form.get("method") or "").strip() or None
-    submitted_holdout = {
-        "dataset_name": dataset_name,
-        "fault_type": fault_type,
-        "method": method or "",
-        "gap_length_periods": str(form.get("gap_length_periods") or ""),
-        "gap_start_index": str(form.get("gap_start_index") or ""),
-    }
-
-    try:
-        gap_length_periods = _parse_optional_int(form.get("gap_length_periods"))
-        gap_start_index = _parse_optional_int(form.get("gap_start_index"))
-        if gap_length_periods is None:
-            raise ValueError("gap_length_periods is required.")
-        view = build_gapfill_holdout_view(
-            dataset_name,
-            gap_length_periods,
-            gap_start_index=gap_start_index,
-            fault_type=fault_type,
-            method=method,
-        )
-    except ValueError as exc:
-        return _render_gapfill_dashboard(
-            request=request,
-            latest_selftest_view=latest_gapfill_selftest_view,
-            latest_holdout_view=latest_gapfill_holdout_view,
-            message_kind="error",
-            message_text=str(exc),
-            submitted_holdout=submitted_holdout,
-        )
-
-    latest_gapfill_holdout_view = view
-
-    return RedirectResponse(url="/admin/gapfill?holdout_tested=1", status_code=303)
 
 
 @app.post("/admin/crawlers/{crawler_name}/scheduler", response_class=HTMLResponse)
@@ -622,66 +512,6 @@ def run_log(run_id: int, lines: int = Query(default=200, ge=20, le=1000)) -> JSO
 @app.get("/admin/healthz", response_class=JSONResponse)
 def healthcheck() -> JSONResponse:
     return JSONResponse({"status": "ok"})
-
-
-def _render_gapfill_dashboard(
-    *,
-    request: Request,
-    latest_selftest_view: GapfillSelfTestView | None,
-    latest_holdout_view: GapfillHoldoutView | None,
-    message_kind: str | None = None,
-    message_text: str | None = None,
-    selected_names: list[str] | None = None,
-    submitted_holdout: dict[str, str] | None = None,
-) -> HTMLResponse:
-    catalog = build_gapfill_selftest_catalog()
-    holdout_catalog = build_gapfill_holdout_catalog()
-    if selected_names is None:
-        selected_names = latest_selftest_view.selected_names if latest_selftest_view else [item.name for item in catalog]
-    if submitted_holdout is None:
-        submitted_holdout = _build_holdout_form_defaults(latest_holdout_view, holdout_catalog)
-
-    return templates.TemplateResponse(
-        request,
-        "gapfill.html",
-        {
-            "request": request,
-            "page_name": "gapfill",
-            "catalog": catalog,
-            "holdout_catalog": holdout_catalog,
-            "latest_view": latest_selftest_view,
-            "latest_holdout_view": latest_holdout_view,
-            "selected_names": set(selected_names),
-            "holdout_values": submitted_holdout,
-            "gapfill_methods": gapfill_method_options(),
-            "message_kind": message_kind,
-            "message_text": message_text,
-        },
-    )
-
-
-def _build_holdout_form_defaults(
-    latest_holdout_view: GapfillHoldoutView | None,
-    holdout_catalog: list[Any],
-) -> dict[str, str]:
-    if latest_holdout_view is not None:
-        result = latest_holdout_view.result
-        return {
-            "dataset_name": result.dataset_name,
-            "fault_type": result.fault_type,
-            "method": result.method,
-            "gap_length_periods": str(result.gap_length_periods),
-            "gap_start_index": str(result.gap_start_index),
-        }
-
-    default_dataset = holdout_catalog[0] if holdout_catalog else None
-    return {
-        "dataset_name": default_dataset.name if default_dataset else "",
-        "fault_type": "value_gap",
-        "method": default_dataset.method if default_dataset else "donor_refined",
-        "gap_length_periods": str(default_dataset.recommended_gap_length if default_dataset else 6),
-        "gap_start_index": str(default_dataset.recommended_gap_start if default_dataset else ""),
-    }
 
 
 def _extract_gapfill_form_values(form: Any, overview: Any) -> dict[str, Any]:
@@ -1440,16 +1270,6 @@ def _form_to_payload(form: Any) -> dict[str, Any]:
         else:
             payload[key] = values
     return payload
-
-
-def _parse_optional_int(value: Any) -> int | None:
-    text_value = str(value or "").strip()
-    if not text_value:
-        return None
-    try:
-        return int(text_value)
-    except ValueError as exc:
-        raise ValueError(f"Expected an integer value, got '{text_value}'.") from exc
 
 
 def _parse_enable_form_value(value: str) -> bool | None:

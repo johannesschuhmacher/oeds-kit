@@ -76,8 +76,8 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
 `oeds-post-scripts` is not required. Without it, scheduled runs and the admin
 UI work as usual; a post-run command whose executable is not installed (for
 example `oeds-post gapfill entsoe-fms`) is skipped with a WARNING and does not
-mark the run failed. The admin's Gapfill Tests page, the per-crawler gapfill and
-price-forecast panels and their actions are absent until the package is installed.
+mark the run failed. The admin's per-crawler gapfill and price-forecast panels
+and their actions are absent until the package is installed.
 
 ## Current CLIs
 
