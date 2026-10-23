@@ -62,7 +62,6 @@ class CrawlerRunResult:
     post_run_success: bool
     success: bool
     status: str  # "succeeded" | "failed" | "skipped"
-    crawler_result: Any = None
     error: str | None = None
     post_run_results: tuple[PostRunCommandResult, ...] = ()
     log_path: Path | None = None

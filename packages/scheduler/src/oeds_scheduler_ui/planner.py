@@ -47,7 +47,6 @@ class SchedulerJobPlan:
     job_id: str
     display_name: str
     schedule: str | None
-    enabled: bool
     run_post_scripts: bool
     post_run_scripts: Sequence[str]
     raw_config: Mapping[str, Any]
@@ -231,7 +230,6 @@ def build_scheduler_job_plans(
                     job_id=job_config.job_id,
                     display_name=job_config.display_name,
                     schedule=job_config.schedule,
-                    enabled=job_config.enabled,
                     run_post_scripts=job_config.run_post_scripts,
                     post_run_scripts=_post_run_scripts(job_config.config),
                     raw_config=dict(job_config.config),

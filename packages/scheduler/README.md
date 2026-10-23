@@ -85,9 +85,7 @@ oeds-scheduler --config CRAWLER_CONFIG.yml --daemon
 ```
 
 `--once` runs one scheduler tick and waits for the started runs. `--daemon`
-runs the persistent scheduler loop. `--inventory` and `--workspace-root` are
-still accepted but ignored (deprecated; the deployment stops passing them in a
-later release).
+runs the persistent scheduler loop.
 
 Run the admin UI:
 
