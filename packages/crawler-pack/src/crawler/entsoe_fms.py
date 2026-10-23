@@ -13,17 +13,14 @@ download loop in multiple spots.
 import csv
 import io
 import os
-import logging
 import re
 import time
 from typing import List, Dict
 
-import gc
 from dotenv import load_dotenv
 
 import pandas as pd
 import requests
-from requests.adapters import HTTPAdapter
 from sqlalchemy import (
     text,
     Table,
@@ -39,11 +36,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
-from urllib3.util.retry import Retry
 
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
-
-from datetime import datetime
 
 
 # Data items are identified without their extract version (such as "_r3").
@@ -117,11 +112,7 @@ FMS_FULL_UPSERT_TABLES = {
     "ProductionAndGenerationUnits",
     "TransmissionAssets",
     "UnavailabilityInTheTransmissionGrid",
-    "UnavailabilityOfGenerationUnits",
-    "UnavailabilityOfGenerationUnitsReasons",
     "UnavailabilityOfOffshoreGrid",
-    "UnavailabilityOfProductionUnits",
-    "UnavailabilityOfProductionUnitsReasons",
     "UnavailabilityOfProductionAndGenerationUnits",
 }
 
@@ -232,7 +223,6 @@ class EntsoeFMSCrawler(KitCrawler):
         "ExpansionAndDismantlingProjects": "unique_expansion_dismantling_projects",
         "ForecastedTransferCapacities": "unique_forecasted_transfer_capa",
         "InstalledGenerationCapacityPerProductionUnit": "unique_insta_capa_prod_unit",
-        "InstalledCapacityProductionUnit": "unique_insta_capa_prod_unit",
         "InstalledGenerationCapacityAggregated": "unique_insta_gen_capa_aggr",
         "PhysicalFlows": "unique_physical_flows",
         "ProductionAndGenerationUnits": "unique_prod_gen_units",
@@ -243,12 +233,7 @@ class EntsoeFMSCrawler(KitCrawler):
         "UnavailabilityInTheTransmissionGrid": "unique_unava_trans_grid",
         "UnavailabilityOfConsumptionUnits": "unique_plam_unava_cons_units",
         "UnavailabilityOfOffshoreGrid": "unique_unava_offshore_grid",
-        "PlannedUnavailabilityOfConsumptionUnits": "unique_plam_unava_cons_units",
         "UseOfTransferCapacity": "unique_use_of_transfer_capacity",
-        "UnavailabilityOfGenerationUnits": "unique_unava_gen_units",
-        "UnavailabilityOfGenerationUnitsReasons": "unique_unava_gen_reason",
-        "UnavailabilityOfProductionUnits": "unique_unava_pro_units",
-        "UnavailabilityOfProductionUnitsReasons": "unique_unava_pro_reasons",
         "UnavailabilityOfProductionAndGenerationUnits": "unique_unava_prod_gen_units",
         "YearAheadForecastMargin": "unique_year_ahead_forecast_margin",
         "ImplicitAllocationsNetPositions": "unique_implicit_alloc_net_pos",
@@ -290,15 +275,6 @@ class EntsoeFMSCrawler(KitCrawler):
         "ExpansionAndDismantlingProjects": [
             "DateTime(UTC)", "OutAreaDisplayName", "InAreaDisplayName", "ProjectType", "AssetCode", "EstimatedCompletionDate"
         ],
-        "InstalledCapacityProductionUnit": [
-            "EICCode",
-            "Name",
-            "ValidFrom",
-            "ValidTo",
-            "Status",
-            "Type",
-            "Location",
-        ],
         "InstalledGenerationCapacityAggregated": [
             "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ProductionType"
         ],
@@ -332,17 +308,8 @@ class EntsoeFMSCrawler(KitCrawler):
             "InstanceCode", "DateTime(UTC)", "ResolutionCode", "ContractType", "Category", "Sequence", "OutAreaDisplayName", "InAreaDisplayName"
         ],
         "GenerationForecastsForWindAndSolar": [
-            "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ProductionType"
+            "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "ProductionType", "AreaTypeCode"
         ],
-        "PlannedUnavailabilityOfConsumptionUnits": [
-            "DateTime",
-            "ResolutionCode",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-        ],
-
         "UnavailabilityOfConsumptionUnits": [
             "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode"
         ],
@@ -354,64 +321,10 @@ class EntsoeFMSCrawler(KitCrawler):
             "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)",
             "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "Status"
         ],
-        "UnavailabilityOfGenerationUnits": [
-            "StartOutage",
-            "EndOutage",
-            "StartTS",
-            "EndTS",
-            "TimeZone",
-            "MRID",
-            "Status",
-            "Type",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-            "PowerResourceEIC",
-            "UnitName",
-            "ProductionType",
-            "Version",
-            "OldVersion",
-        ],
         "UnavailabilityOfProductionAndGenerationUnits": [
             "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)",
             "StartTimeSeries(UTC)", "EndTimeSeries(UTC)",
             "AssetCode", "Status", "Type"
-        ],
-        "UnavailabilityOfGenerationUnitsReasons": [
-            "StartTS",
-            "EndTS",
-            "MRID",
-            "Version",
-            "OldVersion",
-            "ReasonCode",
-        ],
-        "UnavailabilityOfProductionUnits": [
-            "StartOutage",
-            "EndOutage",
-            "StartTS",
-            "EndTS",
-            "TimeZone",
-            "MRID",
-            "Status",
-            "Type",
-            "AreaCode",
-            "AreaTypeCode",
-            "AreaName",
-            "MapCode",
-            "PowerResourceEIC",
-            "UnitName",
-            "ProductionType",
-            "Version",
-            "OldVersion",
-        ],
-        "UnavailabilityOfProductionUnitsReasons": [
-            "StartTS",
-            "EndTS",
-            "MRID",
-            "Version",
-            "OldVersion",
-            "ReasonCode",
         ],
         "YearAheadForecastMargin": [
             "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode"
@@ -478,17 +391,6 @@ class EntsoeFMSCrawler(KitCrawler):
             psrtype.to_sql("psrtype", conn, if_exists="replace")
 
     # ---------------------------
-    # Authentication and session setup
-    # ---------------------------
-    # Read credentials from environment variables or a local dotenv file.
-    load_dotenv()
-    KETCLOAK_URL = "https://keycloak.tp.entsoe.eu/realms/tp/protocol/openid-connect/token"
-    FMS_URL = "https://fms.tp.entsoe.eu/downloadFileContent"
-    USERNAME = os.getenv("ENTSOE_USERNAME")
-    PASSWORD = os.getenv("ENTSOE_PASSWORD")
-    CLIENT_ID = "tp-fms-public"
-
-    # ---------------------------
     # Constant endpoints and paths
     # ---------------------------
     TOKEN_URL = "https://keycloak.tp.entsoe.eu/realms/tp/protocol/openid-connect/token"
@@ -498,14 +400,18 @@ class EntsoeFMSCrawler(KitCrawler):
     def _authenticate(self) -> None:
         """Fetch an OAuth2 access token and initialize the retry-enabled session."""
 
-        if not self.USERNAME or not self.PASSWORD:
+        # Credentials come from the environment or a local dotenv file.
+        load_dotenv()
+        username = os.getenv("ENTSOE_USERNAME")
+        password = os.getenv("ENTSOE_PASSWORD")
+        if not username or not password:
             print("Error: ENTSOE_USERNAME or ENTSOE_PASSWORD is not set in .env")
 
         payload = (
             f"client_id={self.CLIENT_ID}"
             f"&grant_type=password"
-            f"&username={self.USERNAME}"
-            f"&password={self.PASSWORD}"
+            f"&username={username}"
+            f"&password={password}"
         )
 
         headers = {
@@ -517,22 +423,13 @@ class EntsoeFMSCrawler(KitCrawler):
 
         self._access_token = response.json().get("access_token")
 
-        retries = Retry(
-            total=5,
-            backoff_factor=2,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["POST"],
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-
-        self.session = requests.Session()
+        self.session = build_session(retries=5, backoff_factor=2)
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
             }
         )
-        self.session.mount("https://", adapter)
         self.logger.info("FMS Token received and session established.")
 
     # ---------------------------
@@ -695,54 +592,24 @@ class EntsoeFMSCrawler(KitCrawler):
             "last_date_time": None,
         }
 
+        columns = self._table_columns(table_name)
+        if not columns:
+            return state
+        state["table_exists"] = True
+        # First match in column order, case-insensitive like the former "~*" queries.
+        # "DateTime" also matches "UpdateTime(UTC)" in tables without a DateTime column.
+        state["update_time_column"] = next((c for c in columns if "updatetime" in c.lower()), None)
+        state["datetime_column_name"] = next((c for c in columns if "datetime" in c.lower()), None)
+
+        if not include_watermarks:
+            return state
         with self.engine.connect() as conn:
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables
-                        WHERE table_schema = 'entsoe_fms' AND table_name = '{table_name}'
-                    ) AS table_exists;
-                    """
-                )
-            ).fetchone()
-            state["table_exists"] = result[0] if result else False
-
-            if not state["table_exists"]:
-                return state
-
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = 'entsoe_fms'
-                      AND table_name = '{table_name}'
-                      AND column_name ~* 'UpdateTime';
-                    """
-                )
-            ).fetchone()
-            state["update_time_column"] = result[0] if result else None
-
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = 'entsoe_fms'
-                      AND table_name = '{table_name}'
-                      AND column_name ~* 'DateTime';
-                    """
-                )
-            ).fetchone()
-            state["datetime_column_name"] = result[0] if result else None
-
-            if include_watermarks and state["update_time_column"]:
+            if state["update_time_column"]:
                 state["last_update_time"] = conn.execute(
                     text(f'SELECT MAX("{state["update_time_column"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
 
-            if include_watermarks and state["datetime_column_name"]:
+            if state["datetime_column_name"]:
                 state["last_date_time"] = conn.execute(
                     text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
@@ -761,7 +628,8 @@ class EntsoeFMSCrawler(KitCrawler):
                 for row in conn.execute(
                     text(
                         "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name"
+                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name "
+                        "ORDER BY ordinal_position"
                     ),
                     {"table_name": table_name},
                 )
@@ -884,7 +752,6 @@ class EntsoeFMSCrawler(KitCrawler):
         if df.empty:
             return df
 
-        df = df.copy()
         update_time_column = next((col for col in FMS_UPDATE_TIME_COLUMNS if col in df.columns), None)
         if update_time_column:
             df = df.sort_values(update_time_column, kind="stable")
@@ -985,9 +852,7 @@ class EntsoeFMSCrawler(KitCrawler):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         if update_time_column and update_time_column in df.columns and last_update_time:
             temp_update = df[update_time_column].dt.tz_localize(None)
-            df = df[temp_update > last_update_time].copy()
-        else:
-            df = df.copy()
+            df = df[temp_update > last_update_time]
 
         if df.empty:
             return pd.DataFrame(), pd.DataFrame()
@@ -997,15 +862,15 @@ class EntsoeFMSCrawler(KitCrawler):
             return pd.DataFrame(), df
 
         if table_name in self.FULL_UPSERT_TABLES:
-            return pd.DataFrame(), df.copy()
+            return pd.DataFrame(), df
 
         if datetime_column_name and datetime_column_name in df.columns and last_date_time:
             temp_date = df[datetime_column_name].dt.tz_localize(None)
-            df_update = df[temp_date <= last_date_time].copy()
-            df_insert = df[temp_date > last_date_time].copy()
+            df_update = df[temp_date <= last_date_time]
+            df_insert = df[temp_date > last_date_time]
             return df_insert, df_update
 
-        return pd.DataFrame(), df.copy()
+        return pd.DataFrame(), df
 
     @staticmethod
     def calculate_package_window_start(end_time: pd.Timestamp, window_months: int) -> pd.Timestamp:
@@ -1035,9 +900,6 @@ class EntsoeFMSCrawler(KitCrawler):
     def _uses_full_package_upsert(self) -> bool:
         return self.config.get("fms_package_write_mode") == "full_upsert"
 
-    def _split_package_refresh_chunk(self, table_name: str, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-        return pd.DataFrame(), self._deduplicate_on_unique_keys(table_name, df.copy())
-
     # ---------------------------
     # Main download routine
     # ---------------------------
@@ -1055,9 +917,6 @@ class EntsoeFMSCrawler(KitCrawler):
         self._authenticate()
         self._available_folders = None
 
-        # Kept as a safe fallback if a future change re-introduces buffered writes.
-        df_insert_full = pd.DataFrame()
-        df_update_full = pd.DataFrame()
         failures: list[str] = []
 
         target_data_items = self._get_target_data_items()
@@ -1177,25 +1036,16 @@ class EntsoeFMSCrawler(KitCrawler):
                             df = self._normalize_timestamp_columns(df)
                             self._add_missing_columns(table_name, df)
 
+                            # _insert_dataframe and _upsert_dataframe drop duplicate keys themselves.
                             if create:
-                                df = self._deduplicate_on_unique_keys(table_name, df)
-                                total_rows = len(df)
-                                print(f"    Processing chunk {chunk_idx+1}: Inserting {total_rows} rows...")
-                                total_file_inserts += total_rows
+                                print(f"    Processing chunk {chunk_idx+1}: Inserting {len(df)} rows...")
+                                total_file_inserts += len(df)
                                 self._insert_dataframe(table_name, df)
 
                             elif full_package_upsert:
-                                df_insert_chunk, df_update_chunk = self._split_package_refresh_chunk(table_name, df)
-
-                                if df_insert_chunk.empty and df_update_chunk.empty:
-                                    continue
-
-                                print(
-                                    f"    Processing chunk {chunk_idx+1}: "
-                                    f"0 new inserts, {len(df_update_chunk)} package upserts."
-                                )
-                                self._flush_to_database(table_name, df_insert_chunk, df_update_chunk)
-                                total_file_updates += len(df_update_chunk)
+                                print(f"    Processing chunk {chunk_idx+1}: 0 new inserts, {len(df)} package upserts.")
+                                self._flush_to_database(table_name, pd.DataFrame(), df)
+                                total_file_updates += len(df)
 
                             elif table_state["last_update_time"]:
                                 df_insert_chunk, df_update_chunk = self._split_incremental_chunk(
@@ -1226,14 +1076,6 @@ class EntsoeFMSCrawler(KitCrawler):
                                 self._flush_to_database(table_name, pd.DataFrame(), df_update_chunk)
                                 total_file_updates += len(df_update_chunk)
 
-                            del df
-                            if 'df_update_chunk' in locals():
-                                del df_update_chunk
-                            if 'df_insert_chunk' in locals():
-                                del df_insert_chunk
-                            if chunk_idx % 5 == 0:
-                                gc.collect()
-
                     self.logger.info(f"File {fname} processed successfully. Total rows inserted: {total_file_inserts}, Total rows updated: {total_file_updates}.")
                     print(f"    -> Finished processing {fname}: {total_file_inserts} rows inserted, {total_file_updates} rows updated.")
 
@@ -1249,18 +1091,6 @@ class EntsoeFMSCrawler(KitCrawler):
                             os.remove(local_path)
                         except Exception:
                             pass
-
-                    if 'df' in locals():
-                        del df
-                    gc.collect()
-
-            # Flush accumulated data (safe fallback)
-            if not df_insert_full.empty or not df_update_full.empty:
-                print(f"--- Flushing data for {table_name} ({len(df_insert_full)} new, {len(df_update_full)} updates) ---")
-                self._flush_to_database(table_name, df_insert_full, df_update_full)
-
-            df_insert_full = pd.DataFrame()
-            df_update_full = pd.DataFrame()
 
         if failures:
             raise RuntimeError(
@@ -1336,9 +1166,7 @@ class EntsoeFMSCrawler(KitCrawler):
 
             df = df.rename(columns=column_mapping)
 
-            original_count = len(df)
             df = df.dropna(axis=0, subset=["lon", "lat"])  # Drop rows that cannot be shown on a map.
-            dropped_count = original_count - len(df)
 
             # Views in entsoe_availability_map depend on this table, so it must not be
             # dropped (to_sql replace). Keep it and swap its rows instead.
@@ -1358,22 +1186,11 @@ class EntsoeFMSCrawler(KitCrawler):
             self.logger.error(f"error: {e}", exc_info=True)
             print("Error downloading powerplant data")
 
-    # ------------------------------------------------------------------
-    # Table definitions are currently kept compatible with the legacy SFTP crawler.
-    # _create_table_with_unique_constraint()
-    #   -> Refactor this into declarative schema metadata in a later cleanup pass.
-    # ------------------------------------------------------------------
     def _create_table_with_unique_constraint(self, table_name):
-        """
-        Create new table using the table_name and create the unique constraint
-        """
-        metadata = MetaData(schema="entsoe_fms")
-        table = None
-
+        """Create the table with its unique constraint (UNIQUE_KEY_DICT/UNIQUE_KEY_COLUMNS)."""
         match table_name:
             case 'AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants':
-                table = Table(
-                    'AggregatedFillingRateOfWaterReservoirsAndHydroStoragePlants', metadata,
+                columns = [
                     Column("Year", Float),
                     Column("Month", Float),
                     Column("Week", Float),
@@ -1385,14 +1202,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("AreaMapCode", String),
                     Column("StoredEnergy[MWh]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "Year", "Month", "Week", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_agg_fill_rate_hydro"
-                    )
-                )
+                ]
             case 'ActualGenerationOutputPerGenerationUnit':
-                table = Table(
-                    'ActualGenerationOutputPerGenerationUnit', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1405,15 +1217,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ActualGenerationOutput[MW]", Float),
                     Column("ActualConsumption[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaDisplayName",
-                        "AreaTypeCode", "AreaMapCode", "GenerationUnitCode", "GenerationUnitName", "GenerationUnitType",
-                        name="unique_generation_output"
-                    )
-                )
+                ]
             case 'ActualTotalLoad':
-                table = Table(
-                    'ActualTotalLoad', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1422,14 +1228,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("AreaMapCode", String),
                     Column("TotalLoad[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_actual_total_load"
-                    )
-                )
+                ]
             case 'AggregatedGenerationPerType':
-                table = Table(
-                    'AggregatedGenerationPerType', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1440,14 +1241,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ActualGenerationOutput[MW]", Float),
                     Column("ActualConsumption[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "ProductionType", "AreaTypeCode",
-                        name="unique_agreegated_generation_type"
-                    )
-                )
+                ]
             case 'CommercialSchedulesNetPositions':
-                table = Table(
-                    'CommercialSchedulesNetPositions', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1459,14 +1255,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("TotalCapacity[MW]", Float),
                     Column("TotalSchedulesDirection", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_comm_sched_net_pos"
-                    )
-                )
+                ]
             case 'DayAheadAggregatedGeneration':
-                table = Table(
-                    'DayAheadAggregatedGeneration', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1476,14 +1267,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("GenerationForecast[MW]", Float),
                     Column("ScheduledConsumption[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_day_ahead_agg_gen"
-                    )
-                )
+                ]
             case 'GenerationForecastsForWindAndSolar':
-                table = Table(
-                    'GenerationForecastsForWindAndSolar', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1495,14 +1281,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("IntradayGenerationForecast[MW]", Float),
                     Column("CurrentGenerationForecast[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "ProductionType", "AreaTypeCode",
-                        name="unique_gen_forecast_wind_solar"
-                    )
-                )
+                ]
             case 'DayAheadTotalLoadForecast':
-                table = Table(
-                    'DayAheadTotalLoadForecast', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1511,14 +1292,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("AreaMapCode", String),
                     Column("TotalLoad[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_day_ahead_total_load_fore"
-                    )
-                )
+                ]
             case 'EnergyPrices':
-                table = Table(
-                    'EnergyPrices', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
@@ -1531,15 +1307,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Price[Currency/MWh]", Float),
                     Column("Currency", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName",
-                        "ContractType", "Sequence",
-                        name="unique_energy_price"
-                    )
-                )
+                ]
             case 'ExpansionAndDismantlingProjects':
-                table = Table(
-                    'ExpansionAndDismantlingProjects', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
@@ -1561,14 +1331,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Status", String),
                     Column("Comment", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "OutAreaDisplayName", "InAreaDisplayName", "ProjectType", "AssetCode", "EstimatedCompletionDate",
-                        name="unique_expansion_dismantling_projects"
-                    )
-                )
+                ]
             case 'ForecastedTransferCapacities':
-                table = Table(
-                    'ForecastedTransferCapacities', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("OutAreaCode", String),
@@ -1582,35 +1347,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ContractType", String),
                     Column("ForecastTransferCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "OutAreaDisplayName",
-                        "InAreaDisplayName", "ContractType",
-                        name="unique_forecasted_transfer_capa"
-                    )
-                )
-            case 'InstalledCapacityProductionUnit':
-                table = Table(
-                    'InstalledCapacityProductionUnit', metadata,
-                    Column("EICCode", String),
-                    Column("Name", String),
-                    Column("ValidFrom", String),
-                    Column("ValidTo", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("Location", String),
-                    Column("InstalledCapacity", Float),
-                    Column("ControlArea", String),
-                    Column("BiddingZone", String),
-                    Column("Voltage", Float),
-                    UniqueConstraint(
-                        "EICCode", "Name", "ValidFrom", "ValidTo", "Status", "Type", "Location",
-                        name="unique_insta_capa_prod_unit"
-                    )
-                )
-
+                ]
             case 'InstalledGenerationCapacityPerProductionUnit':
-                table = Table(
-                    'InstalledGenerationCapacityPerProductionUnit', metadata,
+                columns = [
                     Column("ProductionUnitCode", String),
                     Column("ProductionUnitName", String),
                     Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
@@ -1625,15 +1364,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("AreaMapCode", String),
                     Column("VoltageLevel[kV]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "ProductionUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "ProductionType", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_insta_capa_prod_unit",
-                        postgresql_nulls_not_distinct=True,
-                    )
-                )
+                ]
             case 'InstalledGenerationCapacityAggregated':
-                table = Table(
-                    'InstalledGenerationCapacityAggregated', metadata,
+                columns = [
                     Column("Year", Float),
                     Column("TimeZone", String),
                     Column("ResolutionCode", String),
@@ -1644,14 +1377,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ProductionType", String),
                     Column("AggregatedInstalledCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ProductionType",
-                        name="unique_insta_gen_capa_aggr"
-                    )
-                )
+                ]
             case 'PhysicalFlows':
-                table = Table(
-                    'PhysicalFlows', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("OutAreaCode", String),
@@ -1664,14 +1392,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("InAreaMapCode", String),
                     Column("Flow[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "OutAreaDisplayName", "InAreaDisplayName",
-                        name="unique_physical_flows"
-                    )
-                )
+                ]
             case 'ProductionAndGenerationUnits':
-                table = Table(
-                    'ProductionAndGenerationUnits', metadata,
+                columns = [
                     Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
                     Column("ValidityPeriodEnd(UTC)", DateTime(timezone=True)),
                     Column("ProductionUnitCode", String),
@@ -1692,31 +1415,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("GenerationUnitLocation", String),
                     Column("GenerationUnitInstalledCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "ProductionUnitCode", "GenerationUnitCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_prod_gen_units",
-                        postgresql_nulls_not_distinct=True,
-                    )
-                )
-            case 'PlannedUnavailabilityOfConsumptionUnits':
-                table = Table(
-                    'PlannedUnavailabilityOfConsumptionUnits', metadata,
-                    Column("DateTime", DateTime(timezone=True)),
-                    Column("ResolutionCode", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("UnavailableCapacity", Float),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime", "ResolutionCode", "AreaCode", "AreaTypeCode", "AreaName", "MapCode",
-                        name="unique_plam_unava_cons_units"
-                    )
-                )
+                ]
             case 'TotalCapacityAlreadyAllocated':
-                table = Table(
-                    'TotalCapacityAlreadyAllocated', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
@@ -1732,14 +1433,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("InAreaMapCode", String),
                     Column("Capacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "DateTime(UTC)", "ResolutionCode", "ContractType", "Category", "OutAreaDisplayName", "InAreaDisplayName",
-                        name="unique_total_capa_allocated"
-                    )
-                )
+                ]
             case 'TotalCapacityNominated':
-                table = Table(
-                    'TotalCapacityNominated', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("OutAreaCode", String),
@@ -1753,14 +1449,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ContractType", String),
                     Column("Capacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "OutAreaDisplayName", "InAreaDisplayName", "ContractType",
-                        name="unique_total_capa_nominated"
-                    )
-                )
+                ]
             case 'TotalLoadForecast':
-                table = Table(
-                    'TotalLoadForecast', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1771,14 +1462,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("MinimumLoadForecast[MW]", Float),
                     Column("MaximumLoadForecast[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode", "ContractType",
-                        name="unique_total_load_forecast"
-                    )
-                )
+                ]
             case 'TransmissionAssets':
-                table = Table(
-                    'TransmissionAssets', metadata,
+                columns = [
                     Column("ValidityPeriodStart(UTC)", DateTime(timezone=True)),
                     Column("ValidityPeriodEnd(UTC)", DateTime(timezone=True)),
                     Column("AssetCode", String),
@@ -1796,15 +1482,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("OrganizationName", String),
                     Column("MarketInformationDataProviderCodes", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "AssetCode", "ValidityPeriodStart(UTC)", "ValidityPeriodEnd(UTC)", "AreaCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_transmission_assets",
-                        postgresql_nulls_not_distinct=True,
-                    )
-                )
+                ]
             case 'UseOfTransferCapacity':
-                table = Table(
-                    'UseOfTransferCapacity', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
@@ -1824,14 +1504,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("CapacityPrice[Currency/MWh]", Float),
                     Column("Currency", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "DateTime(UTC)", "ResolutionCode", "ContractType", "Category", "Sequence", "OutAreaDisplayName", "InAreaDisplayName",
-                        name="unique_use_of_transfer_capacity"
-                    )
-                )
+                ]
             case 'UnavailabilityInTheTransmissionGrid':
-                table = Table(
-                    'UnavailabilityInTheTransmissionGrid', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("Version", Float),
                     Column("OldVersion", String),
@@ -1858,14 +1533,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Comment", String),
                     Column("VersionPublicationTimestamp(UTC)", DateTime(timezone=True)),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "OutAreaCode", "InAreaCode", "Status", "Type",
-                        name="unique_unava_trans_grid"
-                    )
-                )
+                ]
             case 'UnavailabilityOfProductionAndGenerationUnits':
-                table = Table(
-                    'UnavailabilityOfProductionAndGenerationUnits', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("Version", Float),
                     Column("OldVersion", String),  # Keep String for compatibility with the existing table.
@@ -1888,16 +1558,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Comment", String),
                     Column("VersionPublicationTimestamp(UTC)", DateTime(timezone=True)),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)",
-                        "StartTimeSeries(UTC)", "EndTimeSeries(UTC)",
-                        "AssetCode", "Status", "Type",
-                        name="unique_unava_prod_gen_units"
-                    )
-                )
+                ]
             case 'UnavailabilityOfConsumptionUnits':
-                table = Table(
-                    'UnavailabilityOfConsumptionUnits', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -1908,14 +1571,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ActualUnavailableCapacity[MW]", Float),
                     Column("TotalUnavailableCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_plam_unava_cons_units"
-                    )
-                )
+                ]
             case 'UnavailabilityOfOffshoreGrid':
-                table = Table(
-                    'UnavailabilityOfOffshoreGrid', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("Version", Float),
                     Column("OldVersion", String),
@@ -1937,109 +1595,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Comment", String),
                     Column("VersionPublicationTimestamp(UTC)", DateTime(timezone=True)),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "Version", "StartOutage(UTC)", "EndOutage(UTC)", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "Status",
-                        name="unique_unava_offshore_grid"
-                    )
-                )
-            case 'UnavailabilityOfGenerationUnits':
-                table = Table(
-                    'UnavailabilityOfGenerationUnits', metadata,
-                    Column("StartOutage", DateTime(timezone=True)),
-                    Column("EndOutage", DateTime(timezone=True)),
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("TimeZone", String),
-                    Column("MRID", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("PowerResourceEIC", String),
-                    Column("UnitName", String),
-                    Column("ProductionType", String),
-                    Column("InstalledCapacity", Float),
-                    Column("AvailableCapacity", Float),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("Reason", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartOutage", "EndOutage", "StartTS", "EndTS", "TimeZone", "MRID", "Status", "Type", "AreaCode",
-                        "AreaTypeCode", "AreaName", "MapCode", "PowerResourceEIC", "UnitName", "ProductionType", "Version", "OldVersion",
-                        name="unique_unava_gen_units"
-                    )
-                )
-            case 'UnavailabilityOfGenerationUnitsReasons':
-                table = Table(
-                    'UnavailabilityOfGenerationUnitsReasons', metadata,
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("MRID", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("ReasonCode", String),
-                    Column("Reason", String),
-                    Column("ReasonText", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartTS", "EndTS", "MRID", "Version", "OldVersion", "ReasonCode",
-                        name="unique_unava_gen_reason"
-                    )
-                )
-            case 'UnavailabilityOfProductionUnits':
-                table = Table(
-                    'UnavailabilityOfProductionUnits', metadata,
-                    Column("StartOutage", DateTime(timezone=True)),
-                    Column("EndOutage", DateTime(timezone=True)),
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("TimeZone", String),
-                    Column("MRID", String),
-                    Column("Status", String),
-                    Column("Type", String),
-                    Column("AreaCode", String),
-                    Column("AreaTypeCode", String),
-                    Column("AreaName", String),
-                    Column("MapCode", String),
-                    Column("PowerResourceEIC", String),
-                    Column("UnitName", String),
-                    Column("ProductionType", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("VoltageConnectionLevel", Float),
-                    Column("InstalledCapacity", Float),
-                    Column("AvailableCapacity", Float),
-                    Column("Reason", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartOutage", "EndOutage", "StartTS", "EndTS", "TimeZone", "MRID", "Status", "Type", "AreaCode",
-                        "AreaTypeCode", "AreaName", "MapCode", "PowerResourceEIC", "UnitName", "ProductionType", "Version", "OldVersion",
-                        name="unique_unava_pro_units"
-                    )
-                )
-            case 'UnavailabilityOfProductionUnitsReasons':
-                table = Table(
-                    'UnavailabilityOfProductionUnitsReasons', metadata,
-                    Column("StartTS", DateTime(timezone=True)),
-                    Column("EndTS", DateTime(timezone=True)),
-                    Column("MRID", String),
-                    Column("Version", Float),
-                    Column("OldVersion", String),
-                    Column("ReasonCode", String),
-                    Column("Reason", String),
-                    Column("ReasonText", String),
-                    Column("UpdateTime", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "StartTS", "EndTS", "MRID", "Version", "OldVersion", "ReasonCode",
-                        name="unique_unava_pro_reasons"
-                    )
-                )
+                ]
             case 'YearAheadForecastMargin':
-                table = Table(
-                    'YearAheadForecastMargin', metadata,
+                columns = [
                     Column("Year", Float),
                     Column("TimeZone", String),
                     Column("ResolutionCode", String),
@@ -2049,14 +1607,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("AreaMapCode", String),
                     Column("ForecastMargin[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "Year", "ResolutionCode", "AreaDisplayName", "AreaTypeCode",
-                        name="unique_year_ahead_forecast_margin"
-                    )
-                )
+                ]
             case 'ImplicitAllocationsNetPositions':
-                table = Table(
-                    'ImplicitAllocationsNetPositions', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -2067,14 +1620,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("NetPosition[MW]", Float),
                     Column("Direction", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode", "ContractType",
-                        name="unique_implicit_alloc_net_pos"
-                    )
-                )
+                ]
             case 'CommercialSchedules':
-                table = Table(
-                    'CommercialSchedules', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("OutAreaCode", String),
@@ -2088,14 +1636,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("DayAheadCapacity[MW]", Float),
                     Column("TotalCapacity[MW]", Float),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "OutAreaCode", "InAreaCode",
-                        name="unique_comm_schedules"
-                    )
-                )
+                ]
             case 'RedispatchingInternal':
-                table = Table(
-                    'RedispatchingInternal', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("StartRedispatching(UTC)", DateTime(timezone=True)),
                     Column("EndRedispatching(UTC)", DateTime(timezone=True)),
@@ -2118,14 +1661,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Reason", String),
                     Column("Comment", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode", "ActionType", "ActionDirection",
-                        name="unique_redispatching_internal"
-                    )
-                )
+                ]
             case 'RedispatchingCrossBorder':
-                table = Table(
-                    'RedispatchingCrossBorder', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("StartRedispatching(UTC)", DateTime(timezone=True)),
                     Column("EndRedispatching(UTC)", DateTime(timezone=True)),
@@ -2152,15 +1690,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Reason", String),
                     Column("Comment", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "AssetCode",
-                        "OutAreaCode", "InAreaCode", "ActionType", "ActionDirection",
-                        name="unique_redispatching_cross_border"
-                    )
-                )
+                ]
             case 'Countertrading':
-                table = Table(
-                    'Countertrading', metadata,
+                columns = [
                     Column("InstanceCode", String),
                     Column("TimeIntervalFrom(UTC)", DateTime(timezone=True)),
                     Column("TimeIntervalTo(UTC)", DateTime(timezone=True)),
@@ -2181,14 +1713,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("ChangeInCrossBorderExchange[MW]", Float),
                     Column("Reason", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "InstanceCode", "StartTimeSeries(UTC)", "EndTimeSeries(UTC)", "OutAreaCode", "InAreaCode",
-                        name="unique_countertrading"
-                    )
-                )
+                ]
             case 'CostsOfCongestionManagement':
-                table = Table(
-                    'CostsOfCongestionManagement', metadata,
+                columns = [
                     Column("Year", Float),
                     Column("Month", Float),
                     Column("TimeZone", String),
@@ -2203,14 +1730,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("TotalCosts", Float),
                     Column("Currency", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "Year", "Month", "AreaCode", "AreaTypeCode",
-                        name="unique_costs_congestion_mgmt"
-                    )
-                )
+                ]
             case 'ImbalancePrices':
-                table = Table(
-                    'ImbalancePrices', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -2228,14 +1750,9 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Currency", String),
                     Column("Status", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode",
-                        name="unique_imbalance_prices"
-                    )
-                )
+                ]
             case 'TotalImbalanceVolumes':
-                table = Table(
-                    'TotalImbalanceVolumes', metadata,
+                columns = [
                     Column("DateTime(UTC)", DateTime(timezone=True)),
                     Column("ResolutionCode", String),
                     Column("AreaCode", String),
@@ -2247,23 +1764,29 @@ class EntsoeFMSCrawler(KitCrawler):
                     Column("Situation", String),
                     Column("Status", String),
                     Column("UpdateTime(UTC)", DateTime(timezone=True)),
-                    UniqueConstraint(
-                        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaTypeCode",
-                        name="unique_total_imbalance_volumes"
-                    )
-                )
+                ]
+            case _:
+                self.logger.error(f"No table definition found for '{table_name}'.")
+                return
 
-        if table is not None:
-            if "UpdateTime(UTC)" in table.c:
-                Index(self._update_time_index_name(table_name), table.c["UpdateTime(UTC)"])
-            try:
-                metadata.create_all(self.engine, tables=[table])
-                self.logger.info(f"Table '{table_name}' created successfully.")
-                print(f"Table '{table_name}' created successfully.")
-            except Exception as e:
-                self.logger.error(f"Error creating table '{table_name}': {e}", exc_info=True)
-        else:
-            self.logger.error(f"No table definition found for '{table_name}'.")
+        metadata = MetaData(schema="entsoe_fms")
+        table = Table(
+            table_name, metadata, *columns,
+            UniqueConstraint(
+                *self.UNIQUE_KEY_COLUMNS[table_name],
+                name=self.UNIQUE_KEY_DICT[table_name],
+                # None leaves the clause out; False would write NULLS DISTINCT.
+                postgresql_nulls_not_distinct=(table_name in FMS_NULLS_NOT_DISTINCT_TABLES) or None,
+            ),
+        )
+        if "UpdateTime(UTC)" in table.c:
+            Index(self._update_time_index_name(table_name), table.c["UpdateTime(UTC)"])
+        try:
+            metadata.create_all(self.engine, tables=[table])
+            self.logger.info(f"Table '{table_name}' created successfully.")
+            print(f"Table '{table_name}' created successfully.")
+        except Exception as e:
+            self.logger.error(f"Error creating table '{table_name}': {e}", exc_info=True)
 
 
     def run(self):
@@ -2440,41 +1963,15 @@ class EntsoeFMSCrawler(KitCrawler):
             df = pd.read_csv(local_path, encoding="utf-8-sig", sep="\t")
             df.columns = df.columns.str.strip()
 
-            if table_name == "InstalledCapacityProductionUnit":
-                self.logger.info(f"[_update_data_file] Flushing (special case) {len(df)} rows for {table_name}")
-                self._flush_to_database(table_name, pd.DataFrame(), df)
+            table_state = self._get_table_state(table_name)
+            if not table_state["table_exists"]:
+                self.logger.error(f"[_update_data_file] Table '{table_name}' does not exist. Cannot run backward update.")
                 return
-
-            with self.engine.connect() as conn:
-                table_exists_query = text(f"""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = 'entsoe_fms' AND table_name = '{table_name}'
-                ) AS table_exists;
-                """)
-                result = conn.execute(table_exists_query).fetchone()
-                if not (result and result[0]):
-                    self.logger.error(f"[_update_data_file] Table '{table_name}' does not exist. Cannot run backward update.")
-                    return
-
-                column_query = text(f"""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_schema = 'entsoe_fms'
-                AND table_name = '{table_name}' AND column_name ~* 'UpdateTime';
-                """)
-                result = conn.execute(column_query).fetchone()
-                update_time_column = result[0] if result else None
-
-                if not update_time_column:
-                    self.logger.error(f"[_update_data_file] Could not find 'UpdateTime' column for '{table_name}'.")
-                    return
-
-                query = text(f"""
-                SELECT MAX("{update_time_column}") AS last_update_time
-                FROM "entsoe_fms"."{table_name}"
-                """)
-                result = conn.execute(query).fetchone()
-                last_update_time = result[0] if result else None
+            update_time_column = table_state["update_time_column"]
+            if not update_time_column:
+                self.logger.error(f"[_update_data_file] Could not find 'UpdateTime' column for '{table_name}'.")
+                return
+            last_update_time = table_state["last_update_time"]
 
             self._migrate_renamed_columns(table_name)
             self._ensure_nulls_not_distinct(table_name)
@@ -2487,7 +1984,6 @@ class EntsoeFMSCrawler(KitCrawler):
                 self._flush_to_database(table_name, pd.DataFrame(), df)
                 return
 
-            last_update_time = last_update_time.replace(tzinfo=None)
             df.loc[:, update_time_column] = pd.to_datetime(df[update_time_column])
             # Preserve the table's UpdateTime semantics so regular incremental runs keep working.
             df_update = df[df[update_time_column] <= last_update_time].copy()
@@ -2503,129 +1999,3 @@ class EntsoeFMSCrawler(KitCrawler):
         finally:
             if local_path and os.path.exists(local_path):
                 os.remove(local_path)
-
-
-    # ----------------------------------------------------------------------
-    # Outlier Detection Method
-    # ----------------------------------------------------------------------
-    '''
-    TABLE_CONFIG = {
-        "ActualGenerationOutputPerGenerationUnit": {"identifiers": ["GenerationUnitName"], "value_columns": ["ActualGenerationOutput(MW)", "ActualConsumption(MW)", "GenerationUnitInstalledCapacity(MW)"], "time_column": "DateTime (UTC)"},
-        "ActualTotalLoad": {"identifiers": ["AreaName"], "value_columns": ["TotalLoadValue"], "time_column": "DateTime"},
-        "AggregatedGenerationPerType": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["ActualGenerationOutput", "ActualConsumption"], "time_column": "DateTime"},
-        "DayAheadAggregatedGeneration": {"identifiers": ["AreaName"], "value_columns": ["ScheduledGeneration", "ScheduledConsumption"], "time_column": "DateTime"},
-        "DayAheadGenerationForecastForWindAndSolar": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["AggregatedGenerationForecast"], "time_column": "DateTime"},
-        "DayAheadTotalLoadForecast": {"identifiers": ["AreaName"], "value_columns": ["TotalLoadValue"], "time_column": "DateTime"},
-        "IntradayGenerationForecastForWindAndSolar": {"identifiers": ["AreaName", "ProductionType"], "value_columns": ["AggregatedGenerationForecast"], "time_column": "DateTime"}
-    }
-
-    def detect_outliers_in_table(self, table_name: str, start_date: datetime, end_date: datetime, warmup_days: int = 7):
-        """
-        Detects outliers in a specified database table for a given time period.
-        Automatically handles naive datetime inputs by assuming UTC.
-
-        Args:
-            table_name (str): The name of the database table to check.
-            start_date (datetime): The start time of the detection period.
-            end_date (datetime): The end time of the detection period.
-            warmup_days (int): A warm-up period in days to provide context for the filter.
-                            Data from this period will be fetched additionally.
-
-        Returns:
-            dict: A dictionary reporting the detection results.
-                Keys are the group identifiers (e.g., 'Germany' or ('Germany', 'Wind')).
-                Values are a list of column names where outliers were found for that group.
-                Example: {'Germany': ['TotalLoadValue'], ('France', 'Solar'): []}
-        """
-        # --- Added Section ---
-        # 1. Define the UTC timezone object
-        utc_tz = pytz.utc
-
-        # 2. Check start_date and localize to UTC if it's naive
-        if start_date.tzinfo is None:
-            print(f"  [INFO] start_date is timezone-naive. Localizing to UTC.")
-            start_date = utc_tz.localize(start_date)
-
-        # 3. Check end_date and localize to UTC if it's naive
-        if end_date.tzinfo is None:
-            print(f"  [INFO] end_date is timezone-naive. Localizing to UTC.")
-            end_date = utc_tz.localize(end_date)
-        # --- End of Added Section ---
-
-        # --- Subsequent logic remains unchanged ---
-        if table_name not in self.TABLE_CONFIG:
-            print(f"ERROR: Configuration for table '{table_name}' not found in TABLE_CONFIG.")
-            return {}
-
-        config = self.TABLE_CONFIG[table_name]
-        identifiers = config["identifiers"]
-        value_columns = config["value_columns"]
-        time_column = config["time_column"]
-
-        query_start_date = start_date - timedelta(days=warmup_days)
-
-        print(f"Fetching data from table '{table_name}' from {query_start_date} to {end_date}...")
-
-        query = text(f'SELECT * FROM "{table_name}" WHERE "{time_column}" >= :start AND "{time_column}" < :end')
-
-        try:
-            df = pd.read_sql(query, self.engine, params={"start": query_start_date, "end": end_date})
-        except Exception as e:
-            print(f"Database query failed: {e}")
-            return {}
-
-        if df.empty:
-            print(f"No data found for table '{table_name}' in the specified time period.")
-            return {}
-
-        df[time_column] = pd.to_datetime(df[time_column])
-
-        results = {}
-        grouped = df.groupby(identifiers)
-        print(f"Data has been split into {len(grouped)} groups by {identifiers}. Starting detection...")
-
-        for group_name, group_df in grouped:
-            results[group_name] = []
-            for value_col in value_columns:
-                ts_data = group_df.set_index(time_column)[value_col].sort_index()
-                ts_data = ts_data[~ts_data.index.duplicated(keep='first')]
-
-                if ts_data.empty:
-                    continue
-
-                transformer = HampelFilter(window_length=24, return_bool=True)
-                outlier_labels = transformer.fit_transform(ts_data)
-
-                target_period_outliers = outlier_labels.loc[start_date:end_date]
-
-                if target_period_outliers.any():
-                    print(f"  -> Outlier found in group '{group_name}' for column '{value_col}'!")
-                    results[group_name].append(value_col)
-
-        print("Detection complete.")
-        return results
-    '''
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": "entsoe_fms",
-    }
-    print("Entsoe_fms crawler start")
-    crawler = EntsoeFMSCrawler(schema_name, config)
-    print("EntsoeFMSCrawler created")
-    crawler.run()
-
-    # backward update test
-    # start = "2010-03"
-    # end = "2025_07"
-    # print("Start backwards updating")
-    # crawler.backwards_update(start=start, end=end, local_dir=local_dir, TARGET_FILES_DIR_index=0)
-
-    # outlier detector test
-    # table_to_check = "ActualTotalLoad"
-    # outlier_report = crawler.detect_outliers_in_table(table_to_check, start_time, end_time)
-    # print(len(outlier_report))
-
-if __name__ == "__main__":
-    main("entsoe_fms")

@@ -16,6 +16,7 @@ from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     compact_json,
+    copy_insert,
     normalize_column_name,
     parse_number,
     stable_hash,
@@ -170,28 +171,29 @@ class RegelleistungCrawler(KitCrawler):
                     "discovered_at": discovered_at,
                 }
             )
+        if not rows:
+            return
         with self.engine.begin() as conn:
-            for row in rows:
-                conn.execute(
-                    text(
-                        """
-                        INSERT INTO tender_files
-                            (file_name, control_block, date_range_type, file_type, product_type, market, date_range, source_url, discovered_at)
-                        VALUES
-                            (:file_name, :control_block, :date_range_type, :file_type, :product_type, :market, :date_range, :source_url, :discovered_at)
-                        ON CONFLICT (file_name) DO UPDATE SET
-                            control_block = EXCLUDED.control_block,
-                            date_range_type = EXCLUDED.date_range_type,
-                            file_type = EXCLUDED.file_type,
-                            product_type = EXCLUDED.product_type,
-                            market = EXCLUDED.market,
-                            date_range = EXCLUDED.date_range,
-                            source_url = EXCLUDED.source_url,
-                            discovered_at = EXCLUDED.discovered_at
-                        """
-                    ),
-                    row,
-                )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO tender_files
+                        (file_name, control_block, date_range_type, file_type, product_type, market, date_range, source_url, discovered_at)
+                    VALUES
+                        (:file_name, :control_block, :date_range_type, :file_type, :product_type, :market, :date_range, :source_url, :discovered_at)
+                    ON CONFLICT (file_name) DO UPDATE SET
+                        control_block = EXCLUDED.control_block,
+                        date_range_type = EXCLUDED.date_range_type,
+                        file_type = EXCLUDED.file_type,
+                        product_type = EXCLUDED.product_type,
+                        market = EXCLUDED.market,
+                        date_range = EXCLUDED.date_range,
+                        source_url = EXCLUDED.source_url,
+                        discovered_at = EXCLUDED.discovered_at
+                    """
+                ),
+                rows,
+            )
 
     def _download_file(self, file_name: str) -> bytes:
         response = self.session.get(f"{API_BASE_URL}/tenders/files/{file_name}", timeout=self.timeout_seconds)
@@ -264,9 +266,9 @@ class RegelleistungCrawler(KitCrawler):
             conn.execute(text("DELETE FROM file_rows WHERE file_name = :file_name"), {"file_name": file_name})
             conn.execute(text("DELETE FROM numeric_values WHERE file_name = :file_name"), {"file_name": file_name})
             if not raw_rows.empty:
-                raw_rows.to_sql("file_rows", conn, if_exists="append", index=False)
+                raw_rows.to_sql("file_rows", conn, if_exists="append", index=False, method=copy_insert)
             if not numeric_rows.empty:
-                numeric_rows.to_sql("numeric_values", conn, if_exists="append", index=False)
+                numeric_rows.to_sql("numeric_values", conn, if_exists="append", index=False, method=copy_insert)
 
     def run(self):
         self._prepare_schema()
@@ -318,16 +320,3 @@ class RegelleistungCrawler(KitCrawler):
         self.logger.info("Regelleistung crawler discovered %s files and imported %s.", len(files), downloaded)
         if failures:
             raise RuntimeError(f"Regelleistung files failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "regelleistung"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    RegelleistungCrawler("regelleistung", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

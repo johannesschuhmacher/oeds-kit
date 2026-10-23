@@ -312,16 +312,3 @@ class CopernicusCdsCrawler(KitCrawler):
             }
         )
         self.logger.info("Copernicus CDS crawler downloaded %s.", target_path)
-
-
-def main(schema_name: str = "copernicus_cds"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    CopernicusCdsCrawler("copernicus_cds", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

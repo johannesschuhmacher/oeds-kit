@@ -20,6 +20,7 @@ from crawler.common.crawler_utils import (
     build_session,
     compact_json,
     config_or_env,
+    copy_insert,
     has_credential,
     normalize_column_name,
     parse_number,
@@ -343,6 +344,11 @@ class NetztransparenzCrawler(KitCrawler):
         date_column = next((column for column in frame.columns if normalize_column_name(column) == "datum"), None)
         from_column = next((column for column in frame.columns if normalize_column_name(column) == "von"), None)
         to_column = next((column for column in frame.columns if normalize_column_name(column) == "bis"), None)
+        value_columns = [
+            (column, *self._area_and_direction(str(column)))
+            for column in frame.columns
+            if normalize_column_name(column) not in METADATA_COLUMN_KEYS
+        ]
         for _, row in frame.iterrows():
             timestamp_from = self._parse_timestamp(row, date_column, from_column) if date_column else None
             timestamp_to = self._parse_timestamp(row, date_column, to_column) if date_column and to_column else None
@@ -350,14 +356,10 @@ class NetztransparenzCrawler(KitCrawler):
             data_type = row.get("Datentyp")
             unit = row.get("Einheit")
             status = row.get("Status")
-            for column in frame.columns:
-                normalized_column = normalize_column_name(column)
-                if normalized_column in METADATA_COLUMN_KEYS:
-                    continue
+            for column, area, direction in value_columns:
                 value = parse_number(row.get(column))
                 if value is None:
                     continue
-                area, direction = self._area_and_direction(str(column))
                 record_key = stable_hash(endpoint["id"], timestamp_from, area, direction, category, data_type, value)
                 rows.append(
                     {
@@ -392,7 +394,7 @@ class NetztransparenzCrawler(KitCrawler):
             for index, record in enumerate(records, start=1)
         ]
         with self.engine.begin() as conn:
-            pd.DataFrame(rows).to_sql("raw_rows", conn, if_exists="append", index=False)
+            pd.DataFrame(rows).to_sql("raw_rows", conn, if_exists="append", index=False, method=copy_insert)
 
     def _replace_normalized_window(self, endpoint_id: str, frame: pd.DataFrame, date_from: datetime, date_to: datetime) -> None:
         with self.engine.begin() as conn:
@@ -407,7 +409,7 @@ class NetztransparenzCrawler(KitCrawler):
                 {"endpoint_id": endpoint_id, "date_from": date_from, "date_to": date_to},
             )
             if not frame.empty:
-                frame.to_sql("normalized_values", conn, if_exists="append", index=False)
+                frame.to_sql("normalized_values", conn, if_exists="append", index=False, method=copy_insert)
 
     def _fetch_endpoint(self, endpoint: dict[str, Any], token: str, date_from: datetime, date_to: datetime) -> int:
         fetched_at = utc_now()
@@ -475,16 +477,3 @@ class NetztransparenzCrawler(KitCrawler):
         self.logger.info("Netztransparenz crawler finished with %s raw rows.", total_rows)
         if failures:
             raise RuntimeError(f"Netztransparenz endpoints failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "netztransparenz"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    NetztransparenzCrawler("netztransparenz", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

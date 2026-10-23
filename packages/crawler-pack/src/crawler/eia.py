@@ -18,6 +18,7 @@ from crawler.common.crawler_utils import (
     build_session,
     compact_json,
     config_or_env,
+    copy_insert,
     has_credential,
     normalize_column_name,
     parse_number,
@@ -229,9 +230,9 @@ class EiaCrawler(KitCrawler):
             conn.execute(text("DELETE FROM api_rows WHERE request_id = :request_id"), {"request_id": request_id})
             conn.execute(text("DELETE FROM numeric_values WHERE request_id = :request_id"), {"request_id": request_id})
             if not raw_rows.empty:
-                raw_rows.to_sql("api_rows", conn, if_exists="append", index=False)
+                raw_rows.to_sql("api_rows", conn, if_exists="append", index=False, method=copy_insert)
             if not value_rows.empty:
-                value_rows.to_sql("numeric_values", conn, if_exists="append", index=False)
+                value_rows.to_sql("numeric_values", conn, if_exists="append", index=False, method=copy_insert)
 
     def run(self):
         self._prepare_schema()
@@ -288,16 +289,3 @@ class EiaCrawler(KitCrawler):
             }
         )
         self.logger.info("EIA crawler wrote %s API rows.", total_rows)
-
-
-def main(schema_name: str = "eia"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    EiaCrawler("eia", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()
