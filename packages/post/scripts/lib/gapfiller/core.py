@@ -12,12 +12,6 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from scipy import stats
-from scipy.ndimage import uniform_filter1d
-try:
-    from sklearn.mixture import GaussianMixture
-except ImportError:  # optional dependency for the GMM fallback path
-    GaussianMixture = None
 
 GapfillMethod = Literal["linear", "previous_period", "seasonal_linear", "donor_match", "donor_refined"]
 
@@ -57,15 +51,6 @@ class SeriesFillConfig:
     refinement_periods: int = 3
     max_gap_periods: int = 24
     min_points: int = 3
-    # ── new parameters for the added features ────────────────────────────────
-    artefact_detection: bool = False       # opt-in to preserve upstream defaults
-    artefact_window: int = 7               # R² window size
-    artefact_threshold: float = 0.999      # R² detection threshold
-    iterative_refinement: bool = False     # opt-in to preserve upstream defaults
-    refinement_max_iter: int = 50          # max refinement iterations
-    refinement_target_score: float = 0.3   # stop when combined score drops below
-    gmm_fallback: bool = False             # opt-in to preserve upstream defaults
-    random_seed: int | None = 42           # reproducible fallback/refinement output
 
 
 @dataclass(frozen=True)
@@ -110,347 +95,6 @@ class TableFillResult:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# IMPROVEMENT 1 — ARTEFACT DETECTION
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _compute_r2_scores(data: np.ndarray, window_size: int = 7) -> np.ndarray:
-    """
-    Rolling R² of a local linear regression.
-    Zero windows (< 1 % of global max) receive R² = 0 so that physically
-    valid zero periods (solar night) are never flagged as artefacts.
-    """
-    n = len(data)
-    r2 = np.zeros(n)
-    half_w = window_size // 2
-    global_scale = float(np.nanmax(np.abs(data))) if np.nanmax(np.abs(data)) > 0 else 1.0
-
-    for i in range(half_w, n - half_w):
-        window = data[i - half_w: i + half_w + 1]
-        mask = ~np.isnan(window)
-        if mask.sum() < 3:
-            continue
-
-        x = np.arange(len(window))[mask].astype(float)
-        y = window[mask]
-        xm, ym = x.mean(), y.mean()
-        ss_xy = float(np.sum((x - xm) * (y - ym)))
-        ss_xx = float(np.sum((x - xm) ** 2))
-        ss_yy = float(np.sum((y - ym) ** 2))
-
-        if ss_xx > 0 and ss_yy > 0:
-            r2[i] = (ss_xy ** 2) / (ss_xx * ss_yy)
-        elif ss_yy == 0:
-            # Constant window — only flag if the level is clearly non-zero
-            relative_level = abs(float(ym)) / global_scale
-            r2[i] = 0.0 if relative_level < 0.01 else 1.0
-        # else ss_xx == 0: degenerate window, leave r2 = 0
-
-    r2[:half_w]  = r2[half_w]
-    r2[-half_w:] = r2[-(half_w + 1)]
-    return r2
-
-
-def _detect_and_remove_artefacts(
-    values: np.ndarray,
-    window_size: int = 7,
-    threshold: float = 0.999,
-    freq_minutes: int = 60,
-) -> np.ndarray:
-    """
-    Detects linear interpolation artefacts via rolling R² and sets them to NaN.
-    Returns a copy of *values* with artefact positions set to NaN.
-    Physically valid zero segments (solar night) are protected.
-    """
-    data = values.astype("float64", copy=True)
-    n = len(data)
-
-    points_per_hour = max(1, int(60 / max(freq_minutes, 1)))
-    min_length = points_per_hour + 1  # only flag segments longer than 1 h
-
-    r2 = _compute_r2_scores(data, window_size)
-    flagged = r2 > threshold
-    global_scale = float(np.nanmax(np.abs(data))) if np.nanmax(np.abs(data)) > 0 else 1.0
-
-    # Adaptive confirmation by segment length
-    in_seg = False
-    seg_start = 0
-
-    for i in range(n + 1):
-        is_flagged = bool(flagged[i]) if i < n else False
-
-        if is_flagged and not in_seg:
-            seg_start = i
-            in_seg = True
-        elif not is_flagged and in_seg:
-            seg_len = i - seg_start
-            in_seg = False
-
-            if seg_len < min_length:
-                continue
-
-            seg_r2   = r2[seg_start:i]
-            mean_r2  = float(np.mean(seg_r2))
-            std_r2   = float(np.std(seg_r2))
-            min_r2   = float(np.min(seg_r2))
-
-            # Solar-night zero protection
-            seg_data = data[seg_start:i]
-            valid    = seg_data[~np.isnan(seg_data)]
-            if len(valid) > 0 and np.nanmax(np.abs(valid)) / global_scale < 0.01:
-                continue  # genuine zero segment — skip
-
-            # Length-dependent thresholds
-            if seg_len < 4:
-                keep = mean_r2 > 0.9990 and std_r2 < 0.003 and min_r2 > 0.993
-            elif seg_len < 12:
-                keep = mean_r2 > 0.9985 and std_r2 < 0.003 and min_r2 > 0.993
-            elif seg_len < 48:
-                keep = mean_r2 > 0.9980 and std_r2 < 0.005
-            else:
-                keep = mean_r2 > 0.9950
-
-            if keep:
-                data[seg_start:i] = np.nan
-
-    # Handle trailing open segment
-    if in_seg:
-        seg_len  = n - seg_start
-        seg_data = data[seg_start:]
-        valid    = seg_data[~np.isnan(seg_data)]
-        if seg_len >= min_length and len(valid) > 0:
-            if np.nanmax(np.abs(valid)) / global_scale >= 0.01:
-                if float(np.mean(r2[seg_start:])) > 0.9950:
-                    data[seg_start:] = np.nan
-
-    return data
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# IMPROVEMENT 2 — GMM FALLBACK
-# ══════════════════════════════════════════════════════════════════════════════
-
-class _GMMFallback:
-    """
-    Per-(hour, weekday) Gaussian Mixture Model.
-    Fitted on the observed data; used to fill gaps when no donor is found.
-    """
-
-    def __init__(self, max_components: int = 3, random_seed: int | None = 42):
-        self._max_k = max_components
-        self._random_seed = random_seed
-        self._rng = np.random.default_rng(random_seed)
-        self._models: dict[tuple[int, int], dict] = {}
-        self._global_mean = 0.0
-        self._global_std  = 1.0
-
-    def fit(self, index: pd.DatetimeIndex, values: np.ndarray) -> None:
-        clean = values[~np.isnan(values)]
-        if len(clean) == 0:
-            return
-        self._global_mean = float(np.mean(clean))
-        self._global_std  = max(float(np.std(clean)), 1e-6)
-
-        series = pd.Series(values, index=index)
-        for hour in range(24):
-            for weekday in range(7):
-                mask = (series.index.hour == hour) & (series.index.weekday == weekday)
-                vals = series[mask].dropna().values
-                if len(vals) < 5:
-                    continue
-                key = (hour, weekday)
-                mean_v = float(np.mean(vals))
-                std_v  = max(float(np.std(vals)), 1e-6)
-                gmm    = None
-                if GaussianMixture is not None and len(vals) >= 10:
-                    best_bic = float("inf")
-                    for k in range(1, min(self._max_k + 1, len(vals) // 5 + 1)):
-                        try:
-                            g = GaussianMixture(
-                                n_components=k,
-                                random_state=self._random_seed,
-                                max_iter=200,
-                            )
-                            g.fit(vals.reshape(-1, 1))
-                            bic = g.bic(vals.reshape(-1, 1))
-                            if bic < best_bic:
-                                best_bic = bic
-                                gmm = g
-                        except Exception:
-                            pass
-                self._models[key] = {"mean": mean_v, "std": std_v, "gmm": gmm}
-
-    def sample(self, hour: int, weekday: int) -> float:
-        key = (hour, weekday)
-        if key not in self._models:
-            return float(self._global_mean)
-        m = self._models[key]
-        if m["gmm"] is not None:
-            weights = np.asarray(m["gmm"].weights_, dtype="float64")
-            means = np.asarray(m["gmm"].means_, dtype="float64").reshape(-1)
-            xi = float(np.dot(weights, means))
-        else:
-            xi = float(m["mean"])
-        return 0.6 * m["mean"] + 0.4 * xi
-
-    def fill_series(self, series: pd.Series) -> pd.Series:
-        """Fill all NaN positions in *series* using GMM samples."""
-        filled = series.copy()
-        for idx in series.index[series.isna()]:
-            filled[idx] = self.sample(idx.hour, idx.weekday())
-        return filled
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# IMPROVEMENT 3 — ITERATIVE STATISTICAL REFINEMENT
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _refinement_score(
-    data: np.ndarray,
-    start: int,
-    end: int,
-    context_size: int = 48,
-) -> tuple[float, dict[str, float]]:
-    """
-    Combined score (0–1) measuring how detectable a segment is as an imputation.
-    Higher = more detectable = needs more refinement.
-    """
-    segment = data[start: end + 1]
-    ctx_l   = data[max(0, start - context_size): start]
-    ctx_r   = data[end + 1: min(len(data), end + 1 + context_size)]
-    ctx     = np.concatenate([ctx_l, ctx_r])
-    ctx     = ctx[~np.isnan(ctx)]
-
-    scores: dict[str, float] = {}
-
-    # 1. Edge detection
-    edge_scores = []
-    if start > 0 and not np.isnan(data[start - 1]):
-        left_jump   = abs(float(data[start]) - float(data[start - 1]))
-        local_diffs = np.abs(np.diff(data[max(0, start - 24): start]))
-        local_diffs = local_diffs[~np.isnan(local_diffs)]
-        if len(local_diffs) > 0 and np.std(local_diffs) > 0:
-            s = (left_jump - np.mean(local_diffs)) / (3 * (np.std(local_diffs) + 1e-10))
-            edge_scores.append(float(np.clip(s, 0, 1)))
-    if end < len(data) - 1 and not np.isnan(data[end + 1]):
-        right_jump  = abs(float(data[end]) - float(data[end + 1]))
-        local_diffs = np.abs(np.diff(data[end + 1: min(len(data), end + 25)]))
-        local_diffs = local_diffs[~np.isnan(local_diffs)]
-        if len(local_diffs) > 0 and np.std(local_diffs) > 0:
-            s = (right_jump - np.mean(local_diffs)) / (3 * (np.std(local_diffs) + 1e-10))
-            edge_scores.append(float(np.clip(s, 0, 1)))
-    scores["edge"] = float(np.mean(edge_scores)) if edge_scores else 0.0
-
-    # 2. Variance
-    if len(segment) >= 3 and len(ctx) >= 3:
-        seg_var = float(np.var(segment))
-        ctx_var = float(np.var(ctx))
-        scores["variance"] = float(np.clip(abs(np.log((seg_var + 1e-10) / (ctx_var + 1e-10))) / 2, 0, 1))
-    else:
-        scores["variance"] = 0.0
-
-    # 3. Autocorrelation (lag-1)
-    def _ac1(arr: np.ndarray) -> float:
-        if len(arr) < 2:
-            return 0.0
-        c = float(np.corrcoef(arr[:-1], arr[1:])[0, 1])
-        return c if np.isfinite(c) else 0.0
-
-    if len(segment) >= 10 and len(ctx) >= 10:
-        scores["autocorr"] = float(abs(_ac1(segment) - _ac1(ctx)))
-    else:
-        scores["autocorr"] = 0.0
-
-    # 4. Kolmogorov–Smirnov
-    if len(segment) >= 5 and len(ctx) >= 5:
-        _, p = stats.ks_2samp(segment[~np.isnan(segment)], ctx)
-        scores["ks"] = float(np.clip(1 - p, 0, 1))
-    else:
-        scores["ks"] = 0.0
-
-    combined = (
-        0.35 * scores["edge"]
-        + 0.25 * scores["variance"]
-        + 0.20 * scores["autocorr"]
-        + 0.20 * scores["ks"]
-    )
-    return float(combined), scores
-
-
-def _iterative_refine(
-    data: np.ndarray,
-    start: int,
-    end: int,
-    *,
-    max_iter: int = 50,
-    target_score: float = 0.3,
-    context_size: int = 48,
-    learning_rate: float = 0.1,
-    noise_scale: float = 0.02,
-    rng: np.random.Generator | None = None,
-) -> None:
-    """
-    Iteratively refines the segment data[start:end+1] in-place until its
-    combined detection score drops below *target_score* or *max_iter* is reached.
-    """
-    score, sub = _refinement_score(data, start, end, context_size)
-    if score <= target_score:
-        return
-
-    ctx_l = data[max(0, start - context_size): start]
-    ctx_r = data[end + 1: min(len(data), end + 1 + context_size)]
-    ctx   = np.concatenate([ctx_l, ctx_r])
-    ctx   = ctx[~np.isnan(ctx)]
-
-    rng = rng or np.random.default_rng(42)
-    prev_score = score
-    for iteration in range(max_iter):
-        # Edge blending
-        if sub["edge"] > 0.3:
-            blend = min(6, (end - start + 1) // 4)
-            if blend >= 2:
-                if start > 0 and not np.isnan(data[start - 1]):
-                    lv = float(data[start - 1])
-                    for k in range(blend):
-                        w = 0.3 * (1 - k / blend)
-                        data[start + k] = (1 - w) * data[start + k] + w * lv
-                if end < len(data) - 1 and not np.isnan(data[end + 1]):
-                    rv = float(data[end + 1])
-                    for k in range(blend):
-                        idx = end - k
-                        w   = 0.3 * (1 - k / blend)
-                        data[idx] = (1 - w) * data[idx] + w * rv
-
-        # Variance matching
-        if sub["variance"] > 0.4 and len(ctx) >= 3:
-            seg = data[start: end + 1]
-            seg_mean = float(np.mean(seg))
-            seg_std  = max(float(np.std(seg)), 1e-10)
-            ctx_std  = max(float(np.std(ctx)), 1e-10)
-            scale    = 1 + learning_rate * (ctx_std / seg_std - 1)
-            data[start: end + 1] = seg_mean + (seg - seg_mean) * scale
-
-        # Realistic noise
-        if len(ctx) >= 10:
-            noise_std = float(np.std(np.diff(ctx, n=2))) * 0.5 if len(ctx) > 2 else float(np.std(ctx)) * 0.1
-            noise = rng.normal(0, noise_std * noise_scale, end - start + 1)
-            data[start: end + 1] += noise
-
-        # Local smoothing
-        seg_len = end - start + 1
-        if seg_len >= 5:
-            seg      = data[start: end + 1].copy()
-            smoothed = uniform_filter1d(seg, size=min(3, seg_len // 3), mode="nearest")
-            data[start: end + 1] = 0.9 * seg + 0.1 * smoothed
-
-        score, sub = _refinement_score(data, start, end, context_size)
-        if score <= target_score:
-            return
-        if iteration > 10 and abs(score - prev_score) < 0.01:
-            return  # converged
-        prev_score = score
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # HELPERS  (unchanged from upstream)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -487,7 +131,7 @@ def infer_frequency(index: pd.DatetimeIndex) -> pd.Timedelta | None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MAIN PIPELINE ENTRY POINTS  (fill_table / fill_group — enhanced)
+# MAIN PIPELINE ENTRY POINTS  (fill_table / fill_group)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fill_table(
@@ -598,64 +242,16 @@ def fill_group(
     filled_columns_by_row: dict[pd.Timestamp, list[str]] = {ts: [] for ts in expanded.index}
     metrics: list[GroupMetric] = []
 
-    freq_minutes = int(round(frequency.total_seconds() / 60))
-
     for value_column in config.value_columns:
         series = pd.to_numeric(expanded[value_column], errors="coerce")
-        original_missing_before = int(series.isna().sum())
-
-        # ── IMPROVEMENT 1: artefact detection ────────────────────────────────
-        if config.artefact_detection and config.method in ("donor_match", "donor_refined"):
-            raw_values = series.to_numpy(dtype="float64")
-            cleaned    = _detect_and_remove_artefacts(
-                raw_values,
-                window_size=config.artefact_window,
-                threshold=config.artefact_threshold,
-                freq_minutes=freq_minutes,
-            )
-            n_artefacts = int(np.sum(np.isnan(cleaned) & ~np.isnan(raw_values)))
-            if n_artefacts > 0:
-                series = pd.Series(cleaned, index=series.index)
-
         missing_before_mask = series.isna()
         missing_before      = int(missing_before_mask.sum())
 
-        # ── Build fill candidate (donor / linear / previous_period / etc.) ───
         candidate    = _build_fill_candidate(series, config)
         eligible_mask = _eligible_missing_mask(missing_before_mask, config.max_gap_periods)
         filled_mask   = missing_before_mask & eligible_mask & candidate.notna()
 
         expanded.loc[filled_mask, value_column] = candidate.loc[filled_mask]
-
-        # ── IMPROVEMENT 2: GMM fallback for remaining NaN ────────────────────
-        if config.gmm_fallback and config.method in ("donor_match", "donor_refined"):
-            still_missing = pd.to_numeric(expanded[value_column], errors="coerce").isna()
-            still_eligible = still_missing & eligible_mask
-            if still_eligible.any():
-                gmm = _GMMFallback(random_seed=config.random_seed)
-                gmm.fit(pd.DatetimeIndex(expanded.index), series.to_numpy(dtype="float64"))
-                for ts in expanded.index[still_eligible]:
-                    expanded.loc[ts, value_column] = gmm.sample(ts.hour, ts.weekday())
-                filled_mask = filled_mask | still_eligible
-
-        # ── IMPROVEMENT 3: iterative statistical refinement ──────────────────
-        if (
-            config.iterative_refinement
-            and config.method in ("donor_refined",)
-            and filled_mask.any()
-        ):
-            work_array = pd.to_numeric(expanded[value_column], errors="coerce").to_numpy(dtype="float64").copy()
-            rng = np.random.default_rng(config.random_seed)
-            for gap in _missing_ranges(missing_before_mask & eligible_mask):
-                _iterative_refine(
-                    work_array,
-                    gap.start,
-                    gap.end,
-                    max_iter=config.refinement_max_iter,
-                    target_score=config.refinement_target_score,
-                    rng=rng,
-                )
-            expanded[value_column] = work_array
 
         for ts in expanded.index[filled_mask]:
             filled_columns_by_row[ts].append(value_column)
@@ -665,7 +261,7 @@ def fill_group(
             _metric(config=config, value_column=value_column, group_key=group_key,
                     method=config.method, source_rows=source_rows, output_rows=len(expanded),
                     expected_rows=len(full_index), created_gap_rows=int(created_mask.sum()),
-                    missing_before=original_missing_before, missing_after=missing_after,
+                    missing_before=missing_before, missing_after=missing_after,
                     filled_values=int(filled_mask.sum()),
                     start_time=_timestamp_or_none(full_index.min()),
                     end_time=_timestamp_or_none(full_index.max()),
