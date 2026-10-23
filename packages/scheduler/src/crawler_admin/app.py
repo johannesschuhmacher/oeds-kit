@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import smtplib
+from dataclasses import replace
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,9 @@ from crawler_admin.runtime_service import (
     CrawlerRunService,
     LockError,
     RunRecord,
+    SchedulerRun,
+    running_crawlers,
+    tail_log_lines,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -645,7 +649,11 @@ def _render_crawler_detail(
     active_run = run_service.get_active_run(crawler_name)
     selected_run = _select_run(history, active_run, selected_run_id)
     selected_log = run_service.get_run_log_tail(selected_run.run_id) if selected_run else None
-    latest_run = history[0] if history else None
+    running = running_crawlers(overview.default_config.get("database_uri"), [crawler_name])
+    running_now = None if running is None else crawler_name in running
+    scheduler_run = _with_lock_status(run_service.get_latest_scheduler_run(crawler_name), running_now)
+    scheduler_log = "\n".join(tail_log_lines(Path(scheduler_run.log_path), 60)) if scheduler_run else ""
+    latest_run = _newer_run(history[0] if history else None, scheduler_run)
     runtime_benchmarks = run_service.get_runtime_benchmarks(crawler_name)
     action_values = _build_action_values(actions, submitted_action_id, submitted_values)
     email_state = _build_email_alert_state(overview)
@@ -686,7 +694,10 @@ def _render_crawler_detail(
             "runtime_benchmarks": runtime_benchmarks,
             "selected_run": selected_run,
             "selected_log": selected_log,
-            "is_locked": run_service.is_locked(crawler_name),
+            "scheduler_run": scheduler_run,
+            "scheduler_log": scheduler_log,
+            "running_now": running_now,
+            "is_locked": run_service.is_locked(crawler_name) or bool(running_now),
             "email_state": email_state,
             "email_test_errors": email_test_errors or [],
             "effective_config_yaml": _format_yaml_preview(overview.effective_config),
@@ -727,17 +738,23 @@ def _render_dashboard(
     state = build_dashboard_state()
     latest_runs = run_service.get_latest_runs_map()
     crawler_rows = []
+    # The scheduler takes its run locks on default.database_uri.
+    default_config = next(iter(state.overviews.values())).default_config if state.overviews else {}
+    running = running_crawlers(default_config.get("database_uri"), [card.name for card in state.cards])
 
     for card in state.cards:
         overview = state.overviews[card.name]
         active_run = run_service.get_active_run(card.name)
+        running_now = None if running is None else card.name in running
+        scheduler_run = _with_lock_status(run_service.get_latest_scheduler_run(card.name), running_now)
         crawler_rows.append(
             {
                 "card": card,
                 "overview": overview,
                 "active_run": active_run,
-                "latest_run": active_run or latest_runs.get(card.name),
-                "is_locked": run_service.is_locked(card.name),
+                "latest_run": active_run or _newer_run(latest_runs.get(card.name), scheduler_run),
+                "running_now": running_now,
+                "is_locked": run_service.is_locked(card.name) or bool(running_now),
                 "can_start": bool(overview.raw_config),
                 "scheduler_job_name": _select_scheduler_job_name(
                     card,
@@ -1211,6 +1228,20 @@ def _select_run(history: list[RunRecord], active_run: RunRecord | None, selected
         return history[0]
 
     return None
+
+
+def _with_lock_status(run: SchedulerRun | None, running_now: bool | None) -> SchedulerRun | None:
+    """A log without footer whose crawler holds no lock belongs to a run that died."""
+
+    if run is not None and run.status == "running" and running_now is False:
+        return replace(run, status="interrupted")
+    return run
+
+
+def _newer_run(admin_run: RunRecord | None, scheduler_run: SchedulerRun | None) -> RunRecord | SchedulerRun | None:
+    if admin_run is None or (scheduler_run is not None and scheduler_run.created_at > admin_run.created_at):
+        return scheduler_run
+    return admin_run
 
 
 def _run_record_payload(record: RunRecord) -> dict[str, Any]:

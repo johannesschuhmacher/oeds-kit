@@ -6,17 +6,20 @@ import sys
 import tempfile
 import unittest
 from contextlib import contextmanager
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
 from crawler.common.crawler_utils import CrawlerSkipped
+from oeds_scheduler_ui.runtime import CrawlerJobRunner
 
 from crawler_admin.app import (
     _build_gapfill_form_defaults_from_view,
     _build_scheduler_form_state,
     _select_scheduler_job_name,
     _validate_gapfill_form_values,
+    _with_lock_status,
 )
 from crawler_admin.config_service import (
     GAPFILL_POSTRUN_SCRIPT,
@@ -324,6 +327,39 @@ class CrawlerRunServiceTest(unittest.TestCase):
                         self.assertIsNone(record.error_message)
                     else:
                         self.assertEqual(record.summary, "Run completed successfully.")
+
+    def test_reads_the_latest_scheduler_run_from_its_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            stub = root / "crawl_stub.py"
+            stub.write_text(CRAWL_STUB, encoding="utf-8")
+            with _environment(OEDS_ADMIN_STATE_DIR=temp_dir, OEDS_TEST_EXIT_CODE="1"):
+                service = CrawlerRunService(repo_root=root)
+                plan = service._crawler_plan("entsoe_fms", {})
+                result = CrawlerJobRunner(
+                    root / "CRAWLER_CONFIG.yml",
+                    command=[sys.executable, str(stub)],
+                    logs_dir=root / "logs",
+                ).run(plan)
+            # Another crawler's newer log is not picked up.
+            (root / "logs" / "runs" / "entsoe-default-29990101-000000.log").write_text("# entsoe:default started\n")
+
+            run = service.get_latest_scheduler_run("entsoe_fms")
+            self.assertEqual(result.status, "failed")
+            self.assertEqual(run.log_path, str(result.log_path))
+            self.assertEqual(run.job_name, "default")
+            self.assertEqual(run.status, "failed")
+            self.assertEqual(
+                run.created_at,
+                result.started_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S"),
+            )
+
+            # Without the footer the run is still going, or died if nobody holds its lock.
+            unfinished = root / "logs" / "runs" / "entsoe_fms-latest_hourly-29990101-000000.log"
+            unfinished.write_text("# entsoe_fms:latest_hourly started 2999-01-01 00:00:00\n")
+            run = service.get_latest_scheduler_run("entsoe_fms")
+            self.assertEqual((run.job_name, run.status), ("latest_hourly", "running"))
+            self.assertEqual(_with_lock_status(run, running_now=False).status, "interrupted")
 
 
 if __name__ == "__main__":

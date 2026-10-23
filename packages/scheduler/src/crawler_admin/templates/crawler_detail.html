@@ -196,10 +196,15 @@
               <dd>{{ post_run_script_count }}</dd>
             </div>
             <div>
+              <dt>Running now</dt>
+              <dd>{% if running_now is none %}unknown{% elif running_now %}yes{% else %}no{% endif %}</dd>
+            </div>
+            <div>
               <dt>Latest run</dt>
               <dd>
                 {% if latest_run %}
                   <span class="status-pill status-pill--{{ latest_run.status }}">{{ latest_run.status }}</span>
+                  {{ latest_run.action_label }}, {{ latest_run.created_at | replace('T', ' ') }} UTC
                 {% else %}
                   -
                 {% endif %}
@@ -810,6 +815,24 @@
         </div>
       {% else %}
         <p class="empty-state">No manual runs recorded yet.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel" id="scheduler-run">
+      <div class="panel-heading">
+        <h3>Latest Scheduler Run</h3>
+      </div>
+      {% if scheduler_run %}
+        <div class="log-meta">
+          <p>
+            <span class="status-pill status-pill--{{ scheduler_run.status }}">{{ scheduler_run.status }}</span>
+            | {{ scheduler_run.action_label }} | started {{ scheduler_run.created_at | replace('T', ' ') }} UTC
+          </p>
+          <p class="subtle-note"><code>{{ scheduler_run.log_path }}</code></p>
+        </div>
+        <pre class="log-viewer">{{ scheduler_log }}</pre>
+      {% else %}
+        <p class="empty-state">No scheduler run log found under <code>logs/runs</code>.</p>
       {% endif %}
     </article>
 
