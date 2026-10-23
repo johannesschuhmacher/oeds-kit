@@ -236,7 +236,6 @@
         OEDS_RUNTIME_DIR={{ oeds_runtime_dir }}
     no_log: true
   - name: Build the crawler images
-    when: oeds_enable_crawlers | bool
     block:
       - name: Build the crawler images while the current services keep running
         ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers build"
@@ -330,7 +329,6 @@
     # After the wait the update goes on regardless.
     ignore_errors: true
     when:
-      - oeds_enable_crawlers | bool
       - (oeds_update_wait_for_crawls_minutes | int) > 0
       - (oeds_db_running.stdout | trim) != ""
   - name: Stop legacy compose project before switching to repo-root compose
@@ -404,10 +402,7 @@
   # Recreates only the containers whose image or settings changed; the images
   # were built above, so up does not build.
   - name: Run docker compose up
-    ansible.builtin.shell: >-
-      {{ oeds_compose }}
-      {% if oeds_enable_crawlers | bool %} --profile crawlers{% endif %}
-      up -d --remove-orphans
+    ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers up -d --remove-orphans"
     args:
       chdir: "{{ oeds_compose_dir }}"
   # Grafana and pgAdmin bind-mount files from the repo; after the swap their
