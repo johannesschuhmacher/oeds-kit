@@ -11,7 +11,6 @@ defined in one place so that new extracts can be added without touching the
 download loop in multiple spots.
 """
 import csv
-import io
 import os
 import re
 import time
@@ -31,13 +30,11 @@ from sqlalchemy import (
     Index,
     MetaData,
     UniqueConstraint,
-    or_,
 )
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
 
-from crawler.common.crawler_utils import build_session
+from crawler.common.crawler_utils import build_session, copy_upsert
 from crawler.common.kit_base import KitCrawler
 
 
@@ -762,21 +759,13 @@ class EntsoeFMSCrawler(KitCrawler):
         )
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame) -> None:
-        """Upsert a dataframe into the target table in conflict-safe batches."""
+        """Upsert a dataframe into the target table with COPY (see copy_upsert)."""
         if df.empty:
             return
 
         df = self._deduplicate_on_unique_keys(table_name, df)
-        if df.empty:
-            return
-
-        # NaT and NaN must reach PostgreSQL as NULL, not as the strings 'NaT'/'NaN'.
-        data = df.astype(object).where(df.notna(), None).to_dict(orient="records")
         table_obj = self._reflected_table(table_name)
-        batch_size = 5000
 
-        stmt = insert(table_obj)
-        update_dict = {c.name: stmt.excluded[c.name] for c in table_obj.columns}
         # Only rewrite a row when the file carries a newer UpdateTime; the hourly
         # package refresh re-upserts the whole month and would otherwise rewrite
         # every unchanged row (WAL and bloat). Rows whose stored UpdateTime is NULL
@@ -786,18 +775,11 @@ class EntsoeFMSCrawler(KitCrawler):
         )
         where = None
         if update_time_column:
-            stored = table_obj.c[update_time_column]
-            where = or_(stored.is_(None), stored < stmt.excluded[update_time_column])
-        stmt = stmt.on_conflict_do_update(
-            constraint=self.UNIQUE_KEY_DICT[table_name],
-            set_=update_dict,
-            where=where,
+            stored = f'"entsoe_fms"."{table_name}"."{update_time_column}"'
+            where = f'{stored} IS NULL OR {stored} < EXCLUDED."{update_time_column}"'
+        copy_upsert(
+            self.engine, table_obj, df, self.UNIQUE_KEY_DICT[table_name], self.UNIQUE_KEY_COLUMNS[table_name], where
         )
-
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-            with self.engine.begin() as conn:
-                conn.execute(stmt, batch)
 
     def _reflected_table(self, table_name: str) -> Table:
         """Reflect the table once per run; _add_missing_columns and renames invalidate it."""
@@ -1129,62 +1111,6 @@ class EntsoeFMSCrawler(KitCrawler):
             self._download_files_and_write_into_database(local_dir, start_time, end_time, update_interval)
         finally:
             self.logger.info("Fetching process completed.")
-
-    def save_power_system_data(self):
-        print("Pulling power plant data")
-        self.logger.info("Pulling power plant data from GitHub PyPSA")
-
-        url = "https://raw.githubusercontent.com/PyPSA/powerplantmatching/master/powerplants.csv"
-
-        try:
-            response = requests.get(url, timeout=120)
-            response.raise_for_status()
-            df = pd.read_csv(io.BytesIO(response.content))
-            self.logger.info(f"Done downloading {len(df)} records")
-
-            column_mapping = {
-                "id": "source_id",             # rename id to make sure no conflicts
-                "Name": "name",
-                "Fueltype": "fuel_type",
-                "Technology": "technology",
-                "Set": "set_type",
-                "Country": "country",
-                "Capacity": "capacity",
-                "Efficiency": "efficiency",
-                "DateIn": "date_in",
-                "DateRetrofit": "date_retrofit",
-                "DateOut": "date_out",
-                "lat": "lat",
-                "lon": "lon",
-                "Duration": "duration",
-                "Volume_Mm3": "volume_mm3",
-                "DamHeight_m": "dam_height_m",
-                "StorageCapacity_MWh": "storage_capacity_mwh",
-                "EIC": "eic_code",
-                "projectID": "project_id"
-            }
-
-            df = df.rename(columns=column_mapping)
-
-            df = df.dropna(axis=0, subset=["lon", "lat"])  # Drop rows that cannot be shown on a map.
-
-            # Views in entsoe_availability_map depend on this table, so it must not be
-            # dropped (to_sql replace). Keep it and swap its rows instead.
-            if self._table_columns("powersystemdata"):
-                self._add_missing_columns("powersystemdata", df)
-                with self.engine.begin() as conn:
-                    conn.execute(text('TRUNCATE TABLE "entsoe_fms"."powersystemdata"'))
-                    df.to_sql("powersystemdata", conn, if_exists="append", index=False)
-            else:
-                with self.engine.begin() as conn:
-                    df.to_sql("powersystemdata", conn, if_exists="fail", index=False)
-
-            self.logger.info(f"Finish updating 'powersystemdata',  {len(df)} records")
-            print(f"Finish updating 'powersystemdata',  {len(df)} records")
-
-        except Exception as e:
-            self.logger.error(f"error: {e}", exc_info=True)
-            print("Error downloading powerplant data")
 
     def _create_table_with_unique_constraint(self, table_name):
         """Create the table with its unique constraint (UNIQUE_KEY_DICT/UNIQUE_KEY_COLUMNS)."""
@@ -1817,9 +1743,6 @@ class EntsoeFMSCrawler(KitCrawler):
             self.logger.info("ENTSO-E FMS initial/default start date: %s", start_time)
 
         try:
-            self.logger.info("Saving power system data...")
-            self.save_power_system_data()
-
             self.logger.info("Starting ENTSO-E FMS fetch...")
             self.fetch_from_entsoe_fms_to_database(local_dir, start_time, end_time)
 

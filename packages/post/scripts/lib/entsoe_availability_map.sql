@@ -86,13 +86,15 @@ FROM mapping;
 
 -- Approximate country display points based on existing mapped plant coordinates.
 -- This is operationally simple and avoids an extra geographic source dependency.
+-- power_system_data stores varchar; ::text keeps the view column types of the
+-- former entsoe_fms.powersystemdata (text), which CREATE OR REPLACE VIEW requires.
 CREATE OR REPLACE VIEW entsoe_availability_map.v_country_display_point AS
 SELECT
-    country AS country_key,
-    country AS country_name,
+    country::text AS country_key,
+    country::text AS country_name,
     AVG(lon)::double precision AS lon,
     AVG(lat)::double precision AS lat
-FROM entsoe_fms.powersystemdata
+FROM power_system_data.powersystemdata
 WHERE country IS NOT NULL
   AND lon IS NOT NULL
   AND lat IS NOT NULL
@@ -174,7 +176,7 @@ SELECT
     a.asset_code,
     COALESCE(m.override_asset_name, a.asset_name, p.name, pu.production_unit_name) AS asset_name,
     a.asset_type,
-    COALESCE(a.production_type, pu.production_type, p.fuel_type) AS production_type,
+    COALESCE(a.production_type, pu.production_type, p.fuel_type::text) AS production_type,
     COALESCE(m.override_installed_capacity_mw, pu.installed_capacity_mw, p.capacity) AS installed_capacity_mw,
     COALESCE(m.override_country, p.country, map.country_name, a.area_map_code) AS country_key,
     COALESCE(m.override_lon, p.lon) AS lon,
@@ -189,7 +191,7 @@ SELECT
 FROM outage_assets a
 LEFT JOIN entsoe_availability_map.asset_mapping_override m
     ON m.asset_code = a.asset_code
-LEFT JOIN entsoe_fms.powersystemdata p
+LEFT JOIN power_system_data.powersystemdata p
     ON p.eic_code = a.asset_code
 LEFT JOIN prod_unit_latest pu
     ON pu.production_unit_code = a.asset_code

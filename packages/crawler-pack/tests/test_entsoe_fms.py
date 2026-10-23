@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 from sqlalchemy import MetaData, UniqueConstraint
 
 from crawler.entsoe_fms import EntsoeFMSCrawler
@@ -25,7 +25,6 @@ def test_run_uses_runtime_directory_and_reports_failure(monkeypatch):
     crawler = object.__new__(EntsoeFMSCrawler)
     crawler.config = {'fms_package_window_months': 1}
     crawler.logger = Mock()
-    crawler.save_power_system_data = Mock()
     crawler.fetch_from_entsoe_fms_to_database = Mock(side_effect=RuntimeError('download failed'))
     monkeypatch.setenv('OEDS_CRAWLER_DATA_DIR', '/tmp/crawler-downloads')
     with pytest.raises(RuntimeError, match='download failed'):
@@ -154,18 +153,17 @@ def test_iso_parser_falls_back_to_mixed_for_non_iso_values():
     ]
 
 
-def _upsert_capture(crawler, table, df):
-    conn = Mock()
+def _upsert_capture(monkeypatch, crawler, table, df):
+    copy_upsert = Mock()
+    monkeypatch.setattr("crawler.entsoe_fms.copy_upsert", copy_upsert)
     crawler.engine = Mock()
-    crawler.engine.begin = _begin_returning(conn)
     crawler._reflected_tables[table.name] = table
     crawler._upsert_dataframe(table.name, df)
-    return conn.execute.call_args
+    return copy_upsert.call_args.args
 
 
-def test_upsert_only_rewrites_rows_with_newer_update_time():
+def test_upsert_only_rewrites_rows_with_newer_update_time(monkeypatch):
     from sqlalchemy import Column, DateTime, Float, String, Table
-    from sqlalchemy.dialects import postgresql
 
     table = Table(
         "EnergyPrices", MetaData(schema="entsoe_fms"),
@@ -177,26 +175,25 @@ def test_upsert_only_rewrites_rows_with_newer_update_time():
     crawler.UNIQUE_KEY_DICT = {"EnergyPrices": "unique_energy_prices"}
     crawler.UNIQUE_KEY_COLUMNS = {"EnergyPrices": ["DateTime(UTC)", "AreaCode"]}
     df = pd.DataFrame({
-        "DateTime(UTC)": pd.to_datetime(["2026-09-15 00:00", "2026-09-15 01:00"], utc=True),
+        "DateTime(UTC)": pd.to_datetime(["2026-09-15 00:00", "2026-09-15 00:00"], utc=True),
         "AreaCode": ["DE", "DE"],
-        "Price[Currency/MWh]": [10.0, 11.0],
-        "UpdateTime(UTC)": pd.to_datetime(["2026-09-16", "2026-09-16"], utc=True),
+        "Price[Currency/MWh]": [11.0, 10.0],
+        "UpdateTime(UTC)": pd.to_datetime(["2026-09-17", "2026-09-16"], utc=True),
     })
 
-    stmt, batch = _upsert_capture(crawler, table, df).args
-    sql = str(stmt.compile(dialect=postgresql.dialect()))
-    assert "ON CONFLICT ON CONSTRAINT unique_energy_prices DO UPDATE" in sql
-    assert (
-        'WHERE entsoe_fms."EnergyPrices"."UpdateTime(UTC)" IS NULL '
-        'OR entsoe_fms."EnergyPrices"."UpdateTime(UTC)" < excluded."UpdateTime(UTC)"'
-    ) in sql
-    # executemany style: the statement carries no inline values, the batch is passed separately.
-    assert len(batch) == 2 and batch[0]["AreaCode"] == "DE"
+    _, target, frame, constraint, keys, where = _upsert_capture(monkeypatch, crawler, table, df)
+    assert target is table
+    assert (constraint, keys) == ("unique_energy_prices", ["DateTime(UTC)", "AreaCode"])
+    assert where == (
+        '"entsoe_fms"."EnergyPrices"."UpdateTime(UTC)" IS NULL '
+        'OR "entsoe_fms"."EnergyPrices"."UpdateTime(UTC)" < EXCLUDED."UpdateTime(UTC)"'
+    )
+    # Of duplicate keys the row with the newest UpdateTime is kept.
+    assert frame["Price[Currency/MWh]"].tolist() == [11.0]
 
 
-def test_upsert_without_update_time_column_updates_unconditionally():
+def test_upsert_without_update_time_column_updates_unconditionally(monkeypatch):
     from sqlalchemy import Column, Float, String, Table
-    from sqlalchemy.dialects import postgresql
 
     table = Table(
         "TransmissionAssets", MetaData(schema="entsoe_fms"),
@@ -208,9 +205,22 @@ def test_upsert_without_update_time_column_updates_unconditionally():
     crawler.UNIQUE_KEY_COLUMNS = {"TransmissionAssets": ["AssetCode"]}
     df = pd.DataFrame({"AssetCode": ["A"], "Capacity": [1.0]})
 
-    stmt, _ = _upsert_capture(crawler, table, df).args
-    sql = str(stmt.compile(dialect=postgresql.dialect()))
-    assert "DO UPDATE SET" in sql and "WHERE" not in sql
+    assert _upsert_capture(monkeypatch, crawler, table, df)[-1] is None
+
+
+def test_insert_conflict_falls_back_to_upsert():
+    from sqlalchemy import create_engine
+
+    engine = create_engine("sqlite://")
+    pd.DataFrame({"AssetCode": ["A"], "Capacity": [1.0]}).to_sql("TransmissionAssets", engine, index=False)
+    with engine.begin() as conn:
+        conn.exec_driver_sql('CREATE UNIQUE INDEX unique_transmission_assets ON "TransmissionAssets" ("AssetCode")')
+    crawler = _fake_crawler(engine=engine, _upsert_dataframe=Mock())
+    crawler.UNIQUE_KEY_COLUMNS = {"TransmissionAssets": ["AssetCode"]}
+
+    crawler._insert_dataframe("TransmissionAssets", pd.DataFrame({"AssetCode": ["A", "B"], "Capacity": [2.0, 3.0]}))
+
+    assert crawler._upsert_dataframe.call_args.args[1]["AssetCode"].tolist() == ["A", "B"]
 
 
 def test_add_missing_columns_queries_information_schema_once_per_file():
@@ -254,24 +264,6 @@ def test_download_file_streams_body_to_disk(tmp_path):
     assert crawler.session.post.call_args.kwargs["stream"] is True
     assert crawler.session.post.call_args.kwargs["timeout"] == 120
     assert target.read_bytes() == b"abcdef"
-
-
-def test_save_power_system_data_downloads_with_timeout(monkeypatch):
-    import requests
-
-    csv_bytes = b"id,Name,lat,lon,EIC\n1,Plant,50.0,8.0,X1\n2,NoCoords,,,X2\n"
-    get = Mock(return_value=Mock(content=csv_bytes, raise_for_status=Mock()))
-    monkeypatch.setattr(requests, "get", get)
-    written = []
-    monkeypatch.setattr(pd.DataFrame, "to_sql", lambda self, *args, **kwargs: written.append(len(self)))
-    crawler = _fake_crawler(engine=MagicMock())
-    crawler._table_columns = Mock(return_value=[])
-
-    crawler.save_power_system_data()
-
-    assert get.call_args.kwargs["timeout"] == 120
-    assert written == [1]  # row without coordinates dropped
-    crawler.logger.error.assert_not_called()
 
 
 def test_new_tables_index_update_time(monkeypatch):

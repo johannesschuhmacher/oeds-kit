@@ -16,7 +16,7 @@ CONFIG_FILE = Path(
     os.getenv("OEDS_CRAWLER_CONFIG", ROOT / "CRAWLER_CONFIG.yml")
 ).expanduser()
 REQUIRED_SOURCE_TABLES = (
-    ("entsoe_fms", "powersystemdata"),
+    ("power_system_data", "powersystemdata"),
     ("entsoe_fms", "UnavailabilityOfProductionAndGenerationUnits"),
     ("entsoe_fms", "InstalledGenerationCapacityPerProductionUnit"),
 )
