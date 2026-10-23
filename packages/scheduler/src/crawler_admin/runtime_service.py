@@ -914,7 +914,7 @@ class CrawlerRunService:
                     label="Price forecast",
                     description="Run the day-ahead price forecast post-run workflow on demand.",
                     button_label="Start price forecast",
-                    note="The normal scheduled path still runs scripts/run_price_forecast.py through post_run_scripts.",
+                    note="The normal scheduled path runs oeds-post forecast day-ahead-price through post_run_scripts.",
                     fields=[
                         ActionField(
                             name="run_mode",
