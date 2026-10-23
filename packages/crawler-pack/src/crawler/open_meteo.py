@@ -229,16 +229,3 @@ class OpenMeteoCrawler(KitCrawler):
             }
         )
         self.logger.info("Open-Meteo crawler wrote %s hourly forecast values.", len(forecast))
-
-
-def main(schema_name: str = "open_meteo"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    OpenMeteoCrawler("open_meteo", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

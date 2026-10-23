@@ -220,19 +220,3 @@ class EntsogCrawler(KitCrawler):
         metadata["temporal_start"] = str(self._initial_start_date())
         metadata["temporal_end"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         self.set_metadata(metadata)
-
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-        "default_start_date": DEFAULT_START_DATE,
-        "chunk_days": DEFAULT_CHUNK_DAYS,
-    }
-    crawler = EntsogCrawler("entsog", config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main("entsog")

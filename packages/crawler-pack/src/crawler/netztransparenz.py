@@ -475,16 +475,3 @@ class NetztransparenzCrawler(KitCrawler):
         self.logger.info("Netztransparenz crawler finished with %s raw rows.", total_rows)
         if failures:
             raise RuntimeError(f"Netztransparenz endpoints failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "netztransparenz"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    NetztransparenzCrawler("netztransparenz", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

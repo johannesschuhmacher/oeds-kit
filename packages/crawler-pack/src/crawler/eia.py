@@ -288,16 +288,3 @@ class EiaCrawler(KitCrawler):
             }
         )
         self.logger.info("EIA crawler wrote %s API rows.", total_rows)
-
-
-def main(schema_name: str = "eia"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    EiaCrawler("eia", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

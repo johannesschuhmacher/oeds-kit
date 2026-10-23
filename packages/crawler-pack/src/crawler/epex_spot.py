@@ -801,21 +801,3 @@ class EpexSpotCrawler(KitCrawler):
                 self._import_continuous_trades()
         finally:
             self._disconnect_sftp()
-
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@127.0.0.1:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-        "start_date": "1970-01-01",
-        "include_continuous_statistics": True,
-        "include_continuous_indices": True,
-        "include_intraday_auctions": True,
-        "include_continuous_trades": True,
-    }
-    crawler = EpexSpotCrawler(schema_name, config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    main("epex_spot")
