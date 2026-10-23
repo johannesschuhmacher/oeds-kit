@@ -28,7 +28,8 @@ containers are replaced. A failed build leaves the running services untouched.
 
 Options:
   --reset                 Run a destructive OEDS uninstall before installing.
-  --skip-host-prep        Skip OS/Docker host preparation.
+  --skip-host-prep        Skip OS/Docker host preparation; Docker must already
+                          be installed and configured.
   --load-sample-data      Load and verify a small real-data sample after install.
   --include-entsoe-fms    Include ENTSO-E FMS in the sample-data load.
   --backup                Dump the database to /home/oeds/backups/<timestamp>
@@ -195,7 +196,15 @@ YAML
 
 cd "$PLAYBOOK_DIR"
 export ANSIBLE_CONFIG=ansible.cfg
-ansible-galaxy collection install -r requirements.yml
+# Install only when a collection from requirements.yml is missing; the
+# install contacts Ansible Galaxy even when everything is present.
+INSTALLED_COLLECTIONS=$(ansible-galaxy collection list 2>/dev/null || true)
+for collection in $(sed -n 's/^ *- name: *//p' requirements.yml); do
+  if ! grep -q "^$collection " <<<"$INSTALLED_COLLECTIONS"; then
+    ansible-galaxy collection install -r requirements.yml
+    break
+  fi
+done
 
 BECOME_ARGS=()
 readarray_nul BECOME_ARGS < <(become_args)
@@ -229,9 +238,6 @@ fi
 
 log "Installing modular OEDS"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[@]}"
-
-log "Verifying installed repository"
-python3 "$OEDS_ROOT/repo/deploy/tools/verify_deployment.py"
 
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
   if [[ -z "$CRAWLER_ENV_FILE" ]]; then

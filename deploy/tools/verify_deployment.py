@@ -1,7 +1,6 @@
 """Validate the checked-out repository: Grafana JSON and the files the
 deployment copies or mounts. No Docker required."""
 
-import argparse
 import json
 from pathlib import Path
 
@@ -26,9 +25,6 @@ REQUIRED_FILES = [
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--local-only', action='store_true', help='accepted for compatibility; no effect')
-    parser.parse_args()
     for path in (DEPLOYMENT_ROOT / 'data/provisioning/grafana').rglob('*.json'):
         json.loads(path.read_text(encoding='utf-8'))
     missing = [relative for relative in REQUIRED_FILES if not (REPO_ROOT / relative).exists()]
