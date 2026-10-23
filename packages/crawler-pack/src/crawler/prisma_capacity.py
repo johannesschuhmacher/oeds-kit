@@ -17,6 +17,7 @@ from crawler.common.crawler_utils import (
     build_session,
     compact_json,
     config_or_env,
+    copy_insert,
     has_credential,
     stable_hash,
     utc_now,
@@ -154,7 +155,7 @@ class PrismaCapacityCrawler(KitCrawler):
         if frames:
             frame = pd.concat(frames, ignore_index=True)
             with self.engine.begin() as conn:
-                frame.to_sql("raw_resources", conn, if_exists="append", index=False)
+                frame.to_sql("raw_resources", conn, if_exists="append", index=False, method=copy_insert)
         else:
             frame = pd.DataFrame()
 
@@ -171,16 +172,3 @@ class PrismaCapacityCrawler(KitCrawler):
         self.logger.info("PRISMA crawler wrote %s rows.", len(frame))
         if failures:
             raise RuntimeError(f"PRISMA resources failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "prisma_capacity"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    PrismaCapacityCrawler("prisma_capacity", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

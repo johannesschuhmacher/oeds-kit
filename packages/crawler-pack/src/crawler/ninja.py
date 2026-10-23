@@ -11,7 +11,6 @@ import requests
 from zipfile import ZipFile
 from io import BytesIO
 
-import logging
 
 metadata_info = {
     "schema_name": "ninja",
@@ -124,29 +123,3 @@ class NinjaCrawler(KitCrawler):
             self.write_smoke_data()
             return
         self.download_and_write_to_db()
-
-def main():
-    config = {
-        'schema_name': 'ninja',
-        'datafiles': {
-            'wind': {
-                "download_url": "https://www.renewables.ninja/downloads/ninja_europe_wind_v1.1.zip",
-                "extract_filename": "ninja_wind_europe_v1.1_current_on-offshore.csv",
-            },
-            'solar': {
-                "download_url": "https://www.renewables.ninja/downloads/ninja_europe_pv_v1.1.zip",
-                "extract_filename": "ninja_pv_europe_v1.1_merra2.csv",
-            },
-        },
-        'smoke_mode': False,
-        'database_uri': "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-    }
-    crawler = NinjaCrawler('ninja', config)
-    crawler.run()
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='[%(asctime)s]:%(name)s:%(levelname)s :: %(message)s'
-    )
-    main()

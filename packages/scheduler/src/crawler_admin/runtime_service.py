@@ -4,28 +4,22 @@ import io
 import json
 import logging
 import os
-import shlex
 import sqlite3
 import subprocess
-import sys
 import threading
 import traceback
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from crawler.common.crawler_utils import CrawlerSkipped
 from oeds_scheduler_ui.factory import load_crawler_class
 from oeds_scheduler_ui.locks import CrawlerLock, lock_engine
-from oeds_scheduler_ui.runtime import (
-    crawl_command,
-    find_executable,
-    is_crawler_skipped,
-    last_log_line,
-    run_status_from_returncode,
-)
+from oeds_scheduler_ui.planner import CrawlerJobConfig, SchedulerJobPlan, job_plan
+from oeds_scheduler_ui.runtime import CrawlerJobRunner, execute_post_command
 
 from crawler_admin import POST_INSTALLED
 from crawler_admin.config_service import (
@@ -34,8 +28,6 @@ from crawler_admin.config_service import (
     get_crawler_overview,
     get_repo_root,
 )
-
-logger = logging.getLogger(__name__)
 
 FMS_ACTIVE_DATA_ITEMS = (
     (
@@ -189,10 +181,6 @@ class ActionValidationError(Exception):
 
 class LockError(Exception):
     pass
-
-
-class CrawlerSkipped(Exception):
-    """``oeds-crawl`` exited with 3; ``is_crawler_skipped`` matches it by name."""
 
 
 class _LogWriter(io.TextIOBase):
@@ -391,8 +379,6 @@ class CrawlerRunService:
         crawler_name: str,
         action_id: str,
         action_payload: dict[str, Any],
-        *,
-        trigger_source: str = "manual",
     ) -> int:
         prepared = self.prepare_action(crawler_name, action_id, action_payload)
 
@@ -402,7 +388,7 @@ class CrawlerRunService:
 
             lock = self._acquire_crawler_lock(prepared)
             try:
-                run_id = self._create_run_record(prepared, trigger_source=trigger_source)
+                run_id = self._create_run_record(prepared)
                 self._active_runs[crawler_name] = run_id
 
                 thread = threading.Thread(
@@ -467,6 +453,7 @@ class CrawlerRunService:
         effective_config = dict(overview.effective_config)
 
         if action_id == "run_now":
+            plan = self._crawler_plan(crawler_name, effective_config)
             return PreparedAction(
                 crawler_name=crawler_name,
                 action_id=action_id,
@@ -475,8 +462,9 @@ class CrawlerRunService:
                 effective_config=effective_config,
                 config_overrides={},
                 action_payload={},
-                run_post_scripts=True,
-                executor=lambda _crawler, log: self._run_oeds_crawl(crawler_name, log),
+                # The scheduler's runner runs the post-run commands itself.
+                run_post_scripts=False,
+                executor=lambda _crawler, log: self._run_oeds_crawl(plan, log),
                 requires_crawler=False,
             )
 
@@ -687,7 +675,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler, _log: self._run_gapfill_backfill(payload),
+                executor=lambda _crawler, log: self._run_gapfill_backfill(payload, log),
                 requires_crawler=False,
             )
 
@@ -748,7 +736,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler, _log: self._run_price_forecast(payload),
+                executor=lambda _crawler, log: self._run_price_forecast(payload, log),
                 requires_crawler=False,
             )
 
@@ -924,7 +912,7 @@ class CrawlerRunService:
                     label="Price forecast",
                     description="Run the day-ahead price forecast post-run workflow on demand.",
                     button_label="Start price forecast",
-                    note="The normal scheduled path still runs scripts/run_price_forecast.py through post_run_scripts.",
+                    note="The normal scheduled path runs oeds-post forecast day-ahead-price through post_run_scripts.",
                     fields=[
                         ActionField(
                             name="run_mode",
@@ -1068,7 +1056,15 @@ class CrawlerRunService:
                 "error_message": record.error_message,
             }
 
-        content = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        # Polled every few seconds while a run is active: read only the end.
+        tail_bytes = lines * 1024
+        with log_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            start = max(0, handle.tell() - tail_bytes)
+            handle.seek(start)
+            content = handle.read().decode("utf-8", errors="replace").splitlines()
+        if start:
+            content = content[1:]  # the first line is cut
         tail_lines = content[-lines:]
         return {
             "text": "\n".join(tail_lines),
@@ -1078,9 +1074,7 @@ class CrawlerRunService:
             "error_message": record.error_message,
         }
 
-    def _create_run_record(
-        self, prepared: PreparedAction, *, trigger_source: str
-    ) -> int:
+    def _create_run_record(self, prepared: PreparedAction) -> int:
         created_at = self._utc_now()
         placeholder_name = f"run-pending-{prepared.crawler_name}-{created_at.replace(':', '').replace('-', '')}.log"
         placeholder_path = str((self.logs_dir / placeholder_name).resolve())
@@ -1099,13 +1093,12 @@ class CrawlerRunService:
                     config_overrides_json,
                     action_payload_json
                 )
-                VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+                VALUES (?, ?, ?, 'manual', 'queued', ?, ?, ?, ?)
                 """,
                 (
                     prepared.crawler_name,
                     prepared.action_id,
                     prepared.action_label,
-                    trigger_source,
                     created_at,
                     placeholder_path,
                     json.dumps(prepared.config_overrides, ensure_ascii=True),
@@ -1187,14 +1180,19 @@ class CrawlerRunService:
                     )
                     result_summary = prepared.executor(crawler, handle)
                     if prepared.run_post_scripts:
-                        self._run_post_scripts(prepared.effective_config, handle)
+                        self._run_post_scripts(
+                            self._crawler_plan(
+                                prepared.crawler_name, prepared.effective_config
+                            ),
+                            handle,
+                        )
                     if result_summary:
                         summary = result_summary
                     print("[RESULT] Run completed.")
         except Exception as exc:
             message = str(exc).strip() or exc.__class__.__name__
             with log_path.open("a", encoding="utf-8", newline="") as handle:
-                if is_crawler_skipped(exc):
+                if isinstance(exc, CrawlerSkipped):
                     status = "skipped"
                     summary = message
                     handle.write(f"\n[SKIPPED] {message}\n")
@@ -1245,30 +1243,40 @@ class CrawlerRunService:
         crawler.run()
         return "Run completed successfully."
 
-    def _run_oeds_crawl(self, crawler_name: str, handle: io.TextIOBase) -> str | None:
-        """Run the crawler through ``oeds-crawl`` like the scheduler does.
+    def _crawler_plan(
+        self, crawler_name: str, effective_config: dict[str, Any]
+    ) -> SchedulerJobPlan:
+        """Scheduler plan for the crawler section itself (no named job)."""
 
-        The child writes straight to the run log, so its output cannot
-        interleave with other runs. Exit code 3 means the crawler skipped.
+        try:
+            return job_plan(
+                CrawlerJobConfig(crawler_name, "default", effective_config, None)
+            )
+        except ValueError as exc:
+            raise ActionValidationError([str(exc)]) from exc
+
+    def _run_oeds_crawl(self, plan: SchedulerJobPlan, handle: io.TextIOBase) -> str | None:
+        """Run the crawler and its post-run commands with the scheduler's runner.
+
+        The ``oeds-crawl`` child and the post-run commands write straight to
+        the run log, so their output cannot interleave with other runs.
         """
 
-        argv = crawl_command(crawler_name, get_config_path(self.repo_root))
-        print(f"[COMMAND] {' '.join(argv)}")
         handle.flush()
-        completed = subprocess.run(
-            argv,
-            cwd=self.repo_root,
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-            check=False,
+        result = CrawlerJobRunner(get_config_path(self.repo_root)).run(
+            plan, log_path=Path(handle.name)
         )
-        status = run_status_from_returncode(completed.returncode)
-        detail = last_log_line(Path(handle.name))
-        if status == "skipped":
-            raise CrawlerSkipped(detail or f"oeds-crawl exited with code {completed.returncode}")
-        if status == "failed":
-            message = f"oeds-crawl exited with code {completed.returncode}"
-            raise RuntimeError(f"{message}: {detail}" if detail else message)
+        if result.status == "skipped":
+            raise CrawlerSkipped(result.error)
+        if result.status == "failed":
+            if result.error:
+                raise RuntimeError(result.error)
+            failed = [
+                f"'{post_run.command}' ({post_run.error})"
+                for post_run in result.post_run_results
+                if not post_run.success
+            ]
+            raise RuntimeError("Post-run command failed: " + ", ".join(failed))
         return "Run completed successfully."
 
     def _run_entsoe_backfill(self, crawler: Any, payload: dict[str, Any]) -> str | None:
@@ -1284,7 +1292,9 @@ class CrawlerRunService:
             return f"Backfill completed for {payload['data_item']}."
         return f"Backfill completed for {payload['data_item']} from {payload['start']} to {payload['end']}."
 
-    def _run_gapfill_backfill(self, payload: dict[str, Any]) -> str | None:
+    def _run_gapfill_backfill(
+        self, payload: dict[str, Any], handle: io.TextIOBase
+    ) -> str | None:
         command = [
             "oeds-post",
             "gapfill",
@@ -1304,14 +1314,10 @@ class CrawlerRunService:
         completed = subprocess.run(
             command,
             cwd=self.repo_root,
-            capture_output=True,
-            text=True,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             check=False,
         )
-        if completed.stdout:
-            print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
-        if completed.stderr:
-            print(completed.stderr, end="" if completed.stderr.endswith("\n") else "\n")
         if completed.returncode != 0:
             raise RuntimeError(
                 f"Gapfill backfill exited with code {completed.returncode}."
@@ -1323,7 +1329,9 @@ class CrawlerRunService:
             f"Gapfill backfill completed for {payload['job']} from {payload['start']}."
         )
 
-    def _run_price_forecast(self, payload: dict[str, Any]) -> str | None:
+    def _run_price_forecast(
+        self, payload: dict[str, Any], handle: io.TextIOBase
+    ) -> str | None:
         command = [
             "oeds-post",
             "forecast",
@@ -1343,14 +1351,10 @@ class CrawlerRunService:
         completed = subprocess.run(
             command,
             cwd=self.repo_root,
-            capture_output=True,
-            text=True,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             check=False,
         )
-        if completed.stdout:
-            print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
-        if completed.stderr:
-            print(completed.stderr, end="" if completed.stderr.endswith("\n") else "\n")
         if completed.returncode != 0:
             raise RuntimeError(
                 f"Price forecast exited with code {completed.returncode}."
@@ -1362,44 +1366,16 @@ class CrawlerRunService:
             return f"Price forecast completed for {payload['target_date']}."
         return "Price forecast completed."
 
-    def _run_post_scripts(
-        self, effective_config: dict[str, Any], handle: io.TextIOBase
-    ) -> None:
-        scripts = effective_config.get("post_run_scripts")
-        if not isinstance(scripts, list) or not scripts:
+    def _run_post_scripts(self, plan: SchedulerJobPlan, handle: io.TextIOBase) -> None:
+        """Post-run commands after an in-process action, as the scheduler runs them."""
+
+        if not plan.run_post_scripts:
             return
-
-        print(f"[POST] Executing {len(scripts)} post-run script(s).")
-        for script in scripts:
-            command = str(script)
-            try:
-                from oeds_post_scripts.commands import script_to_post_command
-
-                command = script_to_post_command(command) or command
-            except ImportError:
-                pass
-
-            argv = shlex.split(command)
-            if argv and argv[0].endswith(".py"):
-                argv.insert(0, sys.executable)
-            elif argv and find_executable(argv[0]) is None:
-                logger.warning(
-                    "post-processing command not installed; skipped: %s", command
-                )
-                continue
-            print(f"[POST] {command}")
-            completed = subprocess.run(
-                argv,
-                cwd=self.repo_root,
-                stdout=handle,
-                stderr=subprocess.STDOUT,
-                text=True,
-                check=False,
-            )
-            if completed.returncode != 0:
-                raise RuntimeError(
-                    f"Post-run command '{command}' exited with code {completed.returncode}."
-                )
+        handle.flush()
+        for command in plan.post_run_scripts:
+            result = execute_post_command(command, plan, handle)
+            if not result.success:
+                raise RuntimeError(f"Post-run command '{command}' failed: {result.error}.")
 
     def _build_crawler_instance(
         self, crawler_name: str, effective_config: dict[str, Any]
@@ -1583,4 +1559,5 @@ class CrawlerRunService:
         return round((finish_dt - start_dt).total_seconds(), 3)
 
     def _utc_now(self) -> str:
-        return datetime.utcnow().isoformat(timespec="seconds")
+        # Naive UTC ISO timestamps, the format stored in existing run records.
+        return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")

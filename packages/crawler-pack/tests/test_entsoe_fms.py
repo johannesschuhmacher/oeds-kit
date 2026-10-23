@@ -53,22 +53,6 @@ def test_newest_file_library_version_is_used():
         crawler._resolve_folder("ActualTotalLoad_6.1.A")
 
 
-def test_every_active_table_has_matching_unique_key_and_constraint(monkeypatch):
-    created = []
-    monkeypatch.setattr(MetaData, "create_all", lambda metadata, engine, tables: created.append(metadata))
-    crawler = object.__new__(EntsoeFMSCrawler)
-    crawler.engine = Mock()
-    crawler.logger = Mock()
-
-    for table_name in EntsoeFMSCrawler.DATA_ITEM_TABLE_MAP.values():
-        crawler._create_table_with_unique_constraint(table_name)
-        table = created[-1].tables[f"entsoe_fms.{table_name}"]
-        constraint = next(c for c in table.constraints if isinstance(c, UniqueConstraint))
-
-        assert constraint.name == EntsoeFMSCrawler.UNIQUE_KEY_DICT[table_name]
-        assert {c.name for c in constraint.columns} == set(EntsoeFMSCrawler.UNIQUE_KEY_COLUMNS[table_name]), table_name
-
-
 def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
     """Re-reading MAX(UpdateTime) after every file dropped rows of the next file."""
     header = "\t".join([

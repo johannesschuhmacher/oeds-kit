@@ -15,6 +15,7 @@ from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     compact_json,
+    copy_insert,
     normalize_column_name,
     parse_number,
     stable_hash,
@@ -228,8 +229,9 @@ class TradingHubCrawler(KitCrawler):
                 {"report_id": report_id, "date_from": date_from.date(), "date_to": date_to.date()},
             )
             if not raw_rows.empty:
-                raw_rows.to_sql("report_rows", conn, if_exists="append", index=False)
+                raw_rows.to_sql("report_rows", conn, if_exists="append", index=False, method=copy_insert)
             if not value_rows.empty:
+                # No COPY here: status and unit are often "" (empty XML element), which COPY would store as NULL.
                 value_rows.to_sql("report_values", conn, if_exists="append", index=False)
 
     def run(self):
@@ -272,16 +274,3 @@ class TradingHubCrawler(KitCrawler):
         self.logger.info("Trading Hub Europe crawler wrote %s report rows.", total_rows)
         if failures:
             raise RuntimeError(f"Trading Hub Europe reports failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "tradinghub"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    TradingHubCrawler("tradinghub", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

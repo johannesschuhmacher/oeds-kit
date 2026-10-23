@@ -10,12 +10,9 @@ import logging
 import time
 
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
 from sqlalchemy import text
-from urllib3.util.retry import Retry
 
-from crawler.common.crawler_utils import copy_insert
+from crawler.common.crawler_utils import build_session, copy_insert
 from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
@@ -58,23 +55,7 @@ class EntsogCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.session = self._build_session()
-
-    def _build_session(self) -> requests.Session:
-        session = requests.Session()
-        retry = Retry(
-            total=5,
-            connect=5,
-            read=5,
-            backoff_factor=2.0,
-            status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=("GET",),
-            respect_retry_after_header=True,
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-        return session
+        self.session = build_session(retries=5, backoff_factor=2.0)
 
     def _request_pause_seconds(self) -> float:
         return float(self.config.get("request_pause_seconds", DEFAULT_REQUEST_PAUSE_SECONDS))
@@ -239,19 +220,3 @@ class EntsogCrawler(KitCrawler):
         metadata["temporal_start"] = str(self._initial_start_date())
         metadata["temporal_end"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         self.set_metadata(metadata)
-
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-        "default_start_date": DEFAULT_START_DATE,
-        "chunk_days": DEFAULT_CHUNK_DAYS,
-    }
-    crawler = EntsogCrawler("entsog", config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main("entsog")

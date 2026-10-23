@@ -3,6 +3,31 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+Streamlining without removing features in use; about 7,300 lines less.
+
+- Crawler pack: dead ENTSO-E FMS code and never-created table definitions
+  removed; FMS unique constraints built from one key table (identical DDL);
+  the localhost `main()` scripts removed; more crawlers write with COPY;
+  `copy_insert` keeps empty strings (only `None` becomes NULL); ENTSOG, SMARD
+  and FMS use `build_session`.
+- Scheduler and admin: "Run once" uses the scheduler's runner (honours
+  `run_post_scripts` and timeouts); the config is parsed once per page;
+  the gapfill and price-forecast panels recognise the `oeds-post` commands;
+  run logs are tailed from the end; per-data-item `lock_keys`, scheduling
+  indirection, dead code and unused CSS removed.
+- Post-processing: the four dashboard generator scripts removed (the JSON
+  files are the source); unused gapfill extensions removed; the gapfiller
+  lives in `oeds_gapfill`; price-forecast backends share their code and
+  load inputs on one connection. Outputs are unchanged.
+- Deployment: one `group_vars/all.yml` instead of `*_effective` variables
+  (an `oeds_data_root` override now reaches the backup playbooks); one
+  crawler image `oeds-crawler:local` for scheduler and admin; only missing
+  images are pulled; no second package run; facts gathered only where needed;
+  ownership repaired only under `logs/`; uninstall removes the real backup
+  directory; `compose.test.yml` and `smoke_lib.sh` removed.
+
 ## 1.1.0 (2026-10-23)
 
 - Installer and updates build the new images in `repo.next/` while the

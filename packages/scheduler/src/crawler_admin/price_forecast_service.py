@@ -7,7 +7,10 @@ from crawler.common.runtime_env import resolve_database_uri
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-PRICE_FORECAST_SCRIPT = "scripts/run_price_forecast.py"
+from crawler_admin.gapfill_service import _connect_args_for_database_uri
+
+# The post-run command of the entsoe_api section in CRAWLER_CONFIG.yml.
+PRICE_FORECAST_SCRIPT = "oeds-post forecast day-ahead-price"
 PRICE_FORECAST_SCHEMA = "price_forecast"
 PRICE_FORECAST_DASHBOARD_NAME = "Day-ahead Price Forecast"
 
@@ -61,7 +64,10 @@ def build_price_forecast_runtime_view(
             available=False,
         )
 
-    engine = create_engine(resolve_database_uri(database_uri))
+    resolved_uri = resolve_database_uri(database_uri)
+    engine = create_engine(
+        resolved_uri, connect_args=_connect_args_for_database_uri(resolved_uri)
+    )
     try:
         with engine.connect() as conn:
             table_exists = bool(

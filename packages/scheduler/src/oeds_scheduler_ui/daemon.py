@@ -42,9 +42,6 @@ class SchedulerDaemon:
     def stopped(self) -> bool:
         return self._stop_event.is_set()
 
-    def stop(self) -> None:
-        self._stop_event.set()
-
     def run_once(self, now: datetime | None = None) -> tuple[CrawlerRunResult, ...]:
         results = self.application.tick(now or self._now_func())
         for result in results:

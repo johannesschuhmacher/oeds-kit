@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-import logging
 
 import pandas as pd
 import requests
@@ -207,21 +206,3 @@ class MastrCrawler(KitCrawler):
     def run(self):
         self.create_db_from_export()
         self.set_metadata(metadata_info)
-
-
-def main():
-    config = {
-        "schema_name": "mastr",
-        "base_download_url": "https://download.marktstammdatenregister.de/Gesamtdatenexport",
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-    }
-    crawler = MastrCrawler("mastr", config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="[%(asctime)s]:%(name)s:%(levelname)s :: %(message)s",
-    )
-    main()

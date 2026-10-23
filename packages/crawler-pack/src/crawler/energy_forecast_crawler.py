@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import sys
 from dotenv import load_dotenv
 from pathlib import Path
 import requests
 import pandas as pd
-from datetime import datetime, timezone
-from sqlalchemy import text, Table, MetaData, Column, DateTime, Float, String
+from datetime import datetime
+from sqlalchemy import Table, MetaData, Column, DateTime, Float, String
 from sqlalchemy.dialects.postgresql import insert
 
 from crawler.common.kit_base import KitCrawler
@@ -185,19 +184,3 @@ class EnergyForecastCrawler(KitCrawler):
 
         print("Crawler run finished successfully.")
         self.logger.info("Crawler run finished successfully.")
-
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": "energy_forecast",
-    }
-    print("EnergyForecast crawler start")
-    
-    crawler = EnergyForecastCrawler(schema_name, config)
-    print("EnergyForecastCrawler created")
-    
-    crawler.run()
-
-if __name__ == '__main__':
-    main("energy_forecast")
