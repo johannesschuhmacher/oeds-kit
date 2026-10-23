@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import glob
 import io
 import json
 import os
@@ -15,9 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from crawler.common.crawler_utils import CrawlerSkipped
-from oeds_scheduler_ui.locks import CrawlerLock, lock_engine
+from crawler.common.runtime_env import resolve_database_uri
+from oeds_scheduler_ui.locks import LOCK_KEY_PREFIX, CrawlerLock, lock_engine
 from oeds_scheduler_ui.planner import CrawlerJobConfig, SchedulerJobPlan, job_plan
-from oeds_scheduler_ui.runtime import CrawlerJobRunner
+from oeds_scheduler_ui.runtime import CrawlerJobRunner, last_log_line
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 from crawler_admin import POST_INSTALLED
 from crawler_admin.config_service import (
@@ -26,6 +30,11 @@ from crawler_admin.config_service import (
     get_crawler_overview,
     get_repo_root,
 )
+from crawler_admin.gapfill_service import _connect_args_for_database_uri
+
+# Last line CrawlerJobRunner writes to a scheduler run log.
+SCHEDULER_LOG_FOOTER = "# finished: "
+
 
 @dataclass(frozen=True)
 class ActionOption:
@@ -103,6 +112,92 @@ class PreparedAction:
     action_payload: dict[str, Any]
     # Receives the open run log; returns the summary line.
     executor: Callable[[io.TextIOBase], str | None]
+
+
+@dataclass(frozen=True)
+class SchedulerRun:
+    """A scheduler run, read from ``logs/runs/<crawler>-<job>-<YYYYmmdd-HHMMSS>.log``.
+
+    Carries the RunRecord fields the pages show, so either can be the latest run.
+    """
+
+    job_name: str
+    created_at: str  # start as naive UTC ISO, like RunRecord.created_at
+    status: str  # from the log footer; "running" while there is none
+    log_path: str
+
+    @property
+    def action_label(self) -> str:
+        return f"Scheduler {self.job_name}"
+
+
+def read_scheduler_run(path: Path, crawler_name: str) -> SchedulerRun:
+    """Parse the name and footer of a log written by ``CrawlerJobRunner``."""
+
+    # The name holds the job id (":" -> "-") and the scheduler's local start time;
+    # the admin runs in the same image and time zone.
+    stem = path.stem.removeprefix(f"{crawler_name}-")
+    started_at = datetime.strptime(stem[-15:], "%Y%m%d-%H%M%S").astimezone(UTC)
+    last_line = last_log_line(path) or ""
+    status = (
+        last_line.removeprefix(SCHEDULER_LOG_FOOTER)
+        if last_line.startswith(SCHEDULER_LOG_FOOTER)
+        else "running"
+    )
+    return SchedulerRun(stem[:-16], started_at.strftime("%Y-%m-%dT%H:%M:%S"), status, str(path))
+
+
+def running_crawlers(database_uri: str | None, crawler_names: list[str]) -> set[str] | None:
+    """Crawlers whose run lock (``oeds_scheduler_ui.locks``) a scheduler or admin holds.
+
+    Read-only lookup in pg_locks: a bigint advisory key appears as classid (high
+    half) and objid (low half) with objsubid 1. None when the database is unknown
+    or not reachable.
+    """
+
+    if not database_uri:
+        return None
+    try:
+        resolved_uri = resolve_database_uri(database_uri)
+        engine = create_engine(
+            resolved_uri,
+            poolclass=NullPool,
+            connect_args=_connect_args_for_database_uri(resolved_uri),
+        )
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    """
+                    SELECT crawler_name
+                    FROM unnest(CAST(:names AS text[])) AS names(crawler_name)
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM pg_locks
+                        WHERE locktype = 'advisory' AND granted AND objsubid = 1
+                          AND ((classid::bigint << 32) | objid::bigint)
+                              = hashtext(:prefix || crawler_name)::bigint
+                    )
+                    """
+                ),
+                {"names": list(crawler_names), "prefix": LOCK_KEY_PREFIX},
+            )
+            return {str(row[0]) for row in rows}
+    except Exception:
+        return None
+
+
+def tail_log_lines(log_path: Path, lines: int) -> list[str]:
+    """Last ``lines`` lines of a log, reading only its end."""
+
+    tail_bytes = lines * 1024
+    with log_path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        start = max(0, handle.tell() - tail_bytes)
+        handle.seek(start)
+        content = handle.read().decode("utf-8", errors="replace").splitlines()
+    if start:
+        content = content[1:]  # the first line is cut
+    return content[-lines:]
 
 
 class ActionValidationError(Exception):
@@ -277,6 +372,14 @@ class CrawlerRunService:
             )
 
         return benchmarks
+
+    def get_latest_scheduler_run(self, crawler_name: str) -> SchedulerRun | None:
+        """Newest run log the scheduler wrote under ``<repo root>/logs/runs``."""
+
+        pattern = f"{glob.escape(crawler_name)}-*-????????-??????.log"
+        paths = (self.repo_root / "logs" / "runs").glob(pattern)
+        newest = max(paths, key=lambda path: path.name[-19:], default=None)
+        return read_scheduler_run(newest, crawler_name) if newest else None
 
     def get_active_run(self, crawler_name: str) -> RunRecord | None:
         with self._guard:
@@ -661,16 +764,8 @@ class CrawlerRunService:
                 "error_message": record.error_message,
             }
 
-        # Polled every few seconds while a run is active: read only the end.
-        tail_bytes = lines * 1024
-        with log_path.open("rb") as handle:
-            handle.seek(0, os.SEEK_END)
-            start = max(0, handle.tell() - tail_bytes)
-            handle.seek(start)
-            content = handle.read().decode("utf-8", errors="replace").splitlines()
-        if start:
-            content = content[1:]  # the first line is cut
-        tail_lines = content[-lines:]
+        # Polled every few seconds while a run is active.
+        tail_lines = tail_log_lines(log_path, lines)
         return {
             "text": "\n".join(tail_lines),
             "line_count": len(tail_lines),

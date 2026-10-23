@@ -70,6 +70,10 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
 - The admin's "Run once" uses the same runner for the crawler section (no
   `--job`), with the same post-run handling, `run_post_scripts` and
   `run_timeout_seconds`; its output goes to the admin's run log.
+- The admin's dashboard and crawler pages show whether a crawler is running
+  (its advisory lock in `pg_locks`, "unknown" without database) and the newer
+  of the admin's and the scheduler's latest run. Scheduler runs are read from
+  `logs/runs/` under `OEDS_ADMIN_REPO_ROOT`, which both containers mount.
 
 ## Optional post-processing
 
