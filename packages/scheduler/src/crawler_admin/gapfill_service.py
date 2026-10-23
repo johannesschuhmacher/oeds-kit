@@ -146,14 +146,6 @@ class GapfillRuntimeView:
     def selected_table_count(self) -> int:
         return sum(1 for item in self.tables if item.selected)
 
-    @property
-    def has_gapfill_script(self) -> bool:
-        return self.script_enabled
-
-    @property
-    def writes_to_separate_schema(self) -> bool:
-        return self.target_schema != self.source_schema
-
 
 def build_gapfill_selftest_catalog() -> list[GapfillSelfTestCatalogItem]:
     from oeds_gapfill.selftest import list_self_test_cases

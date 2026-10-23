@@ -229,7 +229,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
             executor=executor,
             requires_crawler=False,
         )
-        run_id = service._create_run_record(prepared, trigger_source="manual")
+        run_id = service._create_run_record(prepared)
         service._execute_run(run_id, prepared)
         return service.get_run(run_id)
 

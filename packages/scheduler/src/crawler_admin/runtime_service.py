@@ -11,7 +11,7 @@ import traceback
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -379,8 +379,6 @@ class CrawlerRunService:
         crawler_name: str,
         action_id: str,
         action_payload: dict[str, Any],
-        *,
-        trigger_source: str = "manual",
     ) -> int:
         prepared = self.prepare_action(crawler_name, action_id, action_payload)
 
@@ -390,7 +388,7 @@ class CrawlerRunService:
 
             lock = self._acquire_crawler_lock(prepared)
             try:
-                run_id = self._create_run_record(prepared, trigger_source=trigger_source)
+                run_id = self._create_run_record(prepared)
                 self._active_runs[crawler_name] = run_id
 
                 thread = threading.Thread(
@@ -1076,9 +1074,7 @@ class CrawlerRunService:
             "error_message": record.error_message,
         }
 
-    def _create_run_record(
-        self, prepared: PreparedAction, *, trigger_source: str
-    ) -> int:
+    def _create_run_record(self, prepared: PreparedAction) -> int:
         created_at = self._utc_now()
         placeholder_name = f"run-pending-{prepared.crawler_name}-{created_at.replace(':', '').replace('-', '')}.log"
         placeholder_path = str((self.logs_dir / placeholder_name).resolve())
@@ -1097,13 +1093,12 @@ class CrawlerRunService:
                     config_overrides_json,
                     action_payload_json
                 )
-                VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+                VALUES (?, ?, ?, 'manual', 'queued', ?, ?, ?, ?)
                 """,
                 (
                     prepared.crawler_name,
                     prepared.action_id,
                     prepared.action_label,
-                    trigger_source,
                     created_at,
                     placeholder_path,
                     json.dumps(prepared.config_overrides, ensure_ascii=True),
@@ -1564,4 +1559,5 @@ class CrawlerRunService:
         return round((finish_dt - start_dt).total_seconds(), 3)
 
     def _utc_now(self) -> str:
-        return datetime.utcnow().isoformat(timespec="seconds")
+        # Naive UTC ISO timestamps, the format stored in existing run records.
+        return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")

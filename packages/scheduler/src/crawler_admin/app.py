@@ -97,7 +97,6 @@ def dashboard(
     job: str | None = Query(default=None),
     confirm_run: str | None = Query(default=None),
     inspect: str | None = Query(default=None),
-    email_tested: int | None = Query(default=None),
 ) -> HTMLResponse:
     message_kind = None
     message_text = None
@@ -112,9 +111,6 @@ def dashboard(
     elif started and crawler:
         message_kind = "success"
         message_text = f"Started one-off manual run for {crawler}. Scheduler unchanged."
-    elif email_tested and crawler:
-        message_kind = "success"
-        message_text = f"Sent test email for {crawler}."
 
     return _render_dashboard(
         request=request,
@@ -921,12 +917,10 @@ def _render_dashboard(
     selected_scheduler_job_for: str | None = None,
     run_confirmation_errors: dict[str, list[str]] | None = None,
     selected_run_confirmation_for: str | None = None,
-    email_test_errors: dict[str, list[str]] | None = None,
     selected_inspect_for: str | None = None,
 ) -> HTMLResponse:
     state = build_dashboard_state()
     latest_runs = run_service.get_latest_runs_map()
-    email_test_errors = email_test_errors or {}
     crawler_rows = []
 
     for card in state.cards:
@@ -944,7 +938,6 @@ def _render_dashboard(
                     card,
                     selected_scheduler_job_for if selected_scheduler_for == card.name else None,
                 ),
-                "email_test_errors": email_test_errors.get(card.name, []),
                 "post_run_script_count": _post_run_script_count(overview),
                 "email_state": _build_email_alert_state(overview),
             }
