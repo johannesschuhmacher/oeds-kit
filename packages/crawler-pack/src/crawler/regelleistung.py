@@ -171,28 +171,29 @@ class RegelleistungCrawler(KitCrawler):
                     "discovered_at": discovered_at,
                 }
             )
+        if not rows:
+            return
         with self.engine.begin() as conn:
-            for row in rows:
-                conn.execute(
-                    text(
-                        """
-                        INSERT INTO tender_files
-                            (file_name, control_block, date_range_type, file_type, product_type, market, date_range, source_url, discovered_at)
-                        VALUES
-                            (:file_name, :control_block, :date_range_type, :file_type, :product_type, :market, :date_range, :source_url, :discovered_at)
-                        ON CONFLICT (file_name) DO UPDATE SET
-                            control_block = EXCLUDED.control_block,
-                            date_range_type = EXCLUDED.date_range_type,
-                            file_type = EXCLUDED.file_type,
-                            product_type = EXCLUDED.product_type,
-                            market = EXCLUDED.market,
-                            date_range = EXCLUDED.date_range,
-                            source_url = EXCLUDED.source_url,
-                            discovered_at = EXCLUDED.discovered_at
-                        """
-                    ),
-                    row,
-                )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO tender_files
+                        (file_name, control_block, date_range_type, file_type, product_type, market, date_range, source_url, discovered_at)
+                    VALUES
+                        (:file_name, :control_block, :date_range_type, :file_type, :product_type, :market, :date_range, :source_url, :discovered_at)
+                    ON CONFLICT (file_name) DO UPDATE SET
+                        control_block = EXCLUDED.control_block,
+                        date_range_type = EXCLUDED.date_range_type,
+                        file_type = EXCLUDED.file_type,
+                        product_type = EXCLUDED.product_type,
+                        market = EXCLUDED.market,
+                        date_range = EXCLUDED.date_range,
+                        source_url = EXCLUDED.source_url,
+                        discovered_at = EXCLUDED.discovered_at
+                    """
+                ),
+                rows,
+            )
 
     def _download_file(self, file_name: str) -> bytes:
         response = self.session.get(f"{API_BASE_URL}/tenders/files/{file_name}", timeout=self.timeout_seconds)
