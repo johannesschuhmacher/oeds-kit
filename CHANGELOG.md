@@ -11,6 +11,12 @@ The former module repositories keep their own history in
   leaves the old services running. The database dump before an update is
   off by default (`--backup` / `oeds_backup_before_update=true`); the update
   waits up to 15 minutes for running crawls.
+- One deployment playbook, `oeds-deploy.yml`, replaces `oeds-docker-config.yml`,
+  `oeds-update.yml`, `oeds-update-crawlers.yml` and the `tasks/` files; an
+  update is a rerun of `oeds-install-crawlers.yml`. The source is always the
+  checkout at `oeds_repo_local_src` (the `git` and `local_archive` modes and
+  `oeds_update_docker_packages` are removed; use `oeds_package_state=latest`).
+  The installer no longer runs the smoke test a second time.
 - `copy_insert` writes whole floats as integers, so COPY accepts them in
   bigint columns (#14).
 

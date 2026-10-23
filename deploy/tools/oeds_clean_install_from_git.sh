@@ -200,11 +200,10 @@ ansible-galaxy collection install -r requirements.yml
 BECOME_ARGS=()
 readarray_nul BECOME_ARGS < <(become_args)
 COMMON_ARGS=(-i "$INVENTORY_FILE" "${BECOME_ARGS[@]}")
-# The checkout is transferred as a worktree archive, so a private clone made
-# with OEDS_GIT_TOKEN needs no Git access from the playbooks.
+# The playbooks copy this checkout, so a private clone made with
+# OEDS_GIT_TOKEN needs no Git access from the playbooks.
 MODULAR_EXTRA=(
   -e "oeds_root=$OEDS_ROOT"
-  -e "oeds_repo_source_mode=local_worktree"
   -e "oeds_repo_local_src=$CHECKOUT_DIR"
   -e "oeds_enable_crawlers=true"
   -e "oeds_backup_before_update=$BACKUP"
@@ -233,11 +232,6 @@ ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[
 
 log "Verifying installed repository"
 python3 "$OEDS_ROOT/repo/deploy/tools/verify_deployment.py"
-
-log "Running final Ansible smoke test"
-ansible-playbook "${COMMON_ARGS[@]}" oeds-smoke-test.yml \
-  -e "oeds_root=$OEDS_ROOT" \
-  -e oeds_expect_crawler_admin=true
 
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
   if [[ -z "$CRAWLER_ENV_FILE" ]]; then
