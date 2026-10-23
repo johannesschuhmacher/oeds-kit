@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from functools import partial
 import json
 import os
 from pathlib import Path
@@ -32,14 +31,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from oeds_post_scripts.runtime_env import resolve_database_uri
-from oeds_price_forecast.model import (
-    MODEL_NAME,
-    MODEL_VERSION,
-    PriceForecastConfig,
-    backtest_forecast,
-    forecast_day,
-    generate_self_test_series,
-)
+from oeds_price_forecast.model import PriceForecastConfig, generate_self_test_series
 from oeds_price_forecast.upstream import (
     UPSTREAM_MODEL_NAME,
     UPSTREAM_MODEL_VERSION,
@@ -52,9 +44,6 @@ from oeds_price_forecast.upstream import (
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 DEFAULT_DATABASE_URI = "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path="
 FORECAST_SCHEMA = "price_forecast"
-BACKEND_RIDGE = "ridge"
-BACKEND_UPSTREAM = "upstream"
-BACKEND_AUTO = "auto"
 PERIODS_PER_DAY = 96
 API_TRAINING_BUFFER_DAYS = 7
 API_MIN_TRAINING_COVERAGE_RATIO = 0.85
@@ -87,54 +76,11 @@ def _env_int(name: str, fallback: int) -> int:
         return fallback
 
 
-def _env_float(name: str, fallback: float) -> float:
-    value = _env_default(name)
-    if value is None:
-        return fallback
-    try:
-        return float(value)
-    except ValueError:
-        return fallback
-
-
 def _env_bool(name: str, fallback: bool) -> bool:
     value = _env_default(name)
     if value is None:
         return fallback
     return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _backend_model_identity(backend: str) -> tuple[str, str]:
-    if backend == BACKEND_UPSTREAM:
-        return UPSTREAM_MODEL_NAME, UPSTREAM_MODEL_VERSION
-    return MODEL_NAME, MODEL_VERSION
-
-
-def _backend_functions(backend: str, args: argparse.Namespace):
-    """Return the (forecast, backtest) functions of a backend."""
-    if backend == BACKEND_UPSTREAM:
-        options = {"repo_path": args.upstream_repo_path, "variant": args.upstream_variant}
-        return partial(forecast_day_upstream, **options), partial(backtest_forecast_upstream, **options)
-    return forecast_day, backtest_forecast
-
-
-def _run_forecast(
-    args: argparse.Namespace,
-    price: pd.Series,
-    exaa: pd.Series | None,
-    covariates: pd.DataFrame | None,
-    target_date: date,
-    config: PriceForecastConfig,
-):
-    """Forecast with the requested backend; `auto` tries upstream and falls back to ridge."""
-    backend = BACKEND_UPSTREAM if args.model_backend == BACKEND_AUTO else args.model_backend
-    forecast, _ = _backend_functions(backend, args)
-    try:
-        return backend, forecast(price, exaa, covariates, target_date, config), None
-    except UpstreamBackendUnavailable as exc:
-        if args.model_backend != BACKEND_AUTO:
-            raise
-        return BACKEND_RIDGE, forecast_day(price, exaa, covariates, target_date, config), str(exc)
 
 
 def _delivery_bounds(target_date: date, train_days: int) -> tuple[pd.Timestamp, pd.Timestamp]:
@@ -673,8 +619,6 @@ def write_run(
     status: str,
     config: PriceForecastConfig,
     source_summary: dict,
-    model_name: str = MODEL_NAME,
-    model_version: str = MODEL_VERSION,
     message: str | None = None,
     train_start_utc: pd.Timestamp | None = None,
     train_end_utc: pd.Timestamp | None = None,
@@ -699,8 +643,8 @@ def write_run(
                 "run_id": run_id,
                 "target_date": target_date,
                 "market_area": market_area,
-                "model_name": model_name,
-                "model_version": model_version,
+                "model_name": UPSTREAM_MODEL_NAME,
+                "model_version": UPSTREAM_MODEL_VERSION,
                 "variant": variant,
                 "status": status,
                 "message": message,
@@ -831,21 +775,16 @@ def run_self_test(args: argparse.Namespace) -> int:
     config = PriceForecastConfig(
         market_area=args.market_area,
         train_days=args.train_days,
-        ridge_alpha=args.ridge_alpha,
     )
     target_date = _parse_target_date(args.target_date)
     price, exaa, covariates = generate_self_test_series(days=max(args.train_days + args.backtest_days + 20, 120), end_date=target_date)
-    backend, result, fallback_message = _run_forecast(args, price, exaa, covariates, target_date, config)
-    if fallback_message:
-        print(f"Upstream backend unavailable; using ridge fallback. Reason: {fallback_message}")
-    print(f"Self-test backend: {backend}")
+    result = forecast_day_upstream(price, exaa, covariates, target_date, config, variant=args.upstream_variant)
     print(f"Self-test forecast rows: {len(result.point_forecast)}")
     print(result.metrics.to_string(index=False))
 
     dates = _backtest_dates(target_date, args.backtest_days)
     if dates:
-        _, backtest = _backend_functions(backend, args)
-        _, metrics = backtest(price, exaa, covariates, dates, config)
+        _, metrics = backtest_forecast_upstream(price, exaa, covariates, dates, config, variant=args.upstream_variant)
         aggregate = metrics[metrics["target_date"].isna()] if "target_date" in metrics.columns else metrics
         print("Self-test backtest aggregate:")
         print(aggregate.to_string(index=False))
@@ -857,7 +796,6 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     config = PriceForecastConfig(
         market_area=args.market_area,
         train_days=args.train_days,
-        ridge_alpha=args.ridge_alpha,
     )
     engine = create_engine(resolve_database_uri(args.database_uri))
     try:
@@ -869,9 +807,8 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     run_id = str(uuid.uuid4())
 
     try:
-        backend, result, fallback_message = _run_forecast(args, price, exaa, covariates, target_date, config)
+        result = forecast_day_upstream(price, exaa, covariates, target_date, config, variant=args.upstream_variant)
     except UpstreamBackendUnavailable as exc:
-        model_name, model_version = _backend_model_identity(BACKEND_UPSTREAM)
         write_run(
             engine,
             run_id,
@@ -881,16 +818,11 @@ def run_db_forecast(args: argparse.Namespace) -> int:
             "failed",
             config,
             source_summary,
-            model_name=model_name,
-            model_version=model_version,
             message=str(exc),
         )
         print(f"Price forecast failed: {exc}", file=sys.stderr)
         return 2
     except ValueError as exc:
-        model_name, model_version = _backend_model_identity(
-            BACKEND_RIDGE if args.model_backend == BACKEND_AUTO else args.model_backend
-        )
         write_run(
             engine,
             run_id,
@@ -900,21 +832,12 @@ def run_db_forecast(args: argparse.Namespace) -> int:
             "skipped",
             config,
             source_summary,
-            model_name=model_name,
-            model_version=model_version,
             message=str(exc),
         )
         print(f"Price forecast skipped: {exc}")
         return 0 if args.skip_if_insufficient_data else 1
 
-    model_name, model_version = _backend_model_identity(backend)
-    source_summary = source_summary | {
-        "model_backend": backend,
-        "requested_model_backend": args.model_backend,
-        "upstream_variant": args.upstream_variant,
-        "upstream_repo_path": args.upstream_repo_path,
-        "fallback_message": fallback_message,
-    }
+    source_summary = source_summary | {"upstream_variant": args.upstream_variant}
     write_run(
         engine,
         run_id,
@@ -924,8 +847,6 @@ def run_db_forecast(args: argparse.Namespace) -> int:
         "writing",
         config,
         source_summary,
-        model_name=model_name,
-        model_version=model_version,
         train_start_utc=result.train_start_utc,
         train_end_utc=result.train_end_utc,
     )
@@ -943,8 +864,7 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     dates = _backtest_dates(target_date, args.backtest_days)
     if dates:
         backtest_run_id = str(uuid.uuid4())
-        _, backtest = _backend_functions(backend, args)
-        _, metrics = backtest(price, exaa, covariates, dates, config)
+        _, metrics = backtest_forecast_upstream(price, exaa, covariates, dates, config, variant=args.upstream_variant)
         write_run(
             engine,
             backtest_run_id,
@@ -954,8 +874,6 @@ def run_db_forecast(args: argparse.Namespace) -> int:
             "writing",
             config,
             source_summary | {"backtest_days": args.backtest_days},
-            model_name=model_name,
-            model_version=model_version,
         )
         metrics = metrics.copy()
         metrics["run_id"] = backtest_run_id
@@ -996,18 +914,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-date")
     parser.add_argument("--train-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_TRAIN_DAYS", 56))
     parser.add_argument("--backtest-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_BACKTEST_DAYS", 0))
-    parser.add_argument("--ridge-alpha", type=float, default=_env_float("OEDS_PRICE_FORECAST_RIDGE_ALPHA", 25.0))
     parser.add_argument("--retention-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_RETENTION_DAYS", 180))
-    parser.add_argument(
-        "--model-backend",
-        choices=[BACKEND_AUTO, BACKEND_UPSTREAM, BACKEND_RIDGE],
-        default=_env_default("OEDS_PRICE_FORECAST_BACKEND", BACKEND_AUTO),
-    )
-    parser.add_argument(
-        "--upstream-repo-path",
-        default=_env_default("DA_PRICE_FORECASTING_REPO_PATH"),
-        help="Path to a local DA_Price_Forecasting_Pipeline_DE_LU checkout.",
-    )
     parser.add_argument(
         "--upstream-variant",
         choices=["exaa_only", "exaa"],

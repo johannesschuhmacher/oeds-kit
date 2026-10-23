@@ -561,20 +561,12 @@ class CrawlerRunService:
                 minimum=0,
                 maximum=60,
             )
-            model_backend = (
-                str(action_payload.get("model_backend") or "auto").strip().lower()
-            )
-            if model_backend not in {"auto", "upstream", "ridge"}:
-                raise ActionValidationError(
-                    ["Model backend must be auto, upstream, or ridge."]
-                )
 
             payload = {
                 "run_mode": run_mode,
                 "target_date": target_date,
                 "train_days": train_days,
                 "backtest_days": backtest_days,
-                "model_backend": model_backend,
             }
             description = (
                 "Price forecast self-test"
@@ -663,20 +655,6 @@ class CrawlerRunService:
                             max_value=60,
                             default_value=self._env_int_default(
                                 "OEDS_PRICE_FORECAST_BACKTEST_DAYS", 2
-                            ),
-                        ),
-                        ActionField(
-                            name="model_backend",
-                            label="Model backend",
-                            input_type="select",
-                            required=True,
-                            options=[
-                                ActionOption(value="auto", label="auto"),
-                                ActionOption(value="upstream", label="upstream"),
-                                ActionOption(value="ridge", label="ridge"),
-                            ],
-                            default_value=os.getenv(
-                                "OEDS_PRICE_FORECAST_BACKEND", "auto"
                             ),
                         ),
                     ],
@@ -978,8 +956,6 @@ class CrawlerRunService:
             str(payload["train_days"]),
             "--backtest-days",
             str(payload["backtest_days"]),
-            "--model-backend",
-            str(payload["model_backend"]),
         ]
         if payload.get("target_date"):
             command.extend(["--target-date", str(payload["target_date"])])
