@@ -7,8 +7,8 @@ oeds_root: /open_energy_data_server
 oeds_repo_dir: "{{ oeds_root }}/repo"
 # Runtime files are kept outside the Git checkout.
 oeds_runtime_dir: "{{ oeds_root }}/runtime"
-# The oeds-kit checkout on the control node that is installed, including
-# uncommitted changes (the installer passes its own clone).
+# The oeds-kit checkout on this host that is installed, including uncommitted
+# changes (the installer passes its own clone).
 oeds_repo_local_src: ""
 # Crawler API keys copied to runtime/crawler/.env, optional.
 oeds_crawler_env_file: ""

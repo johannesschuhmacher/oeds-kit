@@ -1,8 +1,0 @@
-all:
-  children:
-    oeds:
-      hosts:
-        local:
-          ansible_connection: local
-          ansible_user: oeds
-          ansible_python_interpreter: /usr/bin/python3
