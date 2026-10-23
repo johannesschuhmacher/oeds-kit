@@ -383,9 +383,6 @@
       mode: "0640"
       modification_time: preserve
       access_time: preserve
-  # A root-run admin container once left root-owned logs/<crawler>.log files that
-  # made every scheduled crawl fail with PermissionError, so ownership is
-  # repaired recursively on every run.
   - name: Give the runtime config file to the container user
     ansible.builtin.file:
       path: "{{ oeds_runtime_dir }}/CRAWLER_CONFIG.yml"
@@ -393,18 +390,17 @@
       owner: "1000"
       group: docker
       mode: "0660"
-  - name: Give existing runtime files to the container user
+  # A root-run admin container (fixed in compose.yml) once left root-owned
+  # logs/<crawler>.log files that made every scheduled crawl fail with
+  # PermissionError; repair the files under logs/ on every run.
+  - name: Give existing log files to the container user
     ansible.builtin.file:
-      path: "{{ oeds_runtime_dir }}/{{ item }}"
+      path: "{{ oeds_runtime_dir }}/logs"
       state: directory
       recurse: true
       owner: "1000"
       group: docker
       mode: "u+rwX,g+rwX"
-    loop:
-      - crawler/data
-      - logs
-      - crawler_admin_state
   # Recreates only the containers whose image or settings changed; the images
   # were built above, so up does not build.
   - name: Run docker compose up

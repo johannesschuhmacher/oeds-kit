@@ -124,8 +124,8 @@ overrides belong in the installed `repo/deploy/.env`. Ansible protects
 these files with `root:docker` and mode `0640`. Both crawler containers run as
 UID 1000; the runtime config file and the data/log/admin-state directories are
 owned by that UID (group `docker`, not world-writable), and every update
-re-applies this ownership recursively. Keep the admin port behind SSH or
-authenticated access.
+re-applies this ownership, recursively for `logs/`. Keep the admin port behind
+SSH or authenticated access.
 
 The password rotation feature requires the Bitwarden `bw` CLI on the target
 and `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` in the control environment.
