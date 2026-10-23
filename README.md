@@ -78,8 +78,9 @@ bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawl
 ```
 
 or, from `deploy/playbooks` on the VM, `ansible-playbook -i inventory.local.yml -K
-oeds-update-crawlers.yml -e oeds_repo_source_mode=local_worktree -e
-oeds_repo_local_src=/path/to/oeds-kit`.
+oeds-install-crawlers.yml -e oeds_repo_local_src=/path/to/oeds-kit`. The
+running services keep going while the new images build; add `--backup` for a
+database dump first.
 
 ## Licence
 

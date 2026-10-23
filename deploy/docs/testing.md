@@ -42,7 +42,6 @@ are retained. Save crawler credentials separately before this command.
 ```bash
 ansible-playbook -i inventory.local.yml -K oeds-install-host-prep.yml
 ansible-playbook -i inventory.local.yml -K oeds-install-core.yml \
-  -e oeds_repo_source_mode=local_worktree \
   -e oeds_repo_local_src="$HOME/oeds-kit" \
   -e oeds_crawler_env_file="$HOME/crawler.env"
 ```
@@ -71,7 +70,6 @@ dependency of database initialization:
 cd "$HOME/oeds-kit/deploy/playbooks"
 ansible-playbook -i inventory.local.yml -K oeds-install-post.yml
 ansible-playbook -i inventory.local.yml -K oeds-install-crawlers.yml \
-  -e oeds_repo_source_mode=local_worktree \
   -e oeds_repo_local_src="$HOME/oeds-kit" \
   -e oeds_crawler_env_file="$HOME/crawler.env"
 ```
@@ -123,11 +121,8 @@ that opt-in check contacts all selected providers and may download large archive
 
 ```bash
 cd "$HOME/oeds-kit/deploy/playbooks"
-ansible-playbook -i inventory.local.yml -K oeds-update.yml \
-  -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-kit" -e oeds_enable_crawlers=true
-ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
-  -e oeds_expect_crawler_admin=true
+ansible-playbook -i inventory.local.yml -K oeds-install-crawlers.yml \
+  -e oeds_repo_local_src="$HOME/oeds-kit"
 ```
 
 Confirm sample data and configuration survive. A clean application reset is
