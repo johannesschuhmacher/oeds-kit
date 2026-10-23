@@ -1,7 +1,7 @@
 ---
 - import_playbook: oeds-packages.yml
 
-- import_playbook: oeds-docker-config.yml
+- import_playbook: oeds-deploy.yml
   vars:
     oeds_enable_crawlers: true
 
