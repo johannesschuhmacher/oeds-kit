@@ -22,7 +22,7 @@ The module contains the scheduler core:
 - `runtime.py`: `oeds-crawl` subprocess runner, per-run logs, queue locking,
   bounded-concurrency dispatcher, post-run commands
 - `locks.py`: cross-process crawler lock (PostgreSQL advisory lock)
-- `service.py`: schedule adapter and scheduler service tick
+- `service.py`: cron schedules (`cron-converter`) and scheduler service tick
 - `application.py`: config assembly and reload boundary
 - `config.py`: YAML config loading and file change signature
 - `daemon.py`: stoppable loop around the scheduler application
@@ -60,14 +60,16 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
   The admin UI takes the same lock for every manual action, so scheduler and
   admin cannot run one crawler at the same time. A job whose lock is busy is
   retried on the next tick.
-- Up to `default.max_parallel_runs` (default 3) runs execute concurrently; the
-  per-job `lock_keys` (for example ENTSO-E data items) still serialise
-  conflicting jobs inside the daemon.
+- Up to `default.max_parallel_runs` (default 3) runs execute concurrently, at
+  most one per crawler: a second job of a running crawler waits in the queue.
 - `run_timeout_seconds` on a crawler or job kills the process after that time
   and marks the run failed.
 - Post-run commands (`post_run_scripts`) run as subprocesses after a
   successful crawler run; `*.py` paths use the current interpreter with the
   working directory on `PYTHONPATH`.
+- The admin's "Run once" uses the same runner for the crawler section (no
+  `--job`), with the same post-run handling, `run_post_scripts` and
+  `run_timeout_seconds`; its output goes to the admin's run log.
 
 ## Optional post-processing
 
@@ -86,9 +88,7 @@ oeds-scheduler --config CRAWLER_CONFIG.yml --daemon
 ```
 
 `--once` runs one scheduler tick and waits for the started runs. `--daemon`
-runs the persistent scheduler loop. `--inventory` and `--workspace-root` are
-still accepted but ignored (deprecated; the deployment stops passing them in a
-later release).
+runs the persistent scheduler loop.
 
 Run the admin UI:
 

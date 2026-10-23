@@ -47,7 +47,6 @@ class SchedulerJobPlan:
     job_id: str
     display_name: str
     schedule: str | None
-    enabled: bool
     run_post_scripts: bool
     post_run_scripts: Sequence[str]
     raw_config: Mapping[str, Any]
@@ -217,32 +216,32 @@ def build_scheduler_job_plans(
                 )
                 continue
             try:
-                run_timeout_seconds = _run_timeout_seconds(job_config.config)
+                plans.append(job_plan(job_config))
             except ValueError as exc:
                 errors.append(
                     SchedulerPlanIssue(crawler_name, job_config.job_name, str(exc))
                 )
-                continue
-
-            plans.append(
-                SchedulerJobPlan(
-                    crawler_name=crawler_name,
-                    job_name=job_config.job_name,
-                    job_id=job_config.job_id,
-                    display_name=job_config.display_name,
-                    schedule=job_config.schedule,
-                    enabled=job_config.enabled,
-                    run_post_scripts=job_config.run_post_scripts,
-                    post_run_scripts=_post_run_scripts(job_config.config),
-                    raw_config=dict(job_config.config),
-                    run_timeout_seconds=run_timeout_seconds,
-                )
-            )
 
     return SchedulerPlanResult(
         plans=tuple(plans),
         skipped=tuple(skipped),
         errors=tuple(errors),
+    )
+
+
+def job_plan(job_config: CrawlerJobConfig) -> SchedulerJobPlan:
+    """Plan for one job; ``ValueError`` for an invalid ``run_timeout_seconds``."""
+
+    return SchedulerJobPlan(
+        crawler_name=job_config.crawler_name,
+        job_name=job_config.job_name,
+        job_id=job_config.job_id,
+        display_name=job_config.display_name,
+        schedule=job_config.schedule,
+        run_post_scripts=job_config.run_post_scripts,
+        post_run_scripts=_post_run_scripts(job_config.config),
+        raw_config=dict(job_config.config),
+        run_timeout_seconds=_run_timeout_seconds(job_config.config),
     )
 
 
