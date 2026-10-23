@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from crawler.common.local_env import apply_email_env_overrides
+
 from oeds_scheduler_ui.config import file_signature, load_scheduler_config
 from oeds_scheduler_ui.factory import known_crawler_names
 from oeds_scheduler_ui.locks import lock_engine
@@ -24,12 +26,6 @@ from oeds_scheduler_ui.runtime import (
     PostRunExecutor,
 )
 from oeds_scheduler_ui.service import SchedulerService, SchedulerServiceIssue
-
-try:
-    from crawler.common.local_env import apply_email_env_overrides
-except ImportError:  # pragma: no cover - crawler pack is optional for the core.
-    apply_email_env_overrides = None
-
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +52,10 @@ class SchedulerApplication:
     def __init__(
         self,
         config_path: str | Path,
-        inventory_path: str | Path | None = None,
-        workspace_root: str | Path | None = None,
         *,
         post_run_executor: PostRunExecutor | None = None,
         reference_time: datetime | None = None,
     ) -> None:
-        # inventory_path and workspace_root are ignored: crawlers come from the
-        # oeds.crawlers entry points. Kept until the deployment stops passing them.
         self.config_path = Path(config_path).resolve()
         self._post_run_executor = post_run_executor
         # The dispatcher outlives reloads so runs that are active during a
@@ -98,13 +90,11 @@ class SchedulerApplication:
         self,
         reference_time: datetime | None = None,
     ) -> SchedulerApplicationSnapshot:
-        raw_config = load_scheduler_config(self.config_path)
-        if apply_email_env_overrides is not None:
-            # Same OEDS_EMAIL_* overrides the admin UI applies; the config file
-            # lives in the repo root that also holds crawler/.env.
-            raw_config = apply_email_env_overrides(
-                dict(raw_config), self.config_path.parent
-            )
+        # Same OEDS_EMAIL_* overrides the admin UI applies; the config file
+        # lives in the repo root that also holds crawler/.env.
+        raw_config = apply_email_env_overrides(
+            load_scheduler_config(self.config_path), self.config_path.parent
+        )
         crawler_names = known_crawler_names()
         plan_result = build_scheduler_job_plans(raw_config, crawler_names)
 

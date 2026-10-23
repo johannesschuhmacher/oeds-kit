@@ -16,8 +16,6 @@ from oeds_scheduler_ui.application import (
 )
 from oeds_scheduler_ui.daemon import SchedulerDaemon
 
-logger = logging.getLogger(__name__)
-
 
 def main(argv: Sequence[str] | None = None) -> None:
     logging.basicConfig(
@@ -29,16 +27,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         "--config",
         default="CRAWLER_CONFIG.yml",
         help="scheduler YAML config path",
-    )
-    parser.add_argument(
-        "--inventory",
-        default=None,
-        help="deprecated and ignored; crawlers come from the oeds.crawlers entry points",
-    )
-    parser.add_argument(
-        "--workspace-root",
-        default=None,
-        help="deprecated and ignored",
     )
     parser.add_argument(
         "--once",
@@ -57,11 +45,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="maximum seconds between config checks",
     )
     args = parser.parse_args(argv)
-    if args.inventory is not None or args.workspace_root is not None:
-        logger.warning(
-            "--inventory and --workspace-root are ignored: crawlers are discovered "
-            "through the oeds.crawlers entry points"
-        )
 
     app = SchedulerApplication(
         config_path=Path(args.config),

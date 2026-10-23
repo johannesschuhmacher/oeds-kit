@@ -577,12 +577,7 @@ def test_application_reloads_changed_config_and_keeps_the_dispatcher(crawl_stub,
     )
     start = datetime(2026, 1, 1, 0, 0, 0)
 
-    app = SchedulerApplication(
-        config_path,
-        "ignored.json",
-        "ignored",
-        reference_time=start,
-    )
+    app = SchedulerApplication(config_path, reference_time=start)
     dispatcher = app.dispatcher
 
     assert app.snapshot.ready
