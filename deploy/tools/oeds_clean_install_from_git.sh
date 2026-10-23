@@ -8,8 +8,6 @@ CHECKOUT_DIR=${OEDS_CHECKOUT_DIR:-$WORK_DIR/oeds-kit}
 OEDS_ROOT=${OEDS_ROOT:-/open_energy_data_server}
 RESET=false
 SKIP_HOST_PREP=false
-LOAD_SAMPLE_DATA=false
-INCLUDE_ENTSOE_FMS=false
 BACKUP=false
 CRAWLER_ENV_FILE=${OEDS_CRAWLER_ENV_FILE:-}
 
@@ -29,8 +27,6 @@ Options:
   --reset                 Run a destructive OEDS uninstall before installing.
   --skip-host-prep        Skip OS/Docker host preparation; Docker must already
                           be installed and configured.
-  --load-sample-data      Load and verify a small real-data sample after install.
-  --include-entsoe-fms    Include ENTSO-E FMS in the sample-data load.
   --backup                Dump the database to /home/oeds/backups/<timestamp>
                           before switching (over 30 min for 140 GB).
   --crawler-env-file FILE Copy crawler secrets from FILE into the installed runtime.
@@ -55,8 +51,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --reset) RESET=true; shift ;;
     --skip-host-prep) SKIP_HOST_PREP=true; shift ;;
-    --load-sample-data) LOAD_SAMPLE_DATA=true; shift ;;
-    --include-entsoe-fms) INCLUDE_ENTSOE_FMS=true; shift ;;
     --backup) BACKUP=true; shift ;;
     --crawler-env-file) CRAWLER_ENV_FILE=$2; shift 2 ;;
     --repo-url) REPO_URL=$2; shift 2 ;;
@@ -215,21 +209,5 @@ fi
 
 log "Installing modular OEDS"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[@]}"
-
-if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
-  if [[ -z "$CRAWLER_ENV_FILE" ]]; then
-    log "No crawler env file supplied; live token-backed crawlers may fail if runtime secrets are absent"
-  fi
-  log "Loading sample data into the installed OEDS database"
-  SAMPLE_ARGS=()
-  if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
-    SAMPLE_ARGS+=(--include-entsoe-fms)
-  fi
-  if [[ -n "${OEDS_BECOME_PASSWORD_FILE:-}" ]]; then
-    sudo -S bash "$OEDS_ROOT/repo/deploy/tools/load_sample_data.sh" "${SAMPLE_ARGS[@]}" < "$OEDS_BECOME_PASSWORD_FILE"
-  else
-    sudo bash "$OEDS_ROOT/repo/deploy/tools/load_sample_data.sh" "${SAMPLE_ARGS[@]}"
-  fi
-fi
 
 log "Clean Git-based modular install finished"
