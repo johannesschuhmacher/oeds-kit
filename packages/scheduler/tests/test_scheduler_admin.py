@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
+from crawler.common.crawler_utils import CrawlerSkipped
 
 from crawler_admin.app import _build_scheduler_form_state, _select_scheduler_job_name
 from crawler_admin.config_service import (
@@ -196,9 +197,6 @@ class CrawlerRunServiceTest(unittest.TestCase):
         return service.get_run(run_id)
 
     def test_skipped_crawler_run_is_recorded_as_skipped(self) -> None:
-        class CrawlerSkipped(Exception):
-            """Stands in for crawler.common.crawler_utils.CrawlerSkipped."""
-
         def skip_run(_crawler: object, _log: object) -> str | None:
             raise CrawlerSkipped("ENTSOE_API_KEY is not configured")
 
@@ -211,6 +209,8 @@ class CrawlerRunServiceTest(unittest.TestCase):
 
     def test_run_now_maps_oeds_crawl_exit_codes(self) -> None:
         cases = [(0, "succeeded"), (1, "failed"), (3, "skipped")]
+        # run_post_scripts: false is honoured like in the scheduler.
+        config = {"post_run_scripts": ["oeds-post-not-installed x"], "run_post_scripts": False}
         with tempfile.TemporaryDirectory() as temp_dir:
             stub = Path(temp_dir) / "crawl_stub.py"
             stub.write_text(CRAWL_STUB, encoding="utf-8")
@@ -222,16 +222,18 @@ class CrawlerRunServiceTest(unittest.TestCase):
                     OEDS_TEST_EXIT_CODE=str(exit_code),
                 ):
                     service = CrawlerRunService(repo_root=Path(temp_dir))
+                    plan = service._crawler_plan("entsoe_fms", config)
                     record = self._execute(
                         service,
-                        lambda _crawler, log: service._run_oeds_crawl("entsoe_fms", log),
+                        lambda _crawler, log: service._run_oeds_crawl(plan, log),
                     )
                     log_text = Path(record.log_path).read_text(encoding="utf-8")
 
                     self.assertEqual(record.status, expected_status)
                     self.assertIn("stub run entsoe_fms config=CRAWLER_CONFIG.yml", log_text)
+                    self.assertNotIn("post-run", log_text)
                     if expected_status == "failed":
-                        self.assertIn("exited with code 1: RuntimeError: boom", record.error_message)
+                        self.assertIn("RuntimeError: boom (exit code 1)", record.error_message)
                     elif expected_status == "skipped":
                         self.assertIn("ENTSOE_API_KEY", record.summary)
                         self.assertIsNone(record.error_message)

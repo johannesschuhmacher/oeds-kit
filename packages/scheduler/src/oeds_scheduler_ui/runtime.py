@@ -70,17 +70,6 @@ class CrawlerRunResult:
 PostRunExecutor = Callable[[str, SchedulerJobPlan, TextIO], PostRunCommandResult]
 
 
-def is_crawler_skipped(exc: BaseException) -> bool:
-    """Return whether ``exc`` is a crawler's ``CrawlerSkipped``.
-
-    Matched by class name so the scheduler does not depend on crawler-pack
-    internals (``crawler.common.crawler_utils.CrawlerSkipped`` today, possibly
-    ``oeds.CrawlerSkipped`` later).
-    """
-
-    return any(cls.__name__ == "CrawlerSkipped" for cls in type(exc).__mro__)
-
-
 def find_executable(name: str) -> str | None:
     """Path of ``name`` next to the current interpreter or on ``PATH``, else None."""
 
@@ -162,9 +151,12 @@ class CrawlerJobRunner:
         self.logs_dir = Path(logs_dir)
         self.keep_run_logs = keep_run_logs
 
-    def run(self, plan: SchedulerJobPlan) -> CrawlerRunResult:
+    def run(self, plan: SchedulerJobPlan, log_path: Path | None = None) -> CrawlerRunResult:
+        """Run one job; output goes to ``log_path`` or a new file under ``logs/runs/``."""
+
         started_at = datetime.now()
-        log_path = self._new_run_log_path(plan, started_at)
+        if log_path is None:
+            log_path = self._new_run_log_path(plan, started_at)
         argv = crawl_command(
             plan.crawler_name, self.config_path, plan.job_name, self.command
         )
