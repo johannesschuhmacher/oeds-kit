@@ -1,6 +1,7 @@
 - name: OEDS package installation
   hosts: oeds
   become: true
+  gather_facts: false
   tasks:
   - name: Install Docker packages
     ansible.builtin.dnf:

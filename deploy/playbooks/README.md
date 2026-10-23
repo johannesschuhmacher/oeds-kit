@@ -60,9 +60,13 @@ the checkout at `oeds_repo_local_src` on the control node, copied as it is
    `repo.prev/` is removed afterwards.
 
 Crawler settings, Compose passwords/ports and Docker volumes are preserved.
-`-e oeds_package_state=latest` also updates the Docker packages; normal runs
-leave them alone. PostgreSQL major version changes require a separate
-migration (`oeds-db-migrate.yml`), not an ordinary update.
+Docker itself is installed and configured by `oeds-install-host-prep.yml`,
+which the installer runs first unless `--skip-host-prep` is given;
+`oeds-install-crawlers.yml` expects Docker to be there.
+`ansible-playbook -i inventory.local.yml -K oeds-packages.yml -e oeds_package_state=latest`
+also updates the Docker packages; normal runs leave them alone. PostgreSQL
+major version changes require a separate migration (`oeds-db-migrate.yml`),
+not an ordinary update.
 
 The crawler image installs exactly the root `uv.lock` (`uv sync --frozen`).
 When a package changes its dependencies or the `oeds` revision in the root
@@ -158,7 +162,7 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | `oeds-install-host-prep.yml` | OS repositories, SELinux policy, Docker packages |
 | `oeds-install-core.yml` | Database, Grafana, pgAdmin and PostgREST |
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
-| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin; also the update |
+| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin on a prepared host; also the update |
 | `oeds-deploy.yml` | Stage, build, optional backup, switch; imported by both install playbooks |
 | `oeds-smoke-test.yml` | Service/database health checks, `oeds-crawl --list` and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |

@@ -2,6 +2,7 @@
 - name: Install or update post-processing SQL functions
   hosts: oeds
   become: true
+  gather_facts: false
   tasks:
     - name: Apply the post-scripts module SQL
       ansible.builtin.shell: >-

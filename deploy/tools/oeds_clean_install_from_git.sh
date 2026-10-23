@@ -28,7 +28,8 @@ containers are replaced. A failed build leaves the running services untouched.
 
 Options:
   --reset                 Run a destructive OEDS uninstall before installing.
-  --skip-host-prep        Skip OS/Docker host preparation.
+  --skip-host-prep        Skip OS/Docker host preparation; Docker must already
+                          be installed and configured.
   --load-sample-data      Load and verify a small real-data sample after install.
   --include-entsoe-fms    Include ENTSO-E FMS in the sample-data load.
   --backup                Dump the database to /home/oeds/backups/<timestamp>

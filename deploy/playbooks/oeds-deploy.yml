@@ -7,6 +7,7 @@
 - name: OEDS deploy
   hosts: oeds
   become: true
+  gather_facts: false
   vars:
     oeds_target_pg_major: 18
     oeds_runtime_crawler_data_files:
@@ -259,15 +260,17 @@
   # Off by default: over 30 min for 140 GB, and an update does not change the
   # database. oeds-db-backup.yml makes the same dump on its own.
   - name: Back up the database before switching
-    vars:
-      oeds_backup_run_dir: "{{ oeds_backup_dir }}/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
     when:
       - oeds_backup_before_update | bool
       - (oeds_db_running.stdout | trim) != ""
     block:
+      # set_fact fixes the timestamp once for all tasks of the backup.
+      - name: Name the backup directory after the current time
+        ansible.builtin.set_fact:
+          oeds_update_backup_dir: "{{ oeds_backup_dir }}/{{ now(fmt='%Y%m%dT%H%M%S') }}"
       - name: Create the backup directory
         ansible.builtin.file:
-          path: "{{ oeds_backup_run_dir }}"
+          path: "{{ oeds_update_backup_dir }}"
           state: directory
           owner: root
           group: root
@@ -276,14 +279,14 @@
         ansible.builtin.shell: >-
           docker exec {{ oeds_db_container_name | quote }}
           pg_dumpall -U {{ oeds_db_user | quote }} --globals-only
-          > {{ (oeds_backup_run_dir ~ '/globals.sql') | quote }}
+          > {{ (oeds_update_backup_dir ~ '/globals.sql') | quote }}
         args:
           executable: /bin/bash
       - name: Dump the database in custom format
         ansible.builtin.shell: >-
           docker exec {{ oeds_db_container_name | quote }}
           pg_dump -U {{ oeds_db_user | quote }} -d {{ oeds_db_name | quote }} -Fc
-          > {{ (oeds_backup_run_dir ~ '/' ~ oeds_db_name ~ '.bak') | quote }}
+          > {{ (oeds_update_backup_dir ~ '/' ~ oeds_db_name ~ '.bak') | quote }}
         args:
           executable: /bin/bash
       - name: List the backup directories
