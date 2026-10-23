@@ -795,7 +795,6 @@ class EntsoeFMSCrawler(KitCrawler):
         if df.empty:
             return df
 
-        df = df.copy()
         update_time_column = next((col for col in FMS_UPDATE_TIME_COLUMNS if col in df.columns), None)
         if update_time_column:
             df = df.sort_values(update_time_column, kind="stable")
@@ -896,9 +895,7 @@ class EntsoeFMSCrawler(KitCrawler):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         if update_time_column and update_time_column in df.columns and last_update_time:
             temp_update = df[update_time_column].dt.tz_localize(None)
-            df = df[temp_update > last_update_time].copy()
-        else:
-            df = df.copy()
+            df = df[temp_update > last_update_time]
 
         if df.empty:
             return pd.DataFrame(), pd.DataFrame()
@@ -908,15 +905,15 @@ class EntsoeFMSCrawler(KitCrawler):
             return pd.DataFrame(), df
 
         if table_name in self.FULL_UPSERT_TABLES:
-            return pd.DataFrame(), df.copy()
+            return pd.DataFrame(), df
 
         if datetime_column_name and datetime_column_name in df.columns and last_date_time:
             temp_date = df[datetime_column_name].dt.tz_localize(None)
-            df_update = df[temp_date <= last_date_time].copy()
-            df_insert = df[temp_date > last_date_time].copy()
+            df_update = df[temp_date <= last_date_time]
+            df_insert = df[temp_date > last_date_time]
             return df_insert, df_update
 
-        return pd.DataFrame(), df.copy()
+        return pd.DataFrame(), df
 
     @staticmethod
     def calculate_package_window_start(end_time: pd.Timestamp, window_months: int) -> pd.Timestamp:
@@ -945,9 +942,6 @@ class EntsoeFMSCrawler(KitCrawler):
 
     def _uses_full_package_upsert(self) -> bool:
         return self.config.get("fms_package_write_mode") == "full_upsert"
-
-    def _split_package_refresh_chunk(self, table_name: str, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-        return pd.DataFrame(), self._deduplicate_on_unique_keys(table_name, df.copy())
 
     # ---------------------------
     # Main download routine
@@ -1085,25 +1079,16 @@ class EntsoeFMSCrawler(KitCrawler):
                             df = self._normalize_timestamp_columns(df)
                             self._add_missing_columns(table_name, df)
 
+                            # _insert_dataframe and _upsert_dataframe drop duplicate keys themselves.
                             if create:
-                                df = self._deduplicate_on_unique_keys(table_name, df)
-                                total_rows = len(df)
-                                print(f"    Processing chunk {chunk_idx+1}: Inserting {total_rows} rows...")
-                                total_file_inserts += total_rows
+                                print(f"    Processing chunk {chunk_idx+1}: Inserting {len(df)} rows...")
+                                total_file_inserts += len(df)
                                 self._insert_dataframe(table_name, df)
 
                             elif full_package_upsert:
-                                df_insert_chunk, df_update_chunk = self._split_package_refresh_chunk(table_name, df)
-
-                                if df_insert_chunk.empty and df_update_chunk.empty:
-                                    continue
-
-                                print(
-                                    f"    Processing chunk {chunk_idx+1}: "
-                                    f"0 new inserts, {len(df_update_chunk)} package upserts."
-                                )
-                                self._flush_to_database(table_name, df_insert_chunk, df_update_chunk)
-                                total_file_updates += len(df_update_chunk)
+                                print(f"    Processing chunk {chunk_idx+1}: 0 new inserts, {len(df)} package upserts.")
+                                self._flush_to_database(table_name, pd.DataFrame(), df)
+                                total_file_updates += len(df)
 
                             elif table_state["last_update_time"]:
                                 df_insert_chunk, df_update_chunk = self._split_incremental_chunk(
