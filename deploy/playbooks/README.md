@@ -26,34 +26,42 @@ credential helper or the installer's temporary `GIT_ASKPASS` token mechanism.
 Never embed credentials in clone URLs.
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-update.yml \
-  -e oeds_repo_source_mode=local_worktree \
-  -e oeds_repo_local_src="$HOME/oeds-kit" \
-  -e oeds_enable_crawlers=true
-ansible-playbook -i inventory.local.yml -K oeds-install-post.yml
-ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
-  -e oeds_expect_crawler_admin=true
+ansible-playbook -i inventory.local.yml -K oeds-install-crawlers.yml \
+  -e oeds_repo_local_src="$HOME/oeds-kit"
 ```
 
-Re-running the installer updates an existing installation the same way.
-Both paths first dump the running database (`pg_dump -Fc` plus the globals)
-into `/home/oeds/backups/<timestamp>/` (`oeds_backup_dir`) and keep only the
-newest `oeds_backup_keep` (default 3) directories there; skip the dump with
-`-e oeds_backup_before_update=false`. The update then replaces source code,
-preserves crawler settings and Compose passwords/ports, and restarts services.
-It does not replace existing Docker volumes. `oeds_update_docker_packages=true`
-also updates Docker packages; normal updates leave them alone. PostgreSQL major
-version changes require a separate migration, not an ordinary update.
+Install and update are the same run of `oeds-deploy.yml`, which
+`oeds-install-crawlers.yml` imports together with the smoke test and the
+post-processing SQL. Re-running the installer does the same. The source is
+the checkout at `oeds_repo_local_src` on the control node, copied as it is
+(including uncommitted changes, without `.git`).
+
+1. The new source is unpacked to `repo.next/` and the crawler images are built
+   and the service images pulled there, while the running services continue.
+   If the build fails, the build cache is cleared and the build repeated once;
+   a second failure stops the update with the old services still running.
+2. With `-e oeds_backup_before_update=true` (installer: `--backup`) the
+   database is dumped (`pg_dump -Fc` plus the globals) into
+   `/home/oeds/backups/<timestamp>/` (`oeds_backup_dir`); only the newest
+   `oeds_backup_keep` (default 3) directories are kept. The dump is off by
+   default because it takes over 30 minutes for a 140-GB database and an
+   update does not change the database.
+3. The update waits up to `oeds_update_wait_for_crawls_minutes` (default 15)
+   for running crawls, then moves `repo/` to `repo.prev/` and `repo.next/`
+   to `repo/`.
+4. `docker compose up -d --remove-orphans` replaces only the containers whose
+   image or settings changed; Grafana and pgAdmin are recreated because they
+   mount files from `repo/`. PostgreSQL keeps running unless its image changed.
+   `repo.prev/` is removed afterwards.
+
+Crawler settings, Compose passwords/ports and Docker volumes are preserved.
+`-e oeds_package_state=latest` also updates the Docker packages; normal runs
+leave them alone. PostgreSQL major version changes require a separate
+migration (`oeds-db-migrate.yml`), not an ordinary update.
 
 The crawler image installs exactly the root `uv.lock` (`uv sync --frozen`).
 When a package changes its dependencies or the `oeds` revision in the root
 `pyproject.toml` moves, run `uv lock` and commit the lock in the same change.
-
-Source modes: `git` clones `oeds_repo_url` at `oeds_repo_version` into
-`repo/` on the target (requires Git access there; the installed checkout
-must stay clean); `local_worktree` transfers the control node's checkout,
-including intended uncommitted changes; `local_archive` transfers a committed
-Git archive of it. The installer uses `local_worktree`.
 
 ## Backup and restore
 
@@ -145,8 +153,8 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | `oeds-install-host-prep.yml` | OS repositories, SELinux policy, Docker packages |
 | `oeds-install-core.yml` | Database, Grafana, pgAdmin and PostgREST |
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
-| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin |
-| `oeds-update.yml`, `oeds-update-crawlers.yml` | Source update and database backup |
+| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin; also the update |
+| `oeds-deploy.yml` | Stage, build, optional backup, switch; imported by both install playbooks |
 | `oeds-smoke-test.yml` | Service/database health checks, `oeds-crawl --list` and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |
 | `oeds-rotate-passwords.yml` | Bitwarden-backed credential rotation |

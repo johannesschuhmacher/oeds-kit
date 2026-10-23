@@ -94,7 +94,7 @@ Persistent data lives on the data partition (`oeds_data_root`, default `/home`):
 | Path | Purpose |
 | --- | --- |
 | `/home/oeds/docker_data/` | Persistent PostgreSQL, Grafana and pgAdmin data |
-| `/home/oeds/backups/<timestamp>/` | Database dumps taken before each update; the newest three are kept |
+| `/home/oeds/backups/<timestamp>/` | Database dumps taken on request (`--backup`) before an update; the newest three are kept |
 
 The Compose definition is `repo/deploy/compose.yml`. Docker uses its built-in
 volume driver for new installations; existing volumes are not replaced on update.

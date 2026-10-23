@@ -11,6 +11,7 @@ RESET=false
 SKIP_HOST_PREP=false
 LOAD_SAMPLE_DATA=false
 INCLUDE_ENTSOE_FMS=false
+BACKUP=false
 CRAWLER_ENV_FILE=${OEDS_CRAWLER_ENV_FILE:-}
 
 usage() {
@@ -21,14 +22,17 @@ Usage:
 Clones oeds-kit (crawler pack, scheduler/admin UI, post-processing and the
 deployment) into the working directory and installs it with the Ansible
 playbooks from deploy/playbooks. The repository is public; no GitHub account
-or token is needed. Re-running the script on an installed host updates it
-(the database is dumped to /home/oeds/backups/<timestamp> first).
+or token is needed. Re-running the script on an installed host updates it: the
+new images are built while the running services continue, then the changed
+containers are replaced. A failed build leaves the running services untouched.
 
 Options:
   --reset                 Run a destructive OEDS uninstall before installing.
   --skip-host-prep        Skip OS/Docker host preparation.
   --load-sample-data      Load and verify a small real-data sample after install.
   --include-entsoe-fms    Include ENTSO-E FMS in the sample-data load.
+  --backup                Dump the database to /home/oeds/backups/<timestamp>
+                          before switching (over 30 min for 140 GB).
   --crawler-env-file FILE Copy crawler secrets from FILE into the installed runtime.
   --repo-url URL          oeds-kit repository URL.
   --ref REF               oeds-kit branch, tag, or commit.
@@ -54,6 +58,7 @@ while [[ $# -gt 0 ]]; do
     --skip-host-prep) SKIP_HOST_PREP=true; shift ;;
     --load-sample-data) LOAD_SAMPLE_DATA=true; shift ;;
     --include-entsoe-fms) INCLUDE_ENTSOE_FMS=true; shift ;;
+    --backup) BACKUP=true; shift ;;
     --crawler-env-file) CRAWLER_ENV_FILE=$2; shift 2 ;;
     --repo-url) REPO_URL=$2; shift 2 ;;
     --ref) REPO_REF=$2; shift 2 ;;
@@ -195,13 +200,13 @@ ansible-galaxy collection install -r requirements.yml
 BECOME_ARGS=()
 readarray_nul BECOME_ARGS < <(become_args)
 COMMON_ARGS=(-i "$INVENTORY_FILE" "${BECOME_ARGS[@]}")
-# The checkout is transferred as a worktree archive, so a private clone made
-# with OEDS_GIT_TOKEN needs no Git access from the playbooks.
+# The playbooks copy this checkout, so a private clone made with
+# OEDS_GIT_TOKEN needs no Git access from the playbooks.
 MODULAR_EXTRA=(
   -e "oeds_root=$OEDS_ROOT"
-  -e "oeds_repo_source_mode=local_worktree"
   -e "oeds_repo_local_src=$CHECKOUT_DIR"
   -e "oeds_enable_crawlers=true"
+  -e "oeds_backup_before_update=$BACKUP"
 )
 if [[ -n "$CRAWLER_ENV_FILE" ]]; then
   MODULAR_EXTRA+=(-e "oeds_crawler_env_file=$CRAWLER_ENV_FILE")
@@ -227,11 +232,6 @@ ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[
 
 log "Verifying installed repository"
 python3 "$OEDS_ROOT/repo/deploy/tools/verify_deployment.py"
-
-log "Running final Ansible smoke test"
-ansible-playbook "${COMMON_ARGS[@]}" oeds-smoke-test.yml \
-  -e "oeds_root=$OEDS_ROOT" \
-  -e oeds_expect_crawler_admin=true
 
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
   if [[ -z "$CRAWLER_ENV_FILE" ]]; then
