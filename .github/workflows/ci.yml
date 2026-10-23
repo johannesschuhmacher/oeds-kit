@@ -111,5 +111,5 @@ jobs:
           ANSIBLE_CONFIG: ansible.cfg
         run: |
           for playbook in oeds-*.yml; do
-            ansible-playbook -i inventory.example.yml --syntax-check "$playbook"
+            ansible-playbook --syntax-check "$playbook"
           done

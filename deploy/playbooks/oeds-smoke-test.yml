@@ -111,7 +111,7 @@
       delay: 5
       until: oeds_smoke_pgadmin.status in [200, 302]
 
-    - name: Check the crawler admin UI when requested
+    - name: Check the crawler admin UI
       ansible.builtin.uri:
         url: "{{ oeds_smoke_crawler_admin_url }}"
         status_code: 200
@@ -120,7 +120,6 @@
       retries: 24
       delay: 5
       until: oeds_smoke_crawler_admin.status == 200
-      when: oeds_expect_crawler_admin | bool
 
     # Runs the ninja crawler from the built scheduler image against a local
     # ZIP fixture (tests/integration.py), so a broken image fails here instead
@@ -134,7 +133,6 @@
       args:
         chdir: "{{ oeds_compose_dir }}"
       register: oeds_smoke_crawler_test
-      when: oeds_expect_crawler_admin | bool
 
     - name: Drop the crawler test schema
       ansible.builtin.command:
@@ -149,7 +147,6 @@
           - "{{ oeds_db_name }}"
           - -c
           - DROP SCHEMA IF EXISTS oeds_test_crawlers CASCADE;
-      when: oeds_expect_crawler_admin | bool
 
     # Every scheduled run is an oeds-crawl subprocess; the command must find
     # the crawler pack's entry points and the core crawlers (20 + 21) in the image.
@@ -162,7 +159,6 @@
       register: oeds_smoke_crawl_list
       changed_when: false
       failed_when: oeds_smoke_crawl_list.rc != 0 or (oeds_smoke_crawl_list.stdout_lines | length) < 40
-      when: oeds_expect_crawler_admin | bool
 
     - name: Write the smoke test summary
       ansible.builtin.debug:
@@ -171,5 +167,5 @@
           - "non_system_tables={{ oeds_smoke_table_count.stdout | trim }}"
           - "postgrest={{ oeds_smoke_postgrest_url }}"
           - "grafana={{ oeds_smoke_grafana_health_url }}"
-          - "crawler_test={{ (oeds_smoke_crawler_test.stdout_lines | default(['skipped']))[-1] }}"
-          - "registered_crawlers={{ oeds_smoke_crawl_list.stdout_lines | default([]) | length }}"
+          - "crawler_test={{ oeds_smoke_crawler_test.stdout_lines[-1] }}"
+          - "registered_crawlers={{ oeds_smoke_crawl_list.stdout_lines | length }}"

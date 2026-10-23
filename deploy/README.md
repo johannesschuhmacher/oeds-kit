@@ -19,9 +19,10 @@ build context is the repository root).
 ## Install on a Linux VM
 
 Run these commands **inside the VM's Linux terminal**, after connecting with
-SSH from Windows. Automated host preparation currently targets CentOS Stream;
-Ubuntu host preparation has not been validated. You need Git, Python 3.12+,
-sudo access and network access to GitHub/container registries.
+SSH from Windows; Ansible runs on the VM itself. Automated host preparation
+currently targets CentOS Stream; Ubuntu host preparation has not been
+validated. You need Git, Python 3.12+, sudo access and network access to
+GitHub/container registries.
 
 The repository is public; cloning it requires no GitHub account or token
 (`OEDS_GIT_TOKEN` is only needed for private forks). Provider API keys for
@@ -34,11 +35,33 @@ cd oeds-kit
 bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
 ```
 
+The installer clones oeds-kit into `$HOME/oeds-modular-git-install/oeds-kit`
+(`--ref` selects a branch, tag or commit, `--repo-url` and `--work-dir` another
+repository or directory), installs Ansible for the current user if it is
+missing and runs two playbooks from `deploy/playbooks` against its
+`inventory.yml` (localhost): `oeds-install-host-prep.yml` (OS repositories,
+SELinux, Docker; skipped with `--skip-host-prep`) and
+`oeds-install-crawlers.yml` (database, Grafana, pgAdmin, PostgREST, scheduler
+and admin UI, then the smoke test and the post-processing SQL).
+`--help` lists all options.
+
 The environment file is optional; omit that option for sources without API
 keys. The installer asks for your sudo password. Existing database and runtime
 settings are preserved. **Do not add `--reset` unless you intend to delete
 the old database and runtime settings.** All crawlers start disabled: choose
-the sources you need in the admin UI before enabling a schedule.
+the sources you need in the admin UI before enabling a schedule. Re-running
+the installer updates the installation ([Operations](playbooks/README.md)).
+
+To install from a checkout of your own (for example with uncommitted
+changes), run the same playbooks from its `deploy/playbooks` directory after
+the preparation in [Operations](playbooks/README.md):
+
+```bash
+ansible-playbook -K oeds-install-host-prep.yml
+ansible-playbook -K oeds-install-crawlers.yml \
+  -e oeds_repo_local_src="$HOME/oeds-kit" \
+  -e oeds_crawler_env_file="$HOME/crawler.env"
+```
 
 To load a small real sample after installation, run inside the test VM:
 
@@ -52,8 +75,8 @@ This uses your ENTSO-E credentials and writes test data to the installed databas
 The recent SMARD week is visible in the dashboard's default time range.
 
 For a guided, step-by-step installation and test, follow
-[Testing a fresh installation](docs/testing.md). For backup, update, migration,
-password rotation and removal, see [Operations](playbooks/README.md).
+[Testing a fresh installation](docs/testing.md). For update, backup, migration,
+password rotation, removal and status mail, see [Operations](playbooks/README.md).
 
 For credentialed checks of all upstream and KIT crawler implementations, use
 [Live crawler validation](docs/crawler-live-tests.md). It uses separate databases
