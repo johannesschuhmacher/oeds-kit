@@ -344,6 +344,11 @@ class NetztransparenzCrawler(KitCrawler):
         date_column = next((column for column in frame.columns if normalize_column_name(column) == "datum"), None)
         from_column = next((column for column in frame.columns if normalize_column_name(column) == "von"), None)
         to_column = next((column for column in frame.columns if normalize_column_name(column) == "bis"), None)
+        value_columns = [
+            (column, *self._area_and_direction(str(column)))
+            for column in frame.columns
+            if normalize_column_name(column) not in METADATA_COLUMN_KEYS
+        ]
         for _, row in frame.iterrows():
             timestamp_from = self._parse_timestamp(row, date_column, from_column) if date_column else None
             timestamp_to = self._parse_timestamp(row, date_column, to_column) if date_column and to_column else None
@@ -351,14 +356,10 @@ class NetztransparenzCrawler(KitCrawler):
             data_type = row.get("Datentyp")
             unit = row.get("Einheit")
             status = row.get("Status")
-            for column in frame.columns:
-                normalized_column = normalize_column_name(column)
-                if normalized_column in METADATA_COLUMN_KEYS:
-                    continue
+            for column, area, direction in value_columns:
                 value = parse_number(row.get(column))
                 if value is None:
                     continue
-                area, direction = self._area_and_direction(str(column))
                 record_key = stable_hash(endpoint["id"], timestamp_from, area, direction, category, data_type, value)
                 rows.append(
                     {
