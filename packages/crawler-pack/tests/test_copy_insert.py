@@ -34,7 +34,8 @@ def test_copy_insert_writes_whole_floats_as_integers():
                            connection=SimpleNamespace(cursor=Cursor))
     table = SimpleNamespace(schema="entsog", name="physical_flow")
 
-    copy_insert(table, conn, ["idpointtype", "value"], iter([(0.0, 1.5), (None, 2.0)]))
+    copy_insert(table, conn, ["idpointtype", "value", "unit"], iter([(0.0, 1.5, ""), (None, 2.0, None)]))
 
-    assert copied["sql"].startswith('COPY "entsog"."physical_flow" ("idpointtype", "value")')
-    assert copied["data"].splitlines() == ["0,1.5", ",2"]
+    assert copied["sql"].startswith('COPY "entsog"."physical_flow" ("idpointtype", "value", "unit")')
+    # None stays an unquoted empty field (NULL), "" a quoted one (empty string).
+    assert copied["data"].splitlines() == ['"0","1.5",""', ',"2",']

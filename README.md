@@ -35,8 +35,8 @@ bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawl
 ```
 
 The environment file with the source API keys is optional. Re-running the
-command updates an installed host (the database is dumped first); `--ref`
-installs a branch, tag or commit. The managed installation lives in
+command updates an installed host (`--backup` dumps the database first);
+`--ref` installs a branch, tag or commit. The managed installation lives in
 `/open_energy_data_server` (`repo/` is this repository, `runtime/` holds
 `CRAWLER_CONFIG.yml`, `crawler/.env`, `crawler/data`, logs and admin state);
 see [deploy/README.md](deploy/README.md) for the services, ports and files, and

@@ -19,7 +19,6 @@ from crawler_admin.config_service import (
     build_cron_preview,
     build_dashboard_state,
     compute_content_hash,
-    get_all_crawler_overviews,
     get_config_path,
     get_crawler_overview,
     get_file_mtime_display,
@@ -98,7 +97,6 @@ def dashboard(
     job: str | None = Query(default=None),
     confirm_run: str | None = Query(default=None),
     inspect: str | None = Query(default=None),
-    email_tested: int | None = Query(default=None),
 ) -> HTMLResponse:
     message_kind = None
     message_text = None
@@ -113,9 +111,6 @@ def dashboard(
     elif started and crawler:
         message_kind = "success"
         message_text = f"Started one-off manual run for {crawler}. Scheduler unchanged."
-    elif email_tested and crawler:
-        message_kind = "success"
-        message_text = f"Sent test email for {crawler}."
 
     return _render_dashboard(
         request=request,
@@ -843,8 +838,9 @@ def _render_crawler_detail(
     submitted_action_id: str | None = None,
     submitted_values: dict[str, Any] | None = None,
 ) -> HTMLResponse:
-    overview = get_crawler_overview(crawler_name)
-    if overview.card is None:
+    state = build_dashboard_state()
+    overview = state.overviews.get(crawler_name)
+    if overview is None:
         raise HTTPException(status_code=404, detail=f"Crawler '{crawler_name}' not found.")
 
     actions = run_service.get_action_definitions(overview)
@@ -872,7 +868,6 @@ def _render_crawler_detail(
         )
         if crawler_name == "entsoe_api":
             price_forecast_view = build_price_forecast_runtime_view(overview.effective_config)
-    config_hash = compute_content_hash(read_config_text())
 
     return templates.TemplateResponse(
         request,
@@ -892,11 +887,9 @@ def _render_crawler_detail(
             "is_locked": run_service.is_locked(crawler_name),
             "email_state": email_state,
             "email_test_errors": email_test_errors or [],
-            "effective_config_yaml": _format_yaml_preview(overview.effective_config if overview else {}),
-            "raw_config_yaml": _format_yaml_preview(overview.raw_config if overview else {}),
-            "post_run_script_count": len(overview.effective_config.get("post_run_scripts", []))
-            if overview and isinstance(overview.effective_config.get("post_run_scripts"), list)
-            else 0,
+            "effective_config_yaml": _format_yaml_preview(overview.effective_config),
+            "raw_config_yaml": _format_yaml_preview(overview.raw_config),
+            "post_run_script_count": _post_run_script_count(overview),
             "message_kind": message_kind,
             "message_text": message_text,
             "form_errors": form_errors or [],
@@ -906,7 +899,7 @@ def _render_crawler_detail(
             "gapfill_errors": gapfill_errors or [],
             "gapfill_values": gapfill_form_values,
             "gapfill_methods": gapfill_method_options() if POST_INSTALLED else [],
-            "base_hash": config_hash,
+            "base_hash": state.config_hash,
             "submitted_action_id": submitted_action_id,
             "time_label": get_local_time_label(),
         },
@@ -924,70 +917,71 @@ def _render_dashboard(
     selected_scheduler_job_for: str | None = None,
     run_confirmation_errors: dict[str, list[str]] | None = None,
     selected_run_confirmation_for: str | None = None,
-    email_test_errors: dict[str, list[str]] | None = None,
     selected_inspect_for: str | None = None,
 ) -> HTMLResponse:
     state = build_dashboard_state()
-    overview_map = get_all_crawler_overviews()
     latest_runs = run_service.get_latest_runs_map()
-    scheduler_form_overrides = scheduler_form_overrides or {}
-    scheduler_errors = scheduler_errors or {}
-    run_confirmation_errors = run_confirmation_errors or {}
-    email_test_errors = email_test_errors or {}
     crawler_rows = []
 
     for card in state.cards:
-        overview = overview_map.get(card.name)
+        overview = state.overviews[card.name]
         active_run = run_service.get_active_run(card.name)
-        latest_run = active_run or latest_runs.get(card.name)
-        email_state = _build_email_alert_state(overview)
-        scheduler_job_name = (
-            _select_scheduler_job_name(card, selected_scheduler_job_for)
-            if selected_scheduler_for == card.name
-            else _select_scheduler_job_name(card, None)
-        )
-        scheduler_job = _find_scheduler_job(card, scheduler_job_name)
-        scheduler_form = _build_scheduler_form_state(
-            card=card,
-            overview=overview,
-            override_values=scheduler_form_overrides.get(card.name),
-            job_name=scheduler_job_name,
-        )
         crawler_rows.append(
             {
                 "card": card,
                 "overview": overview,
                 "active_run": active_run,
-                "latest_run": latest_run,
+                "latest_run": active_run or latest_runs.get(card.name),
                 "is_locked": run_service.is_locked(card.name),
-                "can_start": bool(overview and overview.raw_config),
-                "scheduler_form": scheduler_form,
-                "scheduler_preview": build_cron_preview(scheduler_form["schedule"] or None),
-                "scheduler_job_name": scheduler_job_name,
-                "scheduler_job": scheduler_job,
-                "scheduler_current_preview": scheduler_job.preview if scheduler_job else card.preview,
-                "scheduler_current_schedule": scheduler_job.schedule if scheduler_job else card.schedule,
-                "scheduler_errors": scheduler_errors.get(card.name, []),
-                "run_confirmation_errors": run_confirmation_errors.get(card.name, []),
-                "email_test_errors": email_test_errors.get(card.name, []),
-                "effective_config_yaml": _format_yaml_preview(overview.effective_config if overview else {}),
-                "raw_config_yaml": _format_yaml_preview(overview.raw_config if overview else {}),
-                "post_run_script_count": len(overview.effective_config.get("post_run_scripts", []))
-                if overview and isinstance(overview.effective_config.get("post_run_scripts"), list)
-                else 0,
-                "email_state": email_state,
+                "can_start": bool(overview.raw_config),
+                "scheduler_job_name": _select_scheduler_job_name(
+                    card,
+                    selected_scheduler_job_for if selected_scheduler_for == card.name else None,
+                ),
+                "post_run_script_count": _post_run_script_count(overview),
+                "email_state": _build_email_alert_state(overview),
             }
         )
 
+    # The schedule editor and the run confirmation need more than a fleet row;
+    # build it only for the crawler they are open for.
     selected_scheduler_row = None
     if selected_scheduler_for:
         selected_scheduler_row = next((row for row in crawler_rows if row["card"].name == selected_scheduler_for), None)
+    if selected_scheduler_row:
+        card = selected_scheduler_row["card"]
+        scheduler_job = _find_scheduler_job(card, selected_scheduler_row["scheduler_job_name"])
+        scheduler_form = _build_scheduler_form_state(
+            card=card,
+            overview=selected_scheduler_row["overview"],
+            override_values=(scheduler_form_overrides or {}).get(card.name),
+            job_name=selected_scheduler_row["scheduler_job_name"],
+        )
+        selected_scheduler_row.update(
+            {
+                "scheduler_form": scheduler_form,
+                "scheduler_preview": build_cron_preview(scheduler_form["schedule"] or None),
+                "scheduler_job": scheduler_job,
+                "scheduler_current_preview": scheduler_job.preview if scheduler_job else card.preview,
+                "scheduler_current_schedule": scheduler_job.schedule if scheduler_job else card.schedule,
+                "scheduler_errors": (scheduler_errors or {}).get(card.name, []),
+            }
+        )
 
     selected_run_confirmation_row = None
     if selected_run_confirmation_for:
         selected_run_confirmation_row = next(
             (row for row in crawler_rows if row["card"].name == selected_run_confirmation_for),
             None,
+        )
+    if selected_run_confirmation_row:
+        overview = selected_run_confirmation_row["overview"]
+        selected_run_confirmation_row.update(
+            {
+                "run_confirmation_errors": (run_confirmation_errors or {}).get(overview.crawler_name, []),
+                "effective_config_yaml": _format_yaml_preview(overview.effective_config),
+                "raw_config_yaml": _format_yaml_preview(overview.raw_config),
+            }
         )
 
     selected_inspect_row = None
@@ -1044,6 +1038,11 @@ def _build_action_values(
         action_values[action.action_id] = field_values
 
     return action_values
+
+
+def _post_run_script_count(overview: Any) -> int:
+    scripts = overview.effective_config.get("post_run_scripts")
+    return len(scripts) if isinstance(scripts, list) else 0
 
 
 def _format_yaml_preview(value: Any) -> str:

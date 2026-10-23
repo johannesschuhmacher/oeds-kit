@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import io
-import os
 from datetime import datetime
 
 import pandas as pd
 import requests
-import yaml
 from sqlalchemy import Column, Float, MetaData, String, Table
 from sqlalchemy.dialects.postgresql import insert
 
@@ -163,43 +161,3 @@ class PowerSystemDataCrawler(KitCrawler):
 
         print("Data successfully written to Database")
         self.logger.info("Data successfully written to Database")
-
-
-def main(schema_name: str):
-    config_file = "CRAWLER_CONFIG.yml"
-    config = {}
-
-    if os.path.exists(config_file):
-        try:
-            with open(config_file) as f:
-                full_config = yaml.safe_load(f)
-
-            # Load ONLY the specific section, skip 'default' to avoid initializing email logging
-            config = full_config.get("power_system_data", {})
-
-            if not config:
-                print(
-                    f"Warning: 'power_system_data' section not found in {config_file}"
-                )
-            else:
-                print(
-                    f"Successfully loaded 'power_system_data' configuration from {config_file}"
-                )
-        except Exception as e:
-            print(f"Error loading {config_file}: {e}")
-
-    if not config:
-        config = {
-            "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-            "schema_name": "power_system_data",
-        }
-        print("Using hardcoded fallback configuration.")
-
-    print("power_system_data crawler start")
-    crawler = PowerSystemDataCrawler(schema_name, config)
-    print("PowerSystemDataCrawler created")
-    crawler.run()
-
-
-if __name__ == "__main__":
-    main("power_system_data")

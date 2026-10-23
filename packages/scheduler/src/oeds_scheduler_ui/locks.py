@@ -11,16 +11,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from crawler.common.runtime_env import resolve_database_uri
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
-
-try:
-    from crawler.common.runtime_env import resolve_database_uri
-except ImportError:  # pragma: no cover - crawler pack is optional for the core.
-
-    def resolve_database_uri(database_uri: str) -> str:
-        return database_uri
-
 
 logger = logging.getLogger(__name__)
 

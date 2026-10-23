@@ -22,8 +22,10 @@ x-oeds-python-environment: &oeds-python-environment
   OEDS_PRICE_FORECAST_RETENTION_DAYS: ${OEDS_PRICE_FORECAST_RETENTION_DAYS:-180}
 
 # OEDS_RUNTIME_DIR (written to deploy/.env by Ansible) holds CRAWLER_CONFIG.yml,
-# crawler/.env, crawler/data and logs outside the Git checkout.
+# crawler/.env, crawler/data and logs outside the Git checkout. The scheduler
+# and the crawler admin run the same image, built once under this name.
 x-oeds-python-service: &oeds-python-service
+  image: oeds-crawler:local
   build:
     context: ..
     dockerfile: deploy/docker/Dockerfile.crawler-modular

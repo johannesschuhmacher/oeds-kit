@@ -1,6 +1,7 @@
 - name: Update repositories
   hosts: all
   become: true
+  gather_facts: false
   tasks:
   - name: Add EPEL repository
     ansible.builtin.yum_repository:

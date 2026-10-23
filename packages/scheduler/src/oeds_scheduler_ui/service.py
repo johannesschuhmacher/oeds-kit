@@ -2,28 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+
+from cron_converter import Cron
 
 from oeds_scheduler_ui.planner import SchedulerJobPlan
-from oeds_scheduler_ui.runtime import (
-    CrawlerRunResult,
-    JobDispatcher,
-    ScheduledCrawlerJob,
-    lock_keys_from_plan,
-)
-
-
-class ScheduleAdapter(Protocol):
-    """Schedule abstraction used by the runtime loop."""
-
-    def next_after(self, ref_time: datetime) -> datetime:
-        """Return the next runtime after ``ref_time``."""
-
-
-ScheduleFactory = Callable[[str], ScheduleAdapter]
+from oeds_scheduler_ui.runtime import CrawlerRunResult, JobDispatcher
 
 
 @dataclass(frozen=True)
@@ -34,53 +20,6 @@ class SchedulerServiceIssue:
     reason: str
 
 
-@dataclass
-class ScheduledPlan:
-    """A scheduler plan with parsed schedule state."""
-
-    plan: SchedulerJobPlan
-    schedule: ScheduleAdapter
-    lock_keys: frozenset[str]
-    next_run_time: datetime
-
-    @property
-    def job_id(self) -> str:
-        return self.plan.job_id
-
-    @property
-    def display_name(self) -> str:
-        return self.plan.display_name
-
-    def advance_after(self, ref_time: datetime) -> None:
-        self.next_run_time = self.schedule.next_after(ref_time)
-
-    def to_runtime_job(self) -> ScheduledCrawlerJob:
-        return ScheduledCrawlerJob(plan=self.plan, lock_keys=self.lock_keys)
-
-
-class CronConverterSchedule:
-    """`cron-converter` backed schedule adapter."""
-
-    def __init__(self, expression: str) -> None:
-        try:
-            from cron_converter import Cron
-        except ImportError as exc:  # pragma: no cover - dependency is optional here.
-            raise RuntimeError(
-                "cron-converter is required to parse scheduler cron expressions"
-            ) from exc
-
-        self._cron = Cron(expression)
-
-    def next_after(self, ref_time: datetime) -> datetime:
-        return self._cron.schedule(ref_time).next()
-
-
-def cron_schedule_factory(expression: str) -> CronConverterSchedule:
-    """Build the default cron schedule adapter."""
-
-    return CronConverterSchedule(expression)
-
-
 class SchedulerService:
     """Enqueue due planned jobs and hand unblocked jobs to the dispatcher."""
 
@@ -88,19 +27,14 @@ class SchedulerService:
         self,
         plans: Sequence[SchedulerJobPlan],
         dispatcher: JobDispatcher,
-        schedule_factory: ScheduleFactory = cron_schedule_factory,
         reference_time: datetime | None = None,
     ) -> None:
         self._dispatcher = dispatcher
-        self._schedule_factory = schedule_factory
-        self._jobs: list[ScheduledPlan] = []
+        self._jobs: list[tuple[SchedulerJobPlan, Cron]] = []
+        self._next_run_times: dict[str, datetime] = {}
         self._issues: list[SchedulerServiceIssue] = []
 
         self.reload_plans(plans, reference_time=reference_time)
-
-    @property
-    def jobs(self) -> tuple[ScheduledPlan, ...]:
-        return tuple(sorted(self._jobs, key=lambda job: (job.next_run_time, job.job_id)))
 
     @property
     def issues(self) -> tuple[SchedulerServiceIssue, ...]:
@@ -108,9 +42,7 @@ class SchedulerService:
 
     @property
     def next_run_time(self) -> datetime | None:
-        if not self._jobs:
-            return None
-        return min(job.next_run_time for job in self._jobs)
+        return min(self._next_run_times.values(), default=None)
 
     @property
     def active_run_count(self) -> int:
@@ -127,6 +59,7 @@ class SchedulerService:
     ) -> None:
         ref_time = reference_time or datetime.now()
         self._jobs.clear()
+        self._next_run_times.clear()
         self._issues.clear()
 
         for plan in plans:
@@ -136,8 +69,8 @@ class SchedulerService:
                 )
                 continue
             try:
-                schedule = self._schedule_factory(plan.schedule)
-                next_run_time = schedule.next_after(ref_time)
+                cron = Cron(plan.schedule)
+                next_run_time = cron.schedule(ref_time).next()
             except Exception as exc:
                 self._issues.append(
                     SchedulerServiceIssue(
@@ -147,24 +80,17 @@ class SchedulerService:
                 )
                 continue
 
-            self._jobs.append(
-                ScheduledPlan(
-                    plan=plan,
-                    schedule=schedule,
-                    lock_keys=lock_keys_from_plan(plan),
-                    next_run_time=next_run_time,
-                )
-            )
+            self._jobs.append((plan, cron))
+            self._next_run_times[plan.job_id] = next_run_time
 
     def enqueue_due_jobs(self, now: datetime | None = None) -> int:
         ref_time = now or datetime.now()
         enqueued = 0
-        for job in self._jobs:
-            if job.next_run_time <= ref_time:
-                scheduled_for = job.next_run_time
-                if self._dispatcher.queue.enqueue(job.to_runtime_job(), scheduled_for):
+        for plan, cron in self._jobs:
+            if self._next_run_times[plan.job_id] <= ref_time:
+                if self._dispatcher.queue.enqueue(plan):
                     enqueued += 1
-                job.advance_after(ref_time)
+                self._next_run_times[plan.job_id] = cron.schedule(ref_time).next()
         return enqueued
 
     def dispatch_ready_jobs(self) -> tuple[CrawlerRunResult, ...]:

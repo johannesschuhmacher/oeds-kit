@@ -338,7 +338,7 @@
               <label class="field-block field-block--toggle">
                 <span class="field-label-row">
                   <span class="field-label">Run gapfill after crawler</span>
-                  <span class="help-tip" tabindex="0" data-tip="Controls whether scripts/gapfill_timeseries.py is attached to the crawler's post_run_scripts. If this is off, no productive gapfill script runs after a crawler run, regardless of the table selection.">?</span>
+                  <span class="help-tip" tabindex="0" data-tip="Controls whether oeds-post gapfill entsoe-fms is attached to the crawler's post_run_scripts. If this is off, no productive gapfill script runs after a crawler run, regardless of the table selection.">?</span>
                 </span>
                 <input type="checkbox" name="script_enabled" value="1" {% if gapfill_values.script_enabled == "true" %}checked{% endif %} />
               </label>
@@ -522,9 +522,9 @@
               </strong>
               <p class="subtle-note">
                 {% if price_forecast_view.script_enabled %}
-                  <code>scripts/run_price_forecast.py</code> runs after successful crawler executions.
+                  <code>oeds-post forecast day-ahead-price</code> runs after successful crawler executions.
                 {% else %}
-                  Add <code>scripts/run_price_forecast.py</code> to this crawler's <code>post_run_scripts</code> to run it automatically.
+                  Add <code>oeds-post forecast day-ahead-price</code> to this crawler's <code>post_run_scripts</code> to run it automatically.
                 {% endif %}
               </p>
             </article>

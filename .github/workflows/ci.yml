@@ -44,12 +44,9 @@ jobs:
         run: |
           uv run --frozen python - <<'PY'
           import glob, yaml
-          class Loader(yaml.SafeLoader):
-              pass
-          Loader.add_constructor('!override', lambda loader, node: loader.construct_sequence(node))
           for path in glob.glob('deploy/playbooks/**/*.yml', recursive=True) + glob.glob('deploy/*.yml'):
               with open(path, encoding='utf-8') as handle:
-                  yaml.load(handle, Loader=Loader)
+                  yaml.safe_load(handle)
           PY
           uv run --frozen python deploy/tools/verify_deployment.py
 

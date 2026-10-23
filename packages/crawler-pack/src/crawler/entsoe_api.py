@@ -515,19 +515,3 @@ class EntsoeApiCrawler(KitCrawler):
             }
         )
         self.logger.info("Finished ENTSO-E API refresh with %s upserted row(s)", total_rows)
-
-
-def main(schema_name: str) -> None:
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-        "country_code": DEFAULT_COUNTRY_CODE,
-        "lookback_days": DEFAULT_LOOKBACK_DAYS,
-        "lookahead_days": DEFAULT_LOOKAHEAD_DAYS,
-    }
-    crawler = EntsoeApiCrawler("entsoe_api", config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    main("entsoe_api")
