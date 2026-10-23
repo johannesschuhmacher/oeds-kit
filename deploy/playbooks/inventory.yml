@@ -1,0 +1,15 @@
+---
+# Ansible runs on the OEDS host itself. Set host-specific variables in
+# group_vars/oeds.yml (not in Git), not here.
+all:
+  children:
+    oeds:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_become: true
+          ansible_become_method: sudo
+          ansible_python_interpreter: /usr/bin/python3
+          # The user running the playbooks; oeds-packages.yml adds it to the
+          # docker group.
+          ansible_user: "{{ lookup('ansible.builtin.pipe', 'id -un') }}"

@@ -18,29 +18,8 @@
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 0,
-    "id": 13,
-    "links": [
-        {
-            "asDropdown": false,
-            "icon": "external link",
-            "includeVars": false,
-            "keepTime": false,
-            "targetBlank": true,
-            "title": "Impressum",
-            "type": "link",
-            "url": "https://www.iip.kit.edu/16.php"
-        },
-        {
-            "asDropdown": false,
-            "icon": "info",
-            "includeVars": false,
-            "keepTime": false,
-            "targetBlank": false,
-            "title": "Datenschutz",
-            "type": "link",
-            "url": "/d/oeds-datenschutz/oeds-datenschutz"
-        }
-    ],
+    "id": null,
+    "links": [],
     "panels": [
         {
             "datasource": {
@@ -368,10 +347,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -397,10 +372,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -512,10 +483,6 @@
             "pluginVersion": "11.3.1",
             "targets": [
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
@@ -540,10 +507,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -770,10 +733,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -799,10 +758,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -828,10 +783,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -857,10 +808,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -886,10 +833,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -915,10 +858,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -944,10 +883,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -973,10 +908,6 @@
                     }
                 },
                 {
-                    "datasource": {
-                        "type": "grafana-postgresql-datasource",
-                        "uid": "P6EAA63344BCC9F38"
-                    },
                     "editorMode": "code",
                     "format": "table",
                     "hide": false,
@@ -2455,7 +2386,12 @@
     ],
     "preload": false,
     "schemaVersion": 40,
-    "tags": [],
+    "tags": [
+        "entsoe",
+        "oeds",
+        "power-plants",
+        "availability"
+    ],
     "templating": {
         "list": [
             {
@@ -2665,9 +2601,9 @@
     },
     "timepicker": {},
     "timezone": "browser",
-    "title": "ENTSOE Copy",
-    "uid": "df3iem9dh2ccgd",
-    "version": 8,
+    "title": "ENTSO-E – Power plants and availability",
+    "uid": "entsoe-plant-availability",
+    "version": 1,
     "weekStart": "",
     "refresh": "5m"
 }

@@ -22,26 +22,14 @@ only `crawler.common.*`; the post-scripts are optional for the scheduler and
 need the pack only for `oeds-post backfill entsoe-unavailability` (extra
 `backfill`).
 
-## Install on a Linux VM
+## Install and operate
 
-Run inside the VM (CentOS Stream; Git, Python 3.12+ and sudo required). The
-installer clones this repository, runs the Ansible playbooks from
-`deploy/playbooks` and builds the runtime image from `uv.lock`.
-
-```bash
-git clone https://github.com/johannesschuhmacher/oeds-kit.git
-cd oeds-kit
-bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
-```
-
-The environment file with the source API keys is optional. Re-running the
-command updates an installed host (`--backup` dumps the database first);
-`--ref` installs a branch, tag or commit. The managed installation lives in
-`/open_energy_data_server` (`repo/` is this repository, `runtime/` holds
-`CRAWLER_CONFIG.yml`, `crawler/.env`, `crawler/data`, logs and admin state);
-see [deploy/README.md](deploy/README.md) for the services, ports and files, and
-[deploy/playbooks/README.md](deploy/playbooks/README.md) for update, backup,
-password rotation and removal.
+- [deploy/README.md](deploy/README.md): installation on a Linux VM, the
+  services, ports and files of an installation.
+- [deploy/playbooks/README.md](deploy/playbooks/README.md): update, backup,
+  database migration, password rotation, removal and status mail.
+- [deploy/docs/testing.md](deploy/docs/testing.md): testing a fresh
+  installation.
 
 ## Develop locally
 
@@ -69,18 +57,6 @@ on the first install; all crawlers start disabled. Change a dependency in a
 package's `pyproject.toml`, then `uv lock` and commit `uv.lock`; the Docker
 image installs exactly that lock (`uv sync --frozen`). The `oeds` revision is
 pinned in the root `[tool.uv.sources]`.
-
-## Update an installation
-
-```bash
-cd oeds-kit && git pull
-bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
-```
-
-or, from `deploy/playbooks` on the VM, `ansible-playbook -i inventory.local.yml -K
-oeds-install-crawlers.yml -e oeds_repo_local_src=/path/to/oeds-kit`. The
-running services keep going while the new images build; add `--backup` for a
-database dump first.
 
 ## Licence
 
