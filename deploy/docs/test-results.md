@@ -1,5 +1,29 @@
 # Test results
 
+## Release 1.1.0, 2026-10-23
+
+Release 1.1.0 changes the installer and the COPY writes (see `CHANGELOG.md`);
+crawlers, scheduler, post-processing and dashboards are as in 1.0.0, whose
+checks below still apply.
+
+**Automated tests.** 156 tests pass: crawler pack 79, scheduler/admin 36,
+post-processing 35, deployment 6.
+
+**Installer.** Run with `deploy/tools/oeds_clean_install_from_git.sh` on
+iip-vm-oeds-intern-test while a script checked Grafana (`/api/health`) and
+PostgreSQL (`pg_isready`) every 5 s:
+
+| Case | Result |
+| --- | --- |
+| Update, images from cache | 91 s; PostgreSQL never down; Grafana down for one sample; scheduler and admin recreated |
+| Crawler build broken on purpose (temporary branch) | build failed, build cache cleared, second build failed, run stopped; no sample down; `repo/` and containers unchanged |
+| Update with `--backup` | `pg_dump` 29 min, 9.1 GB for a 138-GB database; PostgreSQL never down; then switched |
+| Update with the single `oeds-deploy.yml` | 2 min 42 s; PostgreSQL never down; Grafana down for one sample; smoke test passed |
+
+On iip-vm-oeds-intern the same update took 4 min 24 s with PostgreSQL never
+down and Grafana down for one sample; the smoke test and the 11 basic
+dashboard queries of `tools/check_dashboards.py` passed.
+
 ## Release 1.0.0, 2026-10-22
 
 Checks of the oeds-kit release with `oeds-core` `69e6005` (pinned in `uv.lock`).
