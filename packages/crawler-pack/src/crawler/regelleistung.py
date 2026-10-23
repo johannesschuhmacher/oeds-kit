@@ -16,6 +16,7 @@ from crawler.common.kit_base import KitCrawler
 from crawler.common.crawler_utils import (
     build_session,
     compact_json,
+    copy_insert,
     normalize_column_name,
     parse_number,
     stable_hash,
@@ -264,9 +265,9 @@ class RegelleistungCrawler(KitCrawler):
             conn.execute(text("DELETE FROM file_rows WHERE file_name = :file_name"), {"file_name": file_name})
             conn.execute(text("DELETE FROM numeric_values WHERE file_name = :file_name"), {"file_name": file_name})
             if not raw_rows.empty:
-                raw_rows.to_sql("file_rows", conn, if_exists="append", index=False)
+                raw_rows.to_sql("file_rows", conn, if_exists="append", index=False, method=copy_insert)
             if not numeric_rows.empty:
-                numeric_rows.to_sql("numeric_values", conn, if_exists="append", index=False)
+                numeric_rows.to_sql("numeric_values", conn, if_exists="append", index=False, method=copy_insert)
 
     def run(self):
         self._prepare_schema()
