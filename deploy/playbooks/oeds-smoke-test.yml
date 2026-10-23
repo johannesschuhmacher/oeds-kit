@@ -1,6 +1,7 @@
 - name: OEDS smoke test
   hosts: oeds
   become: true
+  gather_facts: false
   vars:
     # Host ports as Compose publishes them, including port overrides in .env.
     oeds_smoke_services: "{{ (oeds_smoke_compose_config.stdout | from_json).services }}"

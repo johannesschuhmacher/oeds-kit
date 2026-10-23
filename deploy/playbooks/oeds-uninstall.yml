@@ -2,6 +2,7 @@
 - name: OEDS uninstall and reset
   hosts: oeds
   become: true
+  gather_facts: false
   vars:
     oeds_uninstall_compose_volume_args: "{{ (oeds_uninstall_destroy_data | bool) | ternary(['-v'], []) }}"
 
