@@ -20,6 +20,7 @@ from crawler.common.crawler_utils import (
     build_session,
     compact_json,
     config_or_env,
+    copy_insert,
     has_credential,
     normalize_column_name,
     parse_number,
@@ -392,7 +393,7 @@ class NetztransparenzCrawler(KitCrawler):
             for index, record in enumerate(records, start=1)
         ]
         with self.engine.begin() as conn:
-            pd.DataFrame(rows).to_sql("raw_rows", conn, if_exists="append", index=False)
+            pd.DataFrame(rows).to_sql("raw_rows", conn, if_exists="append", index=False, method=copy_insert)
 
     def _replace_normalized_window(self, endpoint_id: str, frame: pd.DataFrame, date_from: datetime, date_to: datetime) -> None:
         with self.engine.begin() as conn:
@@ -407,7 +408,7 @@ class NetztransparenzCrawler(KitCrawler):
                 {"endpoint_id": endpoint_id, "date_from": date_from, "date_to": date_to},
             )
             if not frame.empty:
-                frame.to_sql("normalized_values", conn, if_exists="append", index=False)
+                frame.to_sql("normalized_values", conn, if_exists="append", index=False, method=copy_insert)
 
     def _fetch_endpoint(self, endpoint: dict[str, Any], token: str, date_from: datetime, date_to: datetime) -> int:
         fetched_at = utc_now()
