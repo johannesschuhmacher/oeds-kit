@@ -606,54 +606,24 @@ class EntsoeFMSCrawler(KitCrawler):
             "last_date_time": None,
         }
 
+        columns = self._table_columns(table_name)
+        if not columns:
+            return state
+        state["table_exists"] = True
+        # First match in column order, case-insensitive like the former "~*" queries.
+        # "DateTime" also matches "UpdateTime(UTC)" in tables without a DateTime column.
+        state["update_time_column"] = next((c for c in columns if "updatetime" in c.lower()), None)
+        state["datetime_column_name"] = next((c for c in columns if "datetime" in c.lower()), None)
+
+        if not include_watermarks:
+            return state
         with self.engine.connect() as conn:
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables
-                        WHERE table_schema = 'entsoe_fms' AND table_name = '{table_name}'
-                    ) AS table_exists;
-                    """
-                )
-            ).fetchone()
-            state["table_exists"] = result[0] if result else False
-
-            if not state["table_exists"]:
-                return state
-
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = 'entsoe_fms'
-                      AND table_name = '{table_name}'
-                      AND column_name ~* 'UpdateTime';
-                    """
-                )
-            ).fetchone()
-            state["update_time_column"] = result[0] if result else None
-
-            result = conn.execute(
-                text(
-                    f"""
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = 'entsoe_fms'
-                      AND table_name = '{table_name}'
-                      AND column_name ~* 'DateTime';
-                    """
-                )
-            ).fetchone()
-            state["datetime_column_name"] = result[0] if result else None
-
-            if include_watermarks and state["update_time_column"]:
+            if state["update_time_column"]:
                 state["last_update_time"] = conn.execute(
                     text(f'SELECT MAX("{state["update_time_column"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
 
-            if include_watermarks and state["datetime_column_name"]:
+            if state["datetime_column_name"]:
                 state["last_date_time"] = conn.execute(
                     text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
@@ -672,7 +642,8 @@ class EntsoeFMSCrawler(KitCrawler):
                 for row in conn.execute(
                     text(
                         "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name"
+                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name "
+                        "ORDER BY ordinal_position"
                     ),
                     {"table_name": table_name},
                 )
@@ -2006,36 +1977,15 @@ class EntsoeFMSCrawler(KitCrawler):
             df = pd.read_csv(local_path, encoding="utf-8-sig", sep="\t")
             df.columns = df.columns.str.strip()
 
-            with self.engine.connect() as conn:
-                table_exists_query = text(f"""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = 'entsoe_fms' AND table_name = '{table_name}'
-                ) AS table_exists;
-                """)
-                result = conn.execute(table_exists_query).fetchone()
-                if not (result and result[0]):
-                    self.logger.error(f"[_update_data_file] Table '{table_name}' does not exist. Cannot run backward update.")
-                    return
-
-                column_query = text(f"""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_schema = 'entsoe_fms'
-                AND table_name = '{table_name}' AND column_name ~* 'UpdateTime';
-                """)
-                result = conn.execute(column_query).fetchone()
-                update_time_column = result[0] if result else None
-
-                if not update_time_column:
-                    self.logger.error(f"[_update_data_file] Could not find 'UpdateTime' column for '{table_name}'.")
-                    return
-
-                query = text(f"""
-                SELECT MAX("{update_time_column}") AS last_update_time
-                FROM "entsoe_fms"."{table_name}"
-                """)
-                result = conn.execute(query).fetchone()
-                last_update_time = result[0] if result else None
+            table_state = self._get_table_state(table_name)
+            if not table_state["table_exists"]:
+                self.logger.error(f"[_update_data_file] Table '{table_name}' does not exist. Cannot run backward update.")
+                return
+            update_time_column = table_state["update_time_column"]
+            if not update_time_column:
+                self.logger.error(f"[_update_data_file] Could not find 'UpdateTime' column for '{table_name}'.")
+                return
+            last_update_time = table_state["last_update_time"]
 
             self._migrate_renamed_columns(table_name)
             self._ensure_nulls_not_distinct(table_name)
@@ -2048,7 +1998,6 @@ class EntsoeFMSCrawler(KitCrawler):
                 self._flush_to_database(table_name, pd.DataFrame(), df)
                 return
 
-            last_update_time = last_update_time.replace(tzinfo=None)
             df.loc[:, update_time_column] = pd.to_datetime(df[update_time_column])
             # Preserve the table's UpdateTime semantics so regular incremental runs keep working.
             df_update = df[df[update_time_column] <= last_update_time].copy()
