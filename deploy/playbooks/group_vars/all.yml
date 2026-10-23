@@ -22,10 +22,6 @@ oeds_compose: >-
   docker compose
   {% for compose_file in oeds_compose_files %} -f {{ compose_file | quote }}{% endfor %}
 
-# True for the crawler scheduler and crawler admin UI containers
-# (oeds-install-crawlers.yml sets it).
-oeds_enable_crawlers: false
-
 # Persistent Docker volume data (TimescaleDB, Grafana, pgAdmin) AND Docker's own
 # data-root (images, build cache, container logs) must live on a large, SEPARATE
 # data partition, never on the small OS root filesystem. oeds_data_root is the
@@ -58,9 +54,6 @@ oeds_package_state: present
 oeds_docker_log_max_size: 10m
 oeds_docker_log_max_file: "3"
 oeds_docker_builder_keep_storage: 20GB
-
-# oeds-smoke-test.yml also checks the crawler admin UI and the scheduler image.
-oeds_expect_crawler_admin: false
 
 # oeds-uninstall.yml defaults are intentionally non-destructive.
 oeds_uninstall_destroy_data: false

@@ -2,12 +2,8 @@
 # Docker must be installed: run oeds-install-host-prep.yml first (the
 # installer does, unless --skip-host-prep).
 - import_playbook: oeds-deploy.yml
-  vars:
-    oeds_enable_crawlers: true
 
 - import_playbook: oeds-smoke-test.yml
-  vars:
-    oeds_expect_crawler_admin: true
 
 - import_playbook: oeds-install-post.yml
 

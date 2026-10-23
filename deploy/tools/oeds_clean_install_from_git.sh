@@ -214,7 +214,6 @@ COMMON_ARGS=(-i "$INVENTORY_FILE" "${BECOME_ARGS[@]}")
 MODULAR_EXTRA=(
   -e "oeds_root=$OEDS_ROOT"
   -e "oeds_repo_local_src=$CHECKOUT_DIR"
-  -e "oeds_enable_crawlers=true"
   -e "oeds_backup_before_update=$BACKUP"
 )
 if [[ -n "$CRAWLER_ENV_FILE" ]]; then
