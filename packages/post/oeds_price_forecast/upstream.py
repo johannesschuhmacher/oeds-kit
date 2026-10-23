@@ -4,18 +4,16 @@
 
 """Adapter for the upstream `da_price_forecasting` LEAR implementation.
 
-The adapter imports the upstream package when it is installed or when a local
-repository path is provided via CLI/env. It keeps OEDS storage and source-data
-loading local while delegating reusable feature/model functions upstream.
+The upstream package is the pinned `price-forecast` extra of oeds-post-scripts.
+The adapter keeps OEDS storage and source-data loading local while delegating
+reusable feature/model functions upstream.
 """
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from datetime import date
 from functools import partial
-from pathlib import Path
 
 import pandas as pd
 
@@ -45,26 +43,14 @@ class UpstreamModules:
     lear: object
 
 
-def add_upstream_repo_path(repo_path: str | None) -> None:
-    if not repo_path:
-        return
-
-    root = Path(repo_path).expanduser().resolve()
-    src = root / "src"
-    import_path = src if src.exists() else root
-    if str(import_path) not in sys.path:
-        sys.path.insert(0, str(import_path))
-
-
-def load_upstream_modules(repo_path: str | None = None) -> UpstreamModules:
-    add_upstream_repo_path(repo_path)
+def load_upstream_modules() -> UpstreamModules:
     try:
         from da_price_forecasting.features import engineering
         from da_price_forecasting.models import lear
     except ImportError as exc:
         raise UpstreamBackendUnavailable(
             "The upstream da_price_forecasting package is not importable. "
-            "Install it or set DA_PRICE_FORECASTING_REPO_PATH."
+            "Install oeds-post-scripts with the price-forecast extra."
         ) from exc
     return UpstreamModules(engineering=engineering, lear=lear)
 
@@ -191,10 +177,9 @@ def forecast_day_upstream(
     covariates: pd.DataFrame | None,
     target_date: date,
     config: PriceForecastConfig,
-    repo_path: str | None = None,
     variant: str = "exaa_only",
 ) -> ForecastResult:
-    modules = load_upstream_modules(repo_path)
+    modules = load_upstream_modules()
     X, Y, _ = _build_upstream_xy(modules, price, exaa, covariates, target_date, config, variant)
     forecast_day_index = pd.DatetimeIndex([pd.Timestamp(target_date).tz_localize(BERLIN_TZ)])
     # LEAR cannot train on a day without a complete price curve (a gap in the data,
@@ -246,16 +231,13 @@ def backtest_forecast_upstream(
     covariates: pd.DataFrame | None,
     target_dates: list[date],
     config: PriceForecastConfig,
-    repo_path: str | None = None,
     variant: str = "exaa_only",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    # Upstream backtests score against the raw prices, without forward-filling gaps.
     return backtest_forecast(
         price,
         exaa,
         covariates,
         target_dates,
         config,
-        forecast_fn=partial(forecast_day_upstream, repo_path=repo_path, variant=variant),
-        fill_actual_gaps=False,
+        forecast_fn=partial(forecast_day_upstream, variant=variant),
     )

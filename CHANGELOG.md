@@ -28,6 +28,29 @@ Streamlining without removing features in use; about 7,300 lines less.
   ownership repaired only under `logs/`; uninstall removes the real backup
   directory; `compose.test.yml` and `smoke_lib.sh` removed.
 
+Decided removals and changes, about 3,200 lines less:
+
+- Admin: the Gapfill Tests page and the in-process special actions
+  (weather window, Eurostat range, ENTSO-E targeted run and backfill) are
+  removed; the gapfill panel keeps exactly one post-run step, validates its
+  fields and shows the last gapfill run; the dashboard and crawler pages
+  show scheduler runs and whether a crawler is running (PostgreSQL lock).
+- `oeds-post` is a plain dispatcher for its four commands; `--list`,
+  `--print-command`, `--json`, `--from-script` and `--migrate-config` are gone.
+- The price forecast uses only the upstream LEAR model; the ridge fallback,
+  `--model-backend`, `--upstream-repo-path` and `OEDS_PRICE_FORECAST_BACKEND`
+  are removed. The GloHydroRes import script is removed.
+- Gapfill scores all donor candidates at once: 87 s to 0.4 s on an 8-week
+  test series, identical filled values.
+- ENTSO-E FMS upserts through COPY and one `INSERT … ON CONFLICT` (shared
+  `copy_upsert` with EPEX) and no longer reloads the PyPSA power plant list
+  every run; the availability map reads `power_system_data.powersystemdata`.
+- Deployment: no core-only install (scheduler and admin always installed);
+  Ansible always runs on the VM, with one committed `inventory.yml`; the
+  installer's sample-data options are removed; installation is documented
+  in `deploy/README.md`, operations in `deploy/playbooks/README.md`. The
+  dashboard "ENTSO-E – Power plants and availability" is provisioned.
+
 ## 1.1.0 (2026-10-23)
 
 - Installer and updates build the new images in `repo.next/` while the

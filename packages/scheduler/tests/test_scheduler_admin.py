@@ -6,14 +6,23 @@ import sys
 import tempfile
 import unittest
 from contextlib import contextmanager
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
 from crawler.common.crawler_utils import CrawlerSkipped
+from oeds_scheduler_ui.runtime import CrawlerJobRunner
 
-from crawler_admin.app import _build_scheduler_form_state, _select_scheduler_job_name
+from crawler_admin.app import (
+    _build_gapfill_form_defaults_from_view,
+    _build_scheduler_form_state,
+    _select_scheduler_job_name,
+    _validate_gapfill_form_values,
+    _with_lock_status,
+)
 from crawler_admin.config_service import (
+    GAPFILL_POSTRUN_SCRIPT,
     CrawlerCard,
     CrawlerJobPreview,
     CronPreview,
@@ -107,11 +116,8 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                     repo_root=Path(temp_dir),
                 )
 
-    def test_gapfill_panel_detects_and_keeps_the_oeds_post_command(self) -> None:
-        post_run_scripts = ["oeds-post gapfill entsoe-fms", "oeds-post refresh entsoe-availability-map"]
-        config = {"schema_name": "entsoe_fms", "post_run_scripts": post_run_scripts}
-        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", config, config).script_enabled)
-
+    def test_gapfill_toggle_keeps_exactly_one_post_run_step(self) -> None:
+        refresh = "oeds-post refresh entsoe-availability-map"
         settings = {
             "enabled": True,
             "selected_tables": [],
@@ -125,22 +131,69 @@ class SchedulerAdminConfigTest(unittest.TestCase):
             "lookback": "7d",
             "fail_on_table_error": True,
         }
-        with tempfile.TemporaryDirectory() as temp_dir:
-            (Path(temp_dir) / "CRAWLER_CONFIG.yml").write_text(
-                yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
-            )
-            kept = update_gapfill_config_text(
-                "entsoe_fms", script_enabled=True, repo_root=Path(temp_dir), **settings
-            )
-            removed = update_gapfill_config_text(
-                "entsoe_fms", script_enabled=False, repo_root=Path(temp_dir), **settings
-            )
+        # (existing post_run_scripts, script_enabled, expected post_run_scripts)
+        cases = [
+            ([refresh], True, [GAPFILL_POSTRUN_SCRIPT, refresh]),
+            ([refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"], True,
+             [refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"]),
+            ([refresh, "scripts/gapfill_timeseries.py"], True, [refresh, GAPFILL_POSTRUN_SCRIPT]),
+            (["scripts/gapfill_timeseries.py", refresh, GAPFILL_POSTRUN_SCRIPT], True,
+             [GAPFILL_POSTRUN_SCRIPT, refresh]),
+            ([GAPFILL_POSTRUN_SCRIPT, refresh, "scripts/gapfill_timeseries.py"], False, [refresh]),
+        ]
+        legacy = {"schema_name": "entsoe_fms", "post_run_scripts": ["scripts/gapfill_timeseries.py"]}
+        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", legacy, legacy).script_enabled)
 
-        self.assertEqual(yaml.safe_load(kept)["entsoe_fms"]["post_run_scripts"], post_run_scripts)
-        self.assertEqual(
-            yaml.safe_load(removed)["entsoe_fms"]["post_run_scripts"],
-            ["oeds-post refresh entsoe-availability-map"],
+        for scripts, script_enabled, expected in cases:
+            with self.subTest(scripts=scripts, script_enabled=script_enabled):
+                config = {"schema_name": "entsoe_fms", "post_run_scripts": scripts}
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "CRAWLER_CONFIG.yml"
+                    config_path.write_text(
+                        yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
+                    )
+                    for _ in range(2):  # saving again changes nothing
+                        config_path.write_text(
+                            update_gapfill_config_text(
+                                "entsoe_fms",
+                                script_enabled=script_enabled,
+                                repo_root=Path(temp_dir),
+                                **settings,
+                            ),
+                            encoding="utf-8",
+                        )
+                        saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+                        self.assertEqual(saved["entsoe_fms"]["post_run_scripts"], expected)
+
+    def test_gapfill_form_rejects_values_the_gapfill_config_cannot_load(self) -> None:
+        config = {"schema_name": "entsoe_fms"}
+        overview = SimpleNamespace(crawler_name="entsoe_fms", raw_config=config, effective_config=config)
+        values = _build_gapfill_form_defaults_from_view(
+            build_gapfill_runtime_view("entsoe_fms", config, config)
         )
+        self.assertEqual(_validate_gapfill_form_values(values, overview), [])
+
+        values.update(
+            target_schema="",
+            max_gap_periods="1.5",
+            candidate_periods="24h, often",
+            lookback="7days ago",
+            table_methods={**values["table_methods"], "EnergyPrices": "magic"},
+            selected_tables=["EnergyPrices"],
+        )
+        errors = _validate_gapfill_form_values(values, overview)
+
+        self.assertEqual(
+            errors,
+            [
+                "Target schema is required.",
+                "Max gap periods must be a whole number, not '1.5'.",
+                "Candidate periods: 'often' is not a duration such as 24h or 7d.",
+                "Lookback: '7days ago' is not a duration such as 24h or 7d.",
+                errors[-1],
+            ],
+        )
+        self.assertIn("gapfill method must be one of", errors[-1])
 
     def test_scheduler_form_uses_selected_job_values(self) -> None:
         card = CrawlerCard(
@@ -225,16 +278,14 @@ class CrawlerRunServiceTest(unittest.TestCase):
             effective_config={},
             config_overrides={},
             action_payload={},
-            run_post_scripts=False,
             executor=executor,
-            requires_crawler=False,
         )
         run_id = service._create_run_record(prepared)
         service._execute_run(run_id, prepared)
         return service.get_run(run_id)
 
     def test_skipped_crawler_run_is_recorded_as_skipped(self) -> None:
-        def skip_run(_crawler: object, _log: object) -> str | None:
+        def skip_run(_log: object) -> str | None:
             raise CrawlerSkipped("ENTSOE_API_KEY is not configured")
 
         with tempfile.TemporaryDirectory() as temp_dir, _environment(OEDS_ADMIN_STATE_DIR=temp_dir):
@@ -262,7 +313,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
                     plan = service._crawler_plan("entsoe_fms", config)
                     record = self._execute(
                         service,
-                        lambda _crawler, log: service._run_oeds_crawl(plan, log),
+                        lambda log: service._run_oeds_crawl(plan, log),
                     )
                     log_text = Path(record.log_path).read_text(encoding="utf-8")
 
@@ -276,6 +327,39 @@ class CrawlerRunServiceTest(unittest.TestCase):
                         self.assertIsNone(record.error_message)
                     else:
                         self.assertEqual(record.summary, "Run completed successfully.")
+
+    def test_reads_the_latest_scheduler_run_from_its_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            stub = root / "crawl_stub.py"
+            stub.write_text(CRAWL_STUB, encoding="utf-8")
+            with _environment(OEDS_ADMIN_STATE_DIR=temp_dir, OEDS_TEST_EXIT_CODE="1"):
+                service = CrawlerRunService(repo_root=root)
+                plan = service._crawler_plan("entsoe_fms", {})
+                result = CrawlerJobRunner(
+                    root / "CRAWLER_CONFIG.yml",
+                    command=[sys.executable, str(stub)],
+                    logs_dir=root / "logs",
+                ).run(plan)
+            # Another crawler's newer log is not picked up.
+            (root / "logs" / "runs" / "entsoe-default-29990101-000000.log").write_text("# entsoe:default started\n")
+
+            run = service.get_latest_scheduler_run("entsoe_fms")
+            self.assertEqual(result.status, "failed")
+            self.assertEqual(run.log_path, str(result.log_path))
+            self.assertEqual(run.job_name, "default")
+            self.assertEqual(run.status, "failed")
+            self.assertEqual(
+                run.created_at,
+                result.started_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S"),
+            )
+
+            # Without the footer the run is still going, or died if nobody holds its lock.
+            unfinished = root / "logs" / "runs" / "entsoe_fms-latest_hourly-29990101-000000.log"
+            unfinished.write_text("# entsoe_fms:latest_hourly started 2999-01-01 00:00:00\n")
+            run = service.get_latest_scheduler_run("entsoe_fms")
+            self.assertEqual((run.job_name, run.status), ("latest_hourly", "running"))
+            self.assertEqual(_with_lock_status(run, running_now=False).status, "interrupted")
 
 
 if __name__ == "__main__":

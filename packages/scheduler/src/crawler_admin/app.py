@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import re
 import smtplib
+from dataclasses import replace
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import pandas as pd
 import yaml
 from fastapi import FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -30,14 +30,9 @@ from crawler_admin.config_service import (
     write_config_text_atomic,
 )
 from crawler_admin.gapfill_service import (
-    GapfillHoldoutView,
-    GapfillSelfTestView,
-    build_gapfill_holdout_catalog,
-    build_gapfill_holdout_view,
     build_gapfill_runtime_view,
-    build_gapfill_selftest_catalog,
-    build_gapfill_selftest_view,
     gapfill_method_options,
+    load_last_gapfill_run,
 )
 from crawler_admin.price_forecast_service import build_price_forecast_runtime_view
 from crawler_admin.runtime_service import (
@@ -45,14 +40,15 @@ from crawler_admin.runtime_service import (
     CrawlerRunService,
     LockError,
     RunRecord,
+    SchedulerRun,
+    running_crawlers,
+    tail_log_lines,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["post_installed"] = POST_INSTALLED
 run_service = CrawlerRunService()
-latest_gapfill_selftest_view: GapfillSelfTestView | None = None
-latest_gapfill_holdout_view: GapfillHoldoutView | None = None
 SCHEDULER_WEEKDAY_ORDER = ["1", "2", "3", "4", "5", "6", "0"]
 SCHEDULER_WEEKDAY_OPTIONS = [
     {"value": "1", "label": "Monday"},
@@ -124,112 +120,10 @@ def dashboard(
 
 
 def _require_post() -> None:
-    """The gapfill pages exist only when oeds-post-scripts is installed."""
+    """The gapfill settings exist only when oeds-post-scripts is installed."""
 
     if not POST_INSTALLED:
         raise HTTPException(status_code=404, detail="Post-processing package is not installed.")
-
-
-@app.get("/admin/gapfill", response_class=HTMLResponse)
-def gapfill_dashboard(
-    request: Request,
-    self_tested: int | None = Query(default=None),
-    holdout_tested: int | None = Query(default=None),
-) -> HTMLResponse:
-    _require_post()
-    message_kind = None
-    message_text = None
-    if holdout_tested and latest_gapfill_holdout_view:
-        message_kind = "success" if latest_gapfill_holdout_view.passed else "error"
-        message_text = (
-            "Gapfill holdout test completed."
-            if latest_gapfill_holdout_view.passed
-            else "Gapfill holdout test completed with missing comparison points."
-        )
-    elif self_tested and latest_gapfill_selftest_view:
-        message_kind = "success" if latest_gapfill_selftest_view.all_passed else "error"
-        message_text = (
-            "Gapfill self-tests completed."
-            if latest_gapfill_selftest_view.all_passed
-            else "Gapfill self-tests completed with failures."
-        )
-
-    return _render_gapfill_dashboard(
-        request=request,
-        latest_selftest_view=latest_gapfill_selftest_view,
-        latest_holdout_view=latest_gapfill_holdout_view,
-        message_kind=message_kind,
-        message_text=message_text,
-    )
-
-
-@app.post("/admin/gapfill/self-tests", response_class=HTMLResponse)
-async def run_gapfill_self_tests(request: Request) -> HTMLResponse:
-    global latest_gapfill_selftest_view
-
-    _require_post()
-    form = await request.form()
-    selected_names = [str(value) for value in form.getlist("test_names")]
-
-    try:
-        view = build_gapfill_selftest_view(selected_names)
-    except ValueError as exc:
-        return _render_gapfill_dashboard(
-            request=request,
-            latest_selftest_view=latest_gapfill_selftest_view,
-            latest_holdout_view=latest_gapfill_holdout_view,
-            message_kind="error",
-            message_text=str(exc),
-            selected_names=selected_names,
-        )
-
-    latest_gapfill_selftest_view = view
-
-    return RedirectResponse(url="/admin/gapfill?self_tested=1", status_code=303)
-
-
-@app.post("/admin/gapfill/holdout-tests", response_class=HTMLResponse)
-async def run_gapfill_holdout_test(request: Request) -> HTMLResponse:
-    global latest_gapfill_holdout_view
-
-    _require_post()
-    form = await request.form()
-    dataset_name = str(form.get("dataset_name") or "").strip()
-    fault_type = str(form.get("fault_type") or "value_gap").strip()
-    method = str(form.get("method") or "").strip() or None
-    submitted_holdout = {
-        "dataset_name": dataset_name,
-        "fault_type": fault_type,
-        "method": method or "",
-        "gap_length_periods": str(form.get("gap_length_periods") or ""),
-        "gap_start_index": str(form.get("gap_start_index") or ""),
-    }
-
-    try:
-        gap_length_periods = _parse_optional_int(form.get("gap_length_periods"))
-        gap_start_index = _parse_optional_int(form.get("gap_start_index"))
-        if gap_length_periods is None:
-            raise ValueError("gap_length_periods is required.")
-        view = build_gapfill_holdout_view(
-            dataset_name,
-            gap_length_periods,
-            gap_start_index=gap_start_index,
-            fault_type=fault_type,
-            method=method,
-        )
-    except ValueError as exc:
-        return _render_gapfill_dashboard(
-            request=request,
-            latest_selftest_view=latest_gapfill_selftest_view,
-            latest_holdout_view=latest_gapfill_holdout_view,
-            message_kind="error",
-            message_text=str(exc),
-            submitted_holdout=submitted_holdout,
-        )
-
-    latest_gapfill_holdout_view = view
-
-    return RedirectResponse(url="/admin/gapfill?holdout_tested=1", status_code=303)
 
 
 @app.post("/admin/crawlers/{crawler_name}/scheduler", response_class=HTMLResponse)
@@ -335,9 +229,6 @@ def crawler_detail(
     elif email_tested:
         message_kind = "success"
         message_text = f"Sent test email for {crawler_name}."
-    elif gapfill_saved:
-        message_kind = "success"
-        message_text = f"Saved gapfill settings for {crawler_name}."
 
     return _render_crawler_detail(
         request=request,
@@ -345,6 +236,7 @@ def crawler_detail(
         selected_run_id=run,
         message_kind=message_kind,
         message_text=message_text,
+        gapfill_saved=bool(gapfill_saved),
         check_gapfill_db=bool(check_gapfill_db),
     )
 
@@ -362,12 +254,11 @@ async def save_crawler_gapfill(request: Request, crawler_name: str) -> HTMLRespo
     gapfill_values = _extract_gapfill_form_values(form, overview)
     gapfill_errors = _validate_gapfill_form_values(gapfill_values, overview)
 
+    # Errors are shown next to the gapfill form.
     if gapfill_errors:
         return _render_crawler_detail(
             request=request,
             crawler_name=crawler_name,
-            message_kind="error",
-            message_text="Gapfill settings were not saved.",
             gapfill_errors=gapfill_errors,
             gapfill_values=gapfill_values,
         )
@@ -393,8 +284,6 @@ async def save_crawler_gapfill(request: Request, crawler_name: str) -> HTMLRespo
         return _render_crawler_detail(
             request=request,
             crawler_name=crawler_name,
-            message_kind="error",
-            message_text="Gapfill settings were not saved.",
             gapfill_errors=[str(exc)],
             gapfill_values=gapfill_values,
         )
@@ -624,66 +513,6 @@ def healthcheck() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-def _render_gapfill_dashboard(
-    *,
-    request: Request,
-    latest_selftest_view: GapfillSelfTestView | None,
-    latest_holdout_view: GapfillHoldoutView | None,
-    message_kind: str | None = None,
-    message_text: str | None = None,
-    selected_names: list[str] | None = None,
-    submitted_holdout: dict[str, str] | None = None,
-) -> HTMLResponse:
-    catalog = build_gapfill_selftest_catalog()
-    holdout_catalog = build_gapfill_holdout_catalog()
-    if selected_names is None:
-        selected_names = latest_selftest_view.selected_names if latest_selftest_view else [item.name for item in catalog]
-    if submitted_holdout is None:
-        submitted_holdout = _build_holdout_form_defaults(latest_holdout_view, holdout_catalog)
-
-    return templates.TemplateResponse(
-        request,
-        "gapfill.html",
-        {
-            "request": request,
-            "page_name": "gapfill",
-            "catalog": catalog,
-            "holdout_catalog": holdout_catalog,
-            "latest_view": latest_selftest_view,
-            "latest_holdout_view": latest_holdout_view,
-            "selected_names": set(selected_names),
-            "holdout_values": submitted_holdout,
-            "gapfill_methods": gapfill_method_options(),
-            "message_kind": message_kind,
-            "message_text": message_text,
-        },
-    )
-
-
-def _build_holdout_form_defaults(
-    latest_holdout_view: GapfillHoldoutView | None,
-    holdout_catalog: list[Any],
-) -> dict[str, str]:
-    if latest_holdout_view is not None:
-        result = latest_holdout_view.result
-        return {
-            "dataset_name": result.dataset_name,
-            "fault_type": result.fault_type,
-            "method": result.method,
-            "gap_length_periods": str(result.gap_length_periods),
-            "gap_start_index": str(result.gap_start_index),
-        }
-
-    default_dataset = holdout_catalog[0] if holdout_catalog else None
-    return {
-        "dataset_name": default_dataset.name if default_dataset else "",
-        "fault_type": "value_gap",
-        "method": default_dataset.method if default_dataset else "donor_refined",
-        "gap_length_periods": str(default_dataset.recommended_gap_length if default_dataset else 6),
-        "gap_start_index": str(default_dataset.recommended_gap_start if default_dataset else ""),
-    }
-
-
 def _extract_gapfill_form_values(form: Any, overview: Any) -> dict[str, Any]:
     defaults = _build_gapfill_form_defaults(overview)
     selected_tables = [str(value) for value in form.getlist("gapfill_tables") if str(value).strip()]
@@ -740,81 +569,52 @@ def _build_gapfill_form_defaults_from_view(gapfill_view: Any) -> dict[str, Any]:
 
 
 def _validate_gapfill_form_values(gapfill_values: dict[str, Any], overview: Any) -> list[str]:
-    errors: list[str] = []
+    """Reject values the gapfill job (``oeds_gapfill.config``) could not load."""
+
+    from oeds_gapfill.config import _parse_timedelta, select_tables
+
     gapfill_view = build_gapfill_runtime_view(
         overview.crawler_name,
         overview.raw_config,
         overview.effective_config,
     )
-
     if not gapfill_view.supported:
         return ["Gapfill controls are only available for crawlers with built-in table metadata."]
 
-    target_schema = str(gapfill_values["target_schema"]).strip()
-    if not target_schema:
+    errors: list[str] = []
+    if not gapfill_values["target_schema"]:
         errors.append("Target schema is required.")
-    elif not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", target_schema):
-        errors.append("Target schema must be a valid PostgreSQL schema identifier.")
 
-    method = str(gapfill_values["method"]).strip()
-    if method not in gapfill_method_options():
-        errors.append(f"Gapfill method must be one of: {', '.join(gapfill_method_options())}.")
+    for key, label in (
+        ("donor_context_periods", "Donor context periods"),
+        ("refinement_periods", "Refinement periods"),
+        ("max_gap_periods", "Max gap periods"),
+    ):
+        try:
+            int(gapfill_values[key])
+        except ValueError:
+            errors.append(f"{label} must be a whole number, not '{gapfill_values[key]}'.")
 
-    try:
-        donor_context_periods = int(gapfill_values["donor_context_periods"])
-        if donor_context_periods < 1:
-            errors.append("Donor context periods must be at least 1.")
-    except (TypeError, ValueError):
-        errors.append("Donor context periods must be an integer.")
-
-    try:
-        refinement_periods = int(gapfill_values["refinement_periods"])
-        if refinement_periods < 0:
-            errors.append("Refinement periods must be 0 or greater.")
-    except (TypeError, ValueError):
-        errors.append("Refinement periods must be an integer.")
-
-    try:
-        max_gap_periods = int(gapfill_values["max_gap_periods"])
-        if max_gap_periods < 1:
-            errors.append("Max gap periods must be at least 1.")
-    except (TypeError, ValueError):
-        errors.append("Max gap periods must be an integer.")
-
-    for label, raw_value in (
-        ("Candidate periods", gapfill_values["candidate_periods"]),
+    durations = [("Candidate periods", value) for value in _split_gapfill_periods(gapfill_values["candidate_periods"])]
+    durations += [
         ("Donor search radius", gapfill_values["donor_search_radius"]),
         ("Lookback", gapfill_values["lookback"]),
-    ):
-        values = _split_gapfill_periods(raw_value) if label == "Candidate periods" else [str(raw_value).strip()]
-        for value in values:
-            if not value:
-                continue
-            try:
-                pd.Timedelta(value)
-            except (TypeError, ValueError):
-                errors.append(f"{label} contains an invalid duration: {value}")
+    ]
+    for label, value in durations:
+        try:
+            _parse_timedelta(value)
+        except ValueError:
+            errors.append(f"{label}: '{value}' is not a duration such as 24h or 7d.")
 
-    known_tables = {item.table_name for item in gapfill_view.tables}
-    invalid_tables = sorted(set(gapfill_values["selected_tables"]) - known_tables)
-    if invalid_tables:
-        errors.append(f"Unknown gapfill tables: {', '.join(invalid_tables)}.")
-
-    table_methods = gapfill_values.get("table_methods")
-    if not isinstance(table_methods, dict):
-        errors.append("Table methods could not be read from the submitted form.")
-    else:
-        invalid_method_tables = [
-            table_name
-            for table_name in gapfill_values["selected_tables"]
-            if table_methods.get(table_name) not in gapfill_method_options()
-        ]
-        if invalid_method_tables:
-            errors.append(
-                "Each selected table needs a valid gapfill method. Invalid tables: "
-                + ", ".join(invalid_method_tables)
-                + "."
-            )
+    # Unknown tables and invalid methods of the selected tables.
+    try:
+        select_tables(
+            gapfill_values["selected_tables"],
+            method=gapfill_values["method"],
+            table_methods=gapfill_values["table_methods"],
+        )
+    except ValueError as exc:
+        errors.append(str(exc))
 
     return errors
 
@@ -834,6 +634,7 @@ def _render_crawler_detail(
     email_test_errors: list[str] | None = None,
     gapfill_errors: list[str] | None = None,
     gapfill_values: dict[str, Any] | None = None,
+    gapfill_saved: bool = False,
     check_gapfill_db: bool = False,
     submitted_action_id: str | None = None,
     submitted_values: dict[str, Any] | None = None,
@@ -848,13 +649,18 @@ def _render_crawler_detail(
     active_run = run_service.get_active_run(crawler_name)
     selected_run = _select_run(history, active_run, selected_run_id)
     selected_log = run_service.get_run_log_tail(selected_run.run_id) if selected_run else None
-    latest_run = history[0] if history else None
+    running = running_crawlers(overview.default_config.get("database_uri"), [crawler_name])
+    running_now = None if running is None else crawler_name in running
+    scheduler_run = _with_lock_status(run_service.get_latest_scheduler_run(crawler_name), running_now)
+    scheduler_log = "\n".join(tail_log_lines(Path(scheduler_run.log_path), 60)) if scheduler_run else ""
+    latest_run = _newer_run(history[0] if history else None, scheduler_run)
     runtime_benchmarks = run_service.get_runtime_benchmarks(crawler_name)
     action_values = _build_action_values(actions, submitted_action_id, submitted_values)
     email_state = _build_email_alert_state(overview)
     # The gapfill and price-forecast panels are absent without oeds-post-scripts.
     gapfill_view = None
     gapfill_form_values = gapfill_values or {}
+    gapfill_last_run, gapfill_last_run_note = None, ""
     price_forecast_view = None
     if POST_INSTALLED:
         gapfill_view = build_gapfill_runtime_view(
@@ -866,6 +672,10 @@ def _render_crawler_detail(
         gapfill_form_values = gapfill_values or _build_gapfill_form_defaults_from_view(
             gapfill_view
         )
+        if gapfill_view.supported:
+            gapfill_last_run, gapfill_last_run_note = load_last_gapfill_run(
+                overview.effective_config, gapfill_view.target_schema
+            )
         if crawler_name == "entsoe_api":
             price_forecast_view = build_price_forecast_runtime_view(overview.effective_config)
 
@@ -884,7 +694,10 @@ def _render_crawler_detail(
             "runtime_benchmarks": runtime_benchmarks,
             "selected_run": selected_run,
             "selected_log": selected_log,
-            "is_locked": run_service.is_locked(crawler_name),
+            "scheduler_run": scheduler_run,
+            "scheduler_log": scheduler_log,
+            "running_now": running_now,
+            "is_locked": run_service.is_locked(crawler_name) or bool(running_now),
             "email_state": email_state,
             "email_test_errors": email_test_errors or [],
             "effective_config_yaml": _format_yaml_preview(overview.effective_config),
@@ -897,6 +710,9 @@ def _render_crawler_detail(
             "price_forecast_view": price_forecast_view,
             "check_gapfill_db": check_gapfill_db,
             "gapfill_errors": gapfill_errors or [],
+            "gapfill_saved": gapfill_saved,
+            "gapfill_last_run": gapfill_last_run,
+            "gapfill_last_run_note": gapfill_last_run_note,
             "gapfill_values": gapfill_form_values,
             "gapfill_methods": gapfill_method_options() if POST_INSTALLED else [],
             "base_hash": state.config_hash,
@@ -922,17 +738,23 @@ def _render_dashboard(
     state = build_dashboard_state()
     latest_runs = run_service.get_latest_runs_map()
     crawler_rows = []
+    # The scheduler takes its run locks on default.database_uri.
+    default_config = next(iter(state.overviews.values())).default_config if state.overviews else {}
+    running = running_crawlers(default_config.get("database_uri"), [card.name for card in state.cards])
 
     for card in state.cards:
         overview = state.overviews[card.name]
         active_run = run_service.get_active_run(card.name)
+        running_now = None if running is None else card.name in running
+        scheduler_run = _with_lock_status(run_service.get_latest_scheduler_run(card.name), running_now)
         crawler_rows.append(
             {
                 "card": card,
                 "overview": overview,
                 "active_run": active_run,
-                "latest_run": active_run or latest_runs.get(card.name),
-                "is_locked": run_service.is_locked(card.name),
+                "latest_run": active_run or _newer_run(latest_runs.get(card.name), scheduler_run),
+                "running_now": running_now,
+                "is_locked": run_service.is_locked(card.name) or bool(running_now),
                 "can_start": bool(overview.raw_config),
                 "scheduler_job_name": _select_scheduler_job_name(
                     card,
@@ -1408,6 +1230,20 @@ def _select_run(history: list[RunRecord], active_run: RunRecord | None, selected
     return None
 
 
+def _with_lock_status(run: SchedulerRun | None, running_now: bool | None) -> SchedulerRun | None:
+    """A log without footer whose crawler holds no lock belongs to a run that died."""
+
+    if run is not None and run.status == "running" and running_now is False:
+        return replace(run, status="interrupted")
+    return run
+
+
+def _newer_run(admin_run: RunRecord | None, scheduler_run: SchedulerRun | None) -> RunRecord | SchedulerRun | None:
+    if admin_run is None or (scheduler_run is not None and scheduler_run.created_at > admin_run.created_at):
+        return scheduler_run
+    return admin_run
+
+
 def _run_record_payload(record: RunRecord) -> dict[str, Any]:
     return {
         "run_id": record.run_id,
@@ -1440,16 +1276,6 @@ def _form_to_payload(form: Any) -> dict[str, Any]:
         else:
             payload[key] = values
     return payload
-
-
-def _parse_optional_int(value: Any) -> int | None:
-    text_value = str(value or "").strip()
-    if not text_value:
-        return None
-    try:
-        return int(text_value)
-    except ValueError as exc:
-        raise ValueError(f"Expected an integer value, got '{text_value}'.") from exc
 
 
 def _parse_enable_form_value(value: str) -> bool | None:

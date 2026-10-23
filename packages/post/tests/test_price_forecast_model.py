@@ -7,52 +7,40 @@ from __future__ import annotations
 import unittest
 
 import pandas as pd
-from oeds_price_forecast.model import (
-    PriceForecastConfig,
-    backtest_forecast,
-    delivery_index_for_local_date,
-    forecast_day,
-    generate_self_test_series,
-)
+from oeds_price_forecast.model import PriceForecastConfig, generate_self_test_series
+from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_day_upstream
 from scripts.run_price_forecast import (
     _combine_covariates,
     _combine_training_fallback_series,
 )
 
 
+# The upstream LEAR fit takes several seconds per forecast day, so the tests use
+# short training windows and few target days.
 class PriceForecastModelTest(unittest.TestCase):
-    def test_delivery_index_uses_local_market_day(self) -> None:
-        index = delivery_index_for_local_date(pd.Timestamp("2026-05-18").date())
-
-        self.assertEqual(len(index), 96)
-        self.assertEqual(str(index[0]), "2026-05-17 22:00:00+00:00")
-        self.assertEqual(str(index[-1]), "2026-05-18 21:45:00+00:00")
-
     def test_forecast_day_returns_point_and_quantile_rows(self) -> None:
         target_date = pd.Timestamp("2026-05-18").date()
-        price, exaa, covariates = generate_self_test_series(days=100, end_date=target_date)
-        config = PriceForecastConfig(train_days=56)
+        price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
+        config = PriceForecastConfig(train_days=14)
 
-        result = forecast_day(price, exaa, covariates, target_date, config)
+        result = forecast_day_upstream(price, exaa, covariates, target_date, config)
 
         self.assertEqual(len(result.point_forecast), 96)
+        self.assertEqual(str(result.point_forecast["delivery_start_utc"].iloc[0]), "2026-05-17 22:00:00+00:00")
         self.assertEqual(len(result.quantile_forecast), 96 * len(config.quantiles))
         self.assertIn("mae_eur_mwh", set(result.metrics["metric"]))
-        self.assertIn("exaa_price_eur_mwh", result.feature_columns)
-        self.assertIn("cov_load_mw", result.feature_columns)
+        self.assertIn("exaa_d0_mtu_00", result.feature_columns)
+        self.assertIn("load_d0_mtu_00", result.feature_columns)
 
     def test_backtest_returns_aggregate_metrics(self) -> None:
         target_date = pd.Timestamp("2026-05-18").date()
-        price, exaa, covariates = generate_self_test_series(days=100, end_date=target_date)
-        config = PriceForecastConfig(train_days=56)
-        dates = [
-            pd.Timestamp("2026-05-15").date(),
-            pd.Timestamp("2026-05-16").date(),
-        ]
+        price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
+        config = PriceForecastConfig(train_days=14)
+        dates = [pd.Timestamp("2026-05-16").date()]
 
-        forecasts, metrics = backtest_forecast(price, exaa, covariates, dates, config)
+        forecasts, metrics = backtest_forecast_upstream(price, exaa, covariates, dates, config)
 
-        self.assertEqual(len(forecasts), 192)
+        self.assertEqual(len(forecasts), 96)
         self.assertIn("actual_eur_mwh", forecasts.columns)
         self.assertTrue(metrics["target_date"].isna().any())
 

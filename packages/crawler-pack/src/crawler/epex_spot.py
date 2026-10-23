@@ -28,6 +28,7 @@ import paramiko
 from dotenv import load_dotenv
 from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, String, Table, UniqueConstraint, text
 
+from crawler.common.crawler_utils import copy_upsert
 from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
@@ -263,39 +264,9 @@ class EpexSpotCrawler(KitCrawler):
             ))
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame, constraint_name: str) -> int:
-        """Upsert through COPY into a temporary table and one INSERT ... ON CONFLICT.
-
-        Multi-row INSERT statements with 5000 x 19 bound values were the bottleneck
-        (about 8 minutes per daily trade archive).
-        """
-        if df.empty:
-            return 0
-
         table = self.tables[table_name]
-        columns = [column.name for column in table.columns]
         constraint = next(c for c in table.constraints if c.name == constraint_name)
-        key_columns = list(constraint.columns.keys())
-        # ON CONFLICT DO UPDATE fails if one statement touches the same key twice.
-        df = df.reindex(columns=columns).drop_duplicates(subset=key_columns, keep="last")
-
-        buffer = io.StringIO()
-        df.to_csv(buffer, index=False, header=False)
-        buffer.seek(0)
-
-        target = f'"{self.schema_name}"."{table.name}"'
-        column_list = ", ".join(f'"{column}"' for column in columns)
-        updates = ", ".join(
-            f'"{column}" = EXCLUDED."{column}"' for column in columns if column not in key_columns
-        )
-        with self.engine.begin() as conn:
-            cursor = conn.connection.cursor()
-            cursor.execute(f"CREATE TEMP TABLE epex_stage (LIKE {target}) ON COMMIT DROP")
-            cursor.copy_expert(f"COPY epex_stage ({column_list}) FROM STDIN WITH (FORMAT csv)", buffer)
-            cursor.execute(
-                f"INSERT INTO {target} ({column_list}) SELECT {column_list} FROM epex_stage "
-                f"ON CONFLICT ON CONSTRAINT {constraint_name} DO UPDATE SET {updates}"
-            )
-        return len(df)
+        return copy_upsert(self.engine, table, df, constraint_name, list(constraint.columns.keys()))
 
     def _imported_file_keys(self, remote_dir: str) -> set[tuple[str, int, int]]:
         prefix = remote_dir.rstrip("/") + "/"

@@ -11,7 +11,6 @@ defined in one place so that new extracts can be added without touching the
 download loop in multiple spots.
 """
 import csv
-import io
 import os
 import re
 import time
@@ -31,13 +30,11 @@ from sqlalchemy import (
     Index,
     MetaData,
     UniqueConstraint,
-    or_,
 )
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
 
-from crawler.common.crawler_utils import build_session
+from crawler.common.crawler_utils import build_session, copy_upsert
 from crawler.common.kit_base import KitCrawler
 
 
@@ -762,21 +759,13 @@ class EntsoeFMSCrawler(KitCrawler):
         )
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame) -> None:
-        """Upsert a dataframe into the target table in conflict-safe batches."""
+        """Upsert a dataframe into the target table with COPY (see copy_upsert)."""
         if df.empty:
             return
 
         df = self._deduplicate_on_unique_keys(table_name, df)
-        if df.empty:
-            return
-
-        # NaT and NaN must reach PostgreSQL as NULL, not as the strings 'NaT'/'NaN'.
-        data = df.astype(object).where(df.notna(), None).to_dict(orient="records")
         table_obj = self._reflected_table(table_name)
-        batch_size = 5000
 
-        stmt = insert(table_obj)
-        update_dict = {c.name: stmt.excluded[c.name] for c in table_obj.columns}
         # Only rewrite a row when the file carries a newer UpdateTime; the hourly
         # package refresh re-upserts the whole month and would otherwise rewrite
         # every unchanged row (WAL and bloat). Rows whose stored UpdateTime is NULL
@@ -786,18 +775,11 @@ class EntsoeFMSCrawler(KitCrawler):
         )
         where = None
         if update_time_column:
-            stored = table_obj.c[update_time_column]
-            where = or_(stored.is_(None), stored < stmt.excluded[update_time_column])
-        stmt = stmt.on_conflict_do_update(
-            constraint=self.UNIQUE_KEY_DICT[table_name],
-            set_=update_dict,
-            where=where,
+            stored = f'"entsoe_fms"."{table_name}"."{update_time_column}"'
+            where = f'{stored} IS NULL OR {stored} < EXCLUDED."{update_time_column}"'
+        copy_upsert(
+            self.engine, table_obj, df, self.UNIQUE_KEY_DICT[table_name], self.UNIQUE_KEY_COLUMNS[table_name], where
         )
-
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-            with self.engine.begin() as conn:
-                conn.execute(stmt, batch)
 
     def _reflected_table(self, table_name: str) -> Table:
         """Reflect the table once per run; _add_missing_columns and renames invalidate it."""
@@ -1129,62 +1111,6 @@ class EntsoeFMSCrawler(KitCrawler):
             self._download_files_and_write_into_database(local_dir, start_time, end_time, update_interval)
         finally:
             self.logger.info("Fetching process completed.")
-
-    def save_power_system_data(self):
-        print("Pulling power plant data")
-        self.logger.info("Pulling power plant data from GitHub PyPSA")
-
-        url = "https://raw.githubusercontent.com/PyPSA/powerplantmatching/master/powerplants.csv"
-
-        try:
-            response = requests.get(url, timeout=120)
-            response.raise_for_status()
-            df = pd.read_csv(io.BytesIO(response.content))
-            self.logger.info(f"Done downloading {len(df)} records")
-
-            column_mapping = {
-                "id": "source_id",             # rename id to make sure no conflicts
-                "Name": "name",
-                "Fueltype": "fuel_type",
-                "Technology": "technology",
-                "Set": "set_type",
-                "Country": "country",
-                "Capacity": "capacity",
-                "Efficiency": "efficiency",
-                "DateIn": "date_in",
-                "DateRetrofit": "date_retrofit",
-                "DateOut": "date_out",
-                "lat": "lat",
-                "lon": "lon",
-                "Duration": "duration",
-                "Volume_Mm3": "volume_mm3",
-                "DamHeight_m": "dam_height_m",
-                "StorageCapacity_MWh": "storage_capacity_mwh",
-                "EIC": "eic_code",
-                "projectID": "project_id"
-            }
-
-            df = df.rename(columns=column_mapping)
-
-            df = df.dropna(axis=0, subset=["lon", "lat"])  # Drop rows that cannot be shown on a map.
-
-            # Views in entsoe_availability_map depend on this table, so it must not be
-            # dropped (to_sql replace). Keep it and swap its rows instead.
-            if self._table_columns("powersystemdata"):
-                self._add_missing_columns("powersystemdata", df)
-                with self.engine.begin() as conn:
-                    conn.execute(text('TRUNCATE TABLE "entsoe_fms"."powersystemdata"'))
-                    df.to_sql("powersystemdata", conn, if_exists="append", index=False)
-            else:
-                with self.engine.begin() as conn:
-                    df.to_sql("powersystemdata", conn, if_exists="fail", index=False)
-
-            self.logger.info(f"Finish updating 'powersystemdata',  {len(df)} records")
-            print(f"Finish updating 'powersystemdata',  {len(df)} records")
-
-        except Exception as e:
-            self.logger.error(f"error: {e}", exc_info=True)
-            print("Error downloading powerplant data")
 
     def _create_table_with_unique_constraint(self, table_name):
         """Create the table with its unique constraint (UNIQUE_KEY_DICT/UNIQUE_KEY_COLUMNS)."""
@@ -1817,9 +1743,6 @@ class EntsoeFMSCrawler(KitCrawler):
             self.logger.info("ENTSO-E FMS initial/default start date: %s", start_time)
 
         try:
-            self.logger.info("Saving power system data...")
-            self.save_power_system_data()
-
             self.logger.info("Starting ENTSO-E FMS fetch...")
             self.fetch_from_entsoe_fms_to_database(local_dir, start_time, end_time)
 
@@ -1828,174 +1751,3 @@ class EntsoeFMSCrawler(KitCrawler):
         except Exception as e:
             self.logger.critical(f"Crawler run FAILED: {e}", exc_info=True)
             raise
-
-    # ----------------------------------------------------------------------
-    # Backward update: refresh a specific historical file period
-    # ----------------------------------------------------------------------
-    def backwards_update(self, start, end, local_dir, TARGET_FILES_DIR_index):
-        """
-        Batch update data for a specific type within a given monthly/yearly date range.
-        """
-
-        try:
-            dir_path = self.TARGET_FILES_DIR[TARGET_FILES_DIR_index]
-            data_item = dir_path.strip("/").split("/")[-1]
-        except IndexError:
-            self.logger.error(f"Backward update failed: Invalid TARGET_FILES_DIR_index: {TARGET_FILES_DIR_index}")
-            return
-
-        self.logger.info(f"Starting backward update for: {data_item} (Period: {start} to {end})")
-
-        if data_item in self.SINGLE_FILE_DATA_ITEMS:
-            self.logger.warning(f"Backward update is not supported for SINGLE-FILE table '{data_item}'.")
-            self.logger.info(f"Processing the single file '{data_item}.csv' one time...")
-            metadata_entries = self._load_backfill_metadata(data_item)
-            if metadata_entries is None:
-                return
-            self._update_data_file(
-                data_item,
-                local_dir,
-                file_identifier=None,
-                logic_type="single",
-                metadata_entries=metadata_entries,
-            )
-            return
-        elif data_item in self.ANNUAL_FILE_DATA_ITEMS:
-            loop_format = "%Y"
-            date_offset = pd.DateOffset(years=1)
-            self.logger.info("Detected ANNUAL file logic for backward update.")
-        else:
-            # The default case uses monthly files.
-            loop_format = "%Y_%m"
-            date_offset = pd.DateOffset(months=1)
-            self.logger.info("Detected MONTHLY file logic for backward update.")
-
-        try:
-            backfill_periods = self._build_backfill_periods(start, end, loop_format, date_offset)
-        except ValueError:
-            self.logger.error(f"Invalid start/end format. Expected format '{loop_format}' for {data_item}, but got start='{start}' and end='{end}'.", exc_info=True)
-            return
-
-        if not backfill_periods:
-            self.logger.warning(f"Backward update range is empty for {data_item}: {start} to {end}.")
-            return
-
-        metadata_entries = self._load_backfill_metadata(data_item)
-        if metadata_entries is None:
-            return
-
-        for period_string in backfill_periods:
-            self._update_data_file(
-                data_item,
-                local_dir,
-                file_identifier=period_string,
-                logic_type=loop_format,
-                metadata_entries=metadata_entries,
-            )
-
-        self.logger.info(f"Backward update finished for {data_item}.")
-
-    @staticmethod
-    def _build_backfill_periods(start: str, end: str, loop_format: str, date_offset: pd.DateOffset) -> list[str]:
-        start_dt = pd.to_datetime(start, format=loop_format)
-        end_dt = pd.to_datetime(end, format=loop_format)
-
-        periods = []
-        dt = start_dt
-        while dt <= end_dt:
-            periods.append(dt.strftime(loop_format))
-            dt += date_offset
-        return periods
-
-    def _load_backfill_metadata(self, data_item: str) -> list[Dict] | None:
-        try:
-            return self._list_metadata(data_item, pd.Timestamp("2000-01-01"), pd.Timestamp.now())
-        except Exception as exc:
-            self.logger.error(f"Backward update failed while listing metadata for {data_item}: {exc}", exc_info=True)
-            return None
-
-    def _update_data_file(
-        self,
-        data_item: str,
-        local_dir: str,
-        file_identifier: str | None,
-        logic_type: str,
-        metadata_entries: list[Dict] | None = None,
-    ):
-        """
-        Helper for backwards_update. Downloads a specific file using the robust
-        _list_metadata and _download_file methods, processes it, and flushes *only* old data.
-
-        Args:
-            data_item (str): The data item, with or without version (e.g., "ActualTotalLoad_6.1.A").
-            local_dir (str): Local directory to save temp file.
-            file_identifier (str | None): The period string (e.g., "2024_01" or "2022") or None for "single" logic.
-            logic_type (str): "%Y_%m", "%Y", or "single".
-        """
-
-        table_name = self._get_table_name_for_data_item(data_item)
-        local_path = None
-
-        try:
-            self.logger.debug(f"[_update_data_file] Listing metadata for {data_item} to find file for period '{file_identifier}'...")
-
-            all_metas = metadata_entries
-            if all_metas is None:
-                all_metas = self._list_metadata(data_item, pd.Timestamp("2000-01-01"), pd.Timestamp.now())
-
-            target_meta = None
-            if logic_type == "single":
-                target_fname = f"{self._resolve_folder(data_item)}.csv"
-                target_meta = next((m for m in all_metas if m["name"] == target_fname), None)
-            else:
-                target_meta = next((m for m in all_metas if m["name"].startswith(str(file_identifier))), None)
-
-            if target_meta is None:
-                self.logger.warning(f"[_update_data_file] No file found for {data_item} matching identifier '{file_identifier}'. Skipping period.")
-                return
-
-            fname = target_meta["name"]
-            file_id = target_meta["fileId"]
-            local_path = os.path.join(local_dir, fname)
-
-            self.logger.info(f"Downloading (Backward Update): {fname}")
-            self._download_file(file_id, local_path)
-            df = pd.read_csv(local_path, encoding="utf-8-sig", sep="\t")
-            df.columns = df.columns.str.strip()
-
-            table_state = self._get_table_state(table_name)
-            if not table_state["table_exists"]:
-                self.logger.error(f"[_update_data_file] Table '{table_name}' does not exist. Cannot run backward update.")
-                return
-            update_time_column = table_state["update_time_column"]
-            if not update_time_column:
-                self.logger.error(f"[_update_data_file] Could not find 'UpdateTime' column for '{table_name}'.")
-                return
-            last_update_time = table_state["last_update_time"]
-
-            self._migrate_renamed_columns(table_name)
-            self._ensure_nulls_not_distinct(table_name)
-            self._ensure_update_time_index(table_name)
-            self._known_columns.pop(table_name, None)
-            self._add_missing_columns(table_name, df)
-
-            if last_update_time is None:
-                self.logger.warning(f"[_update_data_file] Table '{table_name}' is empty (no last_update_time). Flushing all {len(df)} rows as update.")
-                self._flush_to_database(table_name, pd.DataFrame(), df)
-                return
-
-            df.loc[:, update_time_column] = pd.to_datetime(df[update_time_column])
-            # Preserve the table's UpdateTime semantics so regular incremental runs keep working.
-            df_update = df[df[update_time_column] <= last_update_time].copy()
-
-            if not df_update.empty:
-                self.logger.info(f"[_update_data_file] Flushing {len(df_update)} old records for {table_name} from file {fname}.")
-                self._flush_to_database(table_name, pd.DataFrame(), df_update)
-            else:
-                self.logger.info(f"[_update_data_file] File {fname} contained no new backward-update data (older than {last_update_time}).")
-
-        except Exception as e:
-            self.logger.error(f"[_update_data_file] Failed during processing for identifier '{file_identifier}': {e}", exc_info=True)
-        finally:
-            if local_path and os.path.exists(local_path):
-                os.remove(local_path)
