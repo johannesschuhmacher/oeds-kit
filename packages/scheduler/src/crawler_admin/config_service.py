@@ -90,8 +90,21 @@ class CrawlerCard:
 
 
 @dataclass(frozen=True)
+class CrawlerOverview:
+    card: CrawlerCard | None
+    crawler_name: str
+    raw_config: dict[str, Any]
+    effective_config: dict[str, Any]
+    default_config: dict[str, Any]
+    issues: list[ValidationIssue]
+
+
+@dataclass(frozen=True)
 class DashboardState:
+    """Everything the admin pages derive from one read of the config file."""
+
     cards: list[CrawlerCard]
+    overviews: dict[str, CrawlerOverview]
     global_issues: list[ValidationIssue]
     validation: ValidationResult
     available_count: int
@@ -103,18 +116,6 @@ class DashboardState:
     time_label: str
     server_time: str
     schedule_samples: list[str]
-
-
-@dataclass(frozen=True)
-class CrawlerOverview:
-    card: CrawlerCard | None
-    crawler_name: str
-    raw_config: dict[str, Any]
-    effective_config: dict[str, Any]
-    default_config: dict[str, Any]
-    available_crawlers: list[str]
-    validation: ValidationResult
-    issues: list[ValidationIssue]
 
 
 def get_repo_root() -> Path:
@@ -627,6 +628,7 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
     runtime_config = apply_email_env_overrides(validation.data, root) if validation.data is not None else None
 
     cards: list[CrawlerCard] = []
+    overviews: dict[str, CrawlerOverview] = {}
     global_issues = [issue for issue in validation.issues if issue.scope == "global"]
 
     configured_crawlers: list[str] = []
@@ -641,6 +643,8 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
     if validation.data is not None:
         runtime_data = runtime_config or validation.data
         default_config = runtime_data.get("default", {})
+        if not isinstance(default_config, dict):
+            default_config = {}
         configured_crawlers = sorted(name for name in validation.data.keys() if name != "default")
 
         all_names = sorted(set(available_crawlers).union(configured_crawlers))
@@ -689,22 +693,29 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
                 issue_count=len(card_issues),
             )
 
-            cards.append(
-                CrawlerCard(
-                    name=crawler_name,
-                    description=description,
-                    configured=configured,
-                    module_present=module_present,
-                    enabled=enabled,
-                    schema_name=merged.get("schema_name") if configured else None,
-                    schedule=schedule if isinstance(schedule, str) else None,
-                    schedule_source=schedule_source,
-                    preview=preview,
-                    job_previews=job_previews,
-                    issues=card_issues,
-                    state_label=state_label,
-                    state_variant=state_variant,
-                )
+            card = CrawlerCard(
+                name=crawler_name,
+                description=description,
+                configured=configured,
+                module_present=module_present,
+                enabled=enabled,
+                schema_name=merged.get("schema_name") if configured else None,
+                schedule=schedule if isinstance(schedule, str) else None,
+                schedule_source=schedule_source,
+                preview=preview,
+                job_previews=job_previews,
+                issues=card_issues,
+                state_label=state_label,
+                state_variant=state_variant,
+            )
+            cards.append(card)
+            overviews[crawler_name] = CrawlerOverview(
+                card=card,
+                crawler_name=crawler_name,
+                raw_config=crawler_config if isinstance(crawler_config, dict) else {},
+                effective_config=merged,
+                default_config=default_config,
+                issues=card_issues,
             )
 
     cards.sort(
@@ -717,6 +728,7 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
 
     return DashboardState(
         cards=cards,
+        overviews=overviews,
         global_issues=global_issues,
         validation=validation,
         available_count=len(available_crawlers),
@@ -731,35 +743,8 @@ def build_dashboard_state(repo_root: Path | None = None) -> DashboardState:
     )
 
 
-def get_effective_config_map(
-    repo_root: Path | None = None,
-) -> tuple[ValidationResult, dict[str, Any], dict[str, dict[str, Any]], list[str]]:
-    root = repo_root or get_repo_root()
-    yaml_text = read_config_text(root)
-    available_crawlers = discover_crawler_modules()
-    validation = validate_config_text(yaml_text, available_crawlers=available_crawlers)
-    runtime_config = apply_email_env_overrides(validation.data, root) if validation.data is not None else None
-
-    default_config: dict[str, Any] = {}
-    effective_config_map: dict[str, dict[str, Any]] = {}
-
-    if validation.data is not None:
-        runtime_data = runtime_config or validation.data
-        default_candidate = runtime_data.get("default", {})
-        if isinstance(default_candidate, dict):
-            default_config = default_candidate
-
-        for crawler_name, crawler_config in validation.data.items():
-            if crawler_name == "default" or not isinstance(crawler_config, dict):
-                continue
-            effective_config_map[crawler_name] = merge_with_defaults(default_config, crawler_config)
-
-    return validation, default_config, effective_config_map, available_crawlers
-
-
 def get_crawler_overview(crawler_name: str, repo_root: Path | None = None) -> CrawlerOverview:
-    overviews = get_all_crawler_overviews(repo_root)
-    return overviews.get(
+    return build_dashboard_state(repo_root).overviews.get(
         crawler_name,
         CrawlerOverview(
             card=None,
@@ -767,48 +752,9 @@ def get_crawler_overview(crawler_name: str, repo_root: Path | None = None) -> Cr
             raw_config={},
             effective_config={},
             default_config={},
-            available_crawlers=[],
-            validation=ValidationResult(data=None, issues=[]),
             issues=[],
         ),
     )
-
-
-def get_all_crawler_overviews(repo_root: Path | None = None) -> dict[str, CrawlerOverview]:
-    root = repo_root or get_repo_root()
-    dashboard_state = build_dashboard_state(root)
-    validation, default_config, effective_config_map, available_crawlers = get_effective_config_map(root)
-    raw_configs: dict[str, dict[str, Any]] = {}
-
-    if validation.data is not None:
-        for candidate_name, candidate_config in validation.data.items():
-            if candidate_name == "default" or not isinstance(candidate_config, dict):
-                continue
-            raw_configs[candidate_name] = candidate_config
-
-    card_map = {card.name: card for card in dashboard_state.cards}
-    all_names = sorted(set(card_map).union(raw_configs).union(effective_config_map))
-    issues_by_scope: dict[str, list[ValidationIssue]] = {}
-    for issue in validation.issues:
-        if issue.scope == "global":
-            continue
-        crawler_scope = issue.scope.split(":", 1)[0]
-        issues_by_scope.setdefault(crawler_scope, []).append(issue)
-
-    overview_map: dict[str, CrawlerOverview] = {}
-    for crawler_name in all_names:
-        overview_map[crawler_name] = CrawlerOverview(
-            card=card_map.get(crawler_name),
-            crawler_name=crawler_name,
-            raw_config=raw_configs.get(crawler_name, {}),
-            effective_config=effective_config_map.get(crawler_name, {}),
-            default_config=default_config,
-            available_crawlers=available_crawlers,
-            validation=validation,
-            issues=issues_by_scope.get(crawler_name, []),
-        )
-
-    return overview_map
 
 
 def update_crawler_schedule_config_text(
