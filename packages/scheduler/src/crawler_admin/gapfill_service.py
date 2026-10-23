@@ -25,6 +25,14 @@ class GapfillRuntimeTableItem:
 
 
 @dataclass(frozen=True)
+class GapfillLastRun:
+    started_at: str
+    status: str
+    values_filled: int
+    message: str | None
+
+
+@dataclass(frozen=True)
 class GapfillRuntimeView:
     crawler_name: str
     supported: bool
@@ -152,6 +160,60 @@ def build_gapfill_runtime_view(
         tables=tables,
         post_run_scripts=scripts,
         dashboard_name=GAPFILL_DASHBOARD_NAME if supported_tables else None,
+    )
+
+
+def load_last_gapfill_run(
+    effective_config: dict[str, object],
+    target_schema: str,
+) -> tuple[GapfillLastRun | None, str]:
+    """Latest row of ``<target_schema>.gapfill_runs``, written by ``oeds-post gapfill``.
+
+    Returns the run (or None) and a note for when there is none.
+    """
+
+    database_uri = str(effective_config.get("database_uri") or "").strip()
+    if not database_uri:
+        return None, "No database URI is configured."
+
+    runs_table = '"' + target_schema.replace('"', '""') + '".gapfill_runs'
+    try:
+        resolved_uri = resolve_database_uri(database_uri)
+        engine = create_engine(
+            resolved_uri,
+            connect_args=_connect_args_for_database_uri(resolved_uri),
+        )
+        try:
+            with engine.connect() as connection:
+                if connection.execute(
+                    text("SELECT to_regclass(:runs_table)"), {"runs_table": runs_table}
+                ).scalar() is None:
+                    return None, "No gapfill runs yet."
+                row = connection.execute(
+                    text(
+                        f"""
+                        SELECT started_at, status, values_filled, message
+                        FROM {runs_table}
+                        ORDER BY started_at DESC
+                        LIMIT 1
+                        """
+                    )
+                ).mappings().first()
+        finally:
+            engine.dispose()
+    except Exception:
+        return None, "Gapfill run status is not reachable."
+
+    if row is None:
+        return None, "No gapfill runs yet."
+    return (
+        GapfillLastRun(
+            started_at=f"{row['started_at']:%Y-%m-%d %H:%M %Z}".strip(),
+            status=str(row["status"]),
+            values_filled=int(row["values_filled"]),
+            message=row["message"],
+        ),
+        "",
     )
 
 

@@ -12,8 +12,14 @@ from types import SimpleNamespace
 import yaml
 from crawler.common.crawler_utils import CrawlerSkipped
 
-from crawler_admin.app import _build_scheduler_form_state, _select_scheduler_job_name
+from crawler_admin.app import (
+    _build_gapfill_form_defaults_from_view,
+    _build_scheduler_form_state,
+    _select_scheduler_job_name,
+    _validate_gapfill_form_values,
+)
 from crawler_admin.config_service import (
+    GAPFILL_POSTRUN_SCRIPT,
     CrawlerCard,
     CrawlerJobPreview,
     CronPreview,
@@ -107,11 +113,8 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                     repo_root=Path(temp_dir),
                 )
 
-    def test_gapfill_panel_detects_and_keeps_the_oeds_post_command(self) -> None:
-        post_run_scripts = ["oeds-post gapfill entsoe-fms", "oeds-post refresh entsoe-availability-map"]
-        config = {"schema_name": "entsoe_fms", "post_run_scripts": post_run_scripts}
-        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", config, config).script_enabled)
-
+    def test_gapfill_toggle_keeps_exactly_one_post_run_step(self) -> None:
+        refresh = "oeds-post refresh entsoe-availability-map"
         settings = {
             "enabled": True,
             "selected_tables": [],
@@ -125,22 +128,69 @@ class SchedulerAdminConfigTest(unittest.TestCase):
             "lookback": "7d",
             "fail_on_table_error": True,
         }
-        with tempfile.TemporaryDirectory() as temp_dir:
-            (Path(temp_dir) / "CRAWLER_CONFIG.yml").write_text(
-                yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
-            )
-            kept = update_gapfill_config_text(
-                "entsoe_fms", script_enabled=True, repo_root=Path(temp_dir), **settings
-            )
-            removed = update_gapfill_config_text(
-                "entsoe_fms", script_enabled=False, repo_root=Path(temp_dir), **settings
-            )
+        # (existing post_run_scripts, script_enabled, expected post_run_scripts)
+        cases = [
+            ([refresh], True, [GAPFILL_POSTRUN_SCRIPT, refresh]),
+            ([refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"], True,
+             [refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"]),
+            ([refresh, "scripts/gapfill_timeseries.py"], True, [refresh, GAPFILL_POSTRUN_SCRIPT]),
+            (["scripts/gapfill_timeseries.py", refresh, GAPFILL_POSTRUN_SCRIPT], True,
+             [GAPFILL_POSTRUN_SCRIPT, refresh]),
+            ([GAPFILL_POSTRUN_SCRIPT, refresh, "scripts/gapfill_timeseries.py"], False, [refresh]),
+        ]
+        legacy = {"schema_name": "entsoe_fms", "post_run_scripts": ["scripts/gapfill_timeseries.py"]}
+        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", legacy, legacy).script_enabled)
 
-        self.assertEqual(yaml.safe_load(kept)["entsoe_fms"]["post_run_scripts"], post_run_scripts)
-        self.assertEqual(
-            yaml.safe_load(removed)["entsoe_fms"]["post_run_scripts"],
-            ["oeds-post refresh entsoe-availability-map"],
+        for scripts, script_enabled, expected in cases:
+            with self.subTest(scripts=scripts, script_enabled=script_enabled):
+                config = {"schema_name": "entsoe_fms", "post_run_scripts": scripts}
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "CRAWLER_CONFIG.yml"
+                    config_path.write_text(
+                        yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
+                    )
+                    for _ in range(2):  # saving again changes nothing
+                        config_path.write_text(
+                            update_gapfill_config_text(
+                                "entsoe_fms",
+                                script_enabled=script_enabled,
+                                repo_root=Path(temp_dir),
+                                **settings,
+                            ),
+                            encoding="utf-8",
+                        )
+                        saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+                        self.assertEqual(saved["entsoe_fms"]["post_run_scripts"], expected)
+
+    def test_gapfill_form_rejects_values_the_gapfill_config_cannot_load(self) -> None:
+        config = {"schema_name": "entsoe_fms"}
+        overview = SimpleNamespace(crawler_name="entsoe_fms", raw_config=config, effective_config=config)
+        values = _build_gapfill_form_defaults_from_view(
+            build_gapfill_runtime_view("entsoe_fms", config, config)
         )
+        self.assertEqual(_validate_gapfill_form_values(values, overview), [])
+
+        values.update(
+            target_schema="",
+            max_gap_periods="1.5",
+            candidate_periods="24h, often",
+            lookback="7days ago",
+            table_methods={**values["table_methods"], "EnergyPrices": "magic"},
+            selected_tables=["EnergyPrices"],
+        )
+        errors = _validate_gapfill_form_values(values, overview)
+
+        self.assertEqual(
+            errors,
+            [
+                "Target schema is required.",
+                "Max gap periods must be a whole number, not '1.5'.",
+                "Candidate periods: 'often' is not a duration such as 24h or 7d.",
+                "Lookback: '7days ago' is not a duration such as 24h or 7d.",
+                errors[-1],
+            ],
+        )
+        self.assertIn("gapfill method must be one of", errors[-1])
 
     def test_scheduler_form_uses_selected_job_values(self) -> None:
         card = CrawlerCard(
