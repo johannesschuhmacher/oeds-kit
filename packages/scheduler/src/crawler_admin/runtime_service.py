@@ -677,7 +677,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler, _log: self._run_gapfill_backfill(payload),
+                executor=lambda _crawler, log: self._run_gapfill_backfill(payload, log),
                 requires_crawler=False,
             )
 
@@ -738,7 +738,7 @@ class CrawlerRunService:
                 config_overrides={},
                 action_payload=payload,
                 run_post_scripts=False,
-                executor=lambda _crawler, _log: self._run_price_forecast(payload),
+                executor=lambda _crawler, log: self._run_price_forecast(payload, log),
                 requires_crawler=False,
             )
 
@@ -1058,7 +1058,15 @@ class CrawlerRunService:
                 "error_message": record.error_message,
             }
 
-        content = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        # Polled every few seconds while a run is active: read only the end.
+        tail_bytes = lines * 1024
+        with log_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            start = max(0, handle.tell() - tail_bytes)
+            handle.seek(start)
+            content = handle.read().decode("utf-8", errors="replace").splitlines()
+        if start:
+            content = content[1:]  # the first line is cut
         tail_lines = content[-lines:]
         return {
             "text": "\n".join(tail_lines),
@@ -1289,7 +1297,9 @@ class CrawlerRunService:
             return f"Backfill completed for {payload['data_item']}."
         return f"Backfill completed for {payload['data_item']} from {payload['start']} to {payload['end']}."
 
-    def _run_gapfill_backfill(self, payload: dict[str, Any]) -> str | None:
+    def _run_gapfill_backfill(
+        self, payload: dict[str, Any], handle: io.TextIOBase
+    ) -> str | None:
         command = [
             "oeds-post",
             "gapfill",
@@ -1309,14 +1319,10 @@ class CrawlerRunService:
         completed = subprocess.run(
             command,
             cwd=self.repo_root,
-            capture_output=True,
-            text=True,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             check=False,
         )
-        if completed.stdout:
-            print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
-        if completed.stderr:
-            print(completed.stderr, end="" if completed.stderr.endswith("\n") else "\n")
         if completed.returncode != 0:
             raise RuntimeError(
                 f"Gapfill backfill exited with code {completed.returncode}."
@@ -1328,7 +1334,9 @@ class CrawlerRunService:
             f"Gapfill backfill completed for {payload['job']} from {payload['start']}."
         )
 
-    def _run_price_forecast(self, payload: dict[str, Any]) -> str | None:
+    def _run_price_forecast(
+        self, payload: dict[str, Any], handle: io.TextIOBase
+    ) -> str | None:
         command = [
             "oeds-post",
             "forecast",
@@ -1348,14 +1356,10 @@ class CrawlerRunService:
         completed = subprocess.run(
             command,
             cwd=self.repo_root,
-            capture_output=True,
-            text=True,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             check=False,
         )
-        if completed.stdout:
-            print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
-        if completed.stderr:
-            print(completed.stderr, end="" if completed.stderr.endswith("\n") else "\n")
         if completed.returncode != 0:
             raise RuntimeError(
                 f"Price forecast exited with code {completed.returncode}."
