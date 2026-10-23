@@ -20,8 +20,10 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
 CONFIG_FILENAME = "CRAWLER_CONFIG.yml"
 # The post-run command the gapfill panel adds; any "oeds-post gapfill ..."
-# command (for example with extra arguments) counts as the gapfill step.
+# command (for example with extra arguments) and the legacy script it replaced
+# count as the gapfill step.
 GAPFILL_POSTRUN_SCRIPT = "oeds-post gapfill entsoe-fms"
+LEGACY_GAPFILL_SCRIPT_NAME = "gapfill_timeseries.py"
 WINDOWS_TIMEZONE_ABBREVIATIONS = {
     "W. Europe Standard Time": "CET",
     "W. Europe Daylight Time": "CEST",
@@ -174,8 +176,14 @@ def get_file_mtime_display(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def is_gapfill_command(command: str) -> bool:
+def _is_oeds_post_gapfill(command: str) -> bool:
     return command.split()[:2] == ["oeds-post", "gapfill"]
+
+
+def is_gapfill_command(command: str) -> bool:
+    return _is_oeds_post_gapfill(command) or any(
+        Path(part).name == LEGACY_GAPFILL_SCRIPT_NAME for part in command.split()
+    )
 
 
 def merge_with_defaults(default_config: dict[str, Any], crawler_config: dict[str, Any]) -> dict[str, Any]:
@@ -864,10 +872,15 @@ def update_gapfill_config_text(
     else:
         raise ValueError("The crawler 'post_run_scripts' value must be a list before gapfill can be edited.")
 
-    if not script_enabled:
-        post_run_list = [script for script in post_run_list if not is_gapfill_command(script)]
-    elif not any(is_gapfill_command(script) for script in post_run_list):
-        post_run_list.insert(0, GAPFILL_POSTRUN_SCRIPT)
+    # Enabled keeps exactly one gapfill step, where the first one was: an
+    # "oeds-post gapfill ..." command as written, otherwise the canonical command
+    # in place of the legacy script. Disabled removes every gapfill step.
+    gapfill_scripts = [script for script in post_run_list if is_gapfill_command(script)]
+    position = post_run_list.index(gapfill_scripts[0]) if gapfill_scripts else 0
+    kept_script = next((script for script in gapfill_scripts if _is_oeds_post_gapfill(script)), GAPFILL_POSTRUN_SCRIPT)
+    post_run_list = [script for script in post_run_list if not is_gapfill_command(script)]
+    if script_enabled:
+        post_run_list.insert(position, kept_script)
     crawler_config["post_run_scripts"] = [DoubleQuotedScalarString(script) for script in post_run_list]
 
     gapfill_config = crawler_config.get("gapfill")

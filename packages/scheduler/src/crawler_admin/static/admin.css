@@ -1522,7 +1522,8 @@ select[multiple] {
   color: var(--error);
 }
 
-.status-pill--succeeded {
+.status-pill--succeeded,
+.status-pill--success {
   background: var(--success-soft);
   color: var(--success);
 }

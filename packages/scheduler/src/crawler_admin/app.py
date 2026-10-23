@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import pandas as pd
 import yaml
 from fastapi import FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -32,6 +31,7 @@ from crawler_admin.config_service import (
 from crawler_admin.gapfill_service import (
     build_gapfill_runtime_view,
     gapfill_method_options,
+    load_last_gapfill_run,
 )
 from crawler_admin.price_forecast_service import build_price_forecast_runtime_view
 from crawler_admin.runtime_service import (
@@ -225,9 +225,6 @@ def crawler_detail(
     elif email_tested:
         message_kind = "success"
         message_text = f"Sent test email for {crawler_name}."
-    elif gapfill_saved:
-        message_kind = "success"
-        message_text = f"Saved gapfill settings for {crawler_name}."
 
     return _render_crawler_detail(
         request=request,
@@ -235,6 +232,7 @@ def crawler_detail(
         selected_run_id=run,
         message_kind=message_kind,
         message_text=message_text,
+        gapfill_saved=bool(gapfill_saved),
         check_gapfill_db=bool(check_gapfill_db),
     )
 
@@ -252,12 +250,11 @@ async def save_crawler_gapfill(request: Request, crawler_name: str) -> HTMLRespo
     gapfill_values = _extract_gapfill_form_values(form, overview)
     gapfill_errors = _validate_gapfill_form_values(gapfill_values, overview)
 
+    # Errors are shown next to the gapfill form.
     if gapfill_errors:
         return _render_crawler_detail(
             request=request,
             crawler_name=crawler_name,
-            message_kind="error",
-            message_text="Gapfill settings were not saved.",
             gapfill_errors=gapfill_errors,
             gapfill_values=gapfill_values,
         )
@@ -283,8 +280,6 @@ async def save_crawler_gapfill(request: Request, crawler_name: str) -> HTMLRespo
         return _render_crawler_detail(
             request=request,
             crawler_name=crawler_name,
-            message_kind="error",
-            message_text="Gapfill settings were not saved.",
             gapfill_errors=[str(exc)],
             gapfill_values=gapfill_values,
         )
@@ -570,81 +565,52 @@ def _build_gapfill_form_defaults_from_view(gapfill_view: Any) -> dict[str, Any]:
 
 
 def _validate_gapfill_form_values(gapfill_values: dict[str, Any], overview: Any) -> list[str]:
-    errors: list[str] = []
+    """Reject values the gapfill job (``oeds_gapfill.config``) could not load."""
+
+    from oeds_gapfill.config import _parse_timedelta, select_tables
+
     gapfill_view = build_gapfill_runtime_view(
         overview.crawler_name,
         overview.raw_config,
         overview.effective_config,
     )
-
     if not gapfill_view.supported:
         return ["Gapfill controls are only available for crawlers with built-in table metadata."]
 
-    target_schema = str(gapfill_values["target_schema"]).strip()
-    if not target_schema:
+    errors: list[str] = []
+    if not gapfill_values["target_schema"]:
         errors.append("Target schema is required.")
-    elif not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", target_schema):
-        errors.append("Target schema must be a valid PostgreSQL schema identifier.")
 
-    method = str(gapfill_values["method"]).strip()
-    if method not in gapfill_method_options():
-        errors.append(f"Gapfill method must be one of: {', '.join(gapfill_method_options())}.")
+    for key, label in (
+        ("donor_context_periods", "Donor context periods"),
+        ("refinement_periods", "Refinement periods"),
+        ("max_gap_periods", "Max gap periods"),
+    ):
+        try:
+            int(gapfill_values[key])
+        except ValueError:
+            errors.append(f"{label} must be a whole number, not '{gapfill_values[key]}'.")
 
-    try:
-        donor_context_periods = int(gapfill_values["donor_context_periods"])
-        if donor_context_periods < 1:
-            errors.append("Donor context periods must be at least 1.")
-    except (TypeError, ValueError):
-        errors.append("Donor context periods must be an integer.")
-
-    try:
-        refinement_periods = int(gapfill_values["refinement_periods"])
-        if refinement_periods < 0:
-            errors.append("Refinement periods must be 0 or greater.")
-    except (TypeError, ValueError):
-        errors.append("Refinement periods must be an integer.")
-
-    try:
-        max_gap_periods = int(gapfill_values["max_gap_periods"])
-        if max_gap_periods < 1:
-            errors.append("Max gap periods must be at least 1.")
-    except (TypeError, ValueError):
-        errors.append("Max gap periods must be an integer.")
-
-    for label, raw_value in (
-        ("Candidate periods", gapfill_values["candidate_periods"]),
+    durations = [("Candidate periods", value) for value in _split_gapfill_periods(gapfill_values["candidate_periods"])]
+    durations += [
         ("Donor search radius", gapfill_values["donor_search_radius"]),
         ("Lookback", gapfill_values["lookback"]),
-    ):
-        values = _split_gapfill_periods(raw_value) if label == "Candidate periods" else [str(raw_value).strip()]
-        for value in values:
-            if not value:
-                continue
-            try:
-                pd.Timedelta(value)
-            except (TypeError, ValueError):
-                errors.append(f"{label} contains an invalid duration: {value}")
+    ]
+    for label, value in durations:
+        try:
+            _parse_timedelta(value)
+        except ValueError:
+            errors.append(f"{label}: '{value}' is not a duration such as 24h or 7d.")
 
-    known_tables = {item.table_name for item in gapfill_view.tables}
-    invalid_tables = sorted(set(gapfill_values["selected_tables"]) - known_tables)
-    if invalid_tables:
-        errors.append(f"Unknown gapfill tables: {', '.join(invalid_tables)}.")
-
-    table_methods = gapfill_values.get("table_methods")
-    if not isinstance(table_methods, dict):
-        errors.append("Table methods could not be read from the submitted form.")
-    else:
-        invalid_method_tables = [
-            table_name
-            for table_name in gapfill_values["selected_tables"]
-            if table_methods.get(table_name) not in gapfill_method_options()
-        ]
-        if invalid_method_tables:
-            errors.append(
-                "Each selected table needs a valid gapfill method. Invalid tables: "
-                + ", ".join(invalid_method_tables)
-                + "."
-            )
+    # Unknown tables and invalid methods of the selected tables.
+    try:
+        select_tables(
+            gapfill_values["selected_tables"],
+            method=gapfill_values["method"],
+            table_methods=gapfill_values["table_methods"],
+        )
+    except ValueError as exc:
+        errors.append(str(exc))
 
     return errors
 
@@ -664,6 +630,7 @@ def _render_crawler_detail(
     email_test_errors: list[str] | None = None,
     gapfill_errors: list[str] | None = None,
     gapfill_values: dict[str, Any] | None = None,
+    gapfill_saved: bool = False,
     check_gapfill_db: bool = False,
     submitted_action_id: str | None = None,
     submitted_values: dict[str, Any] | None = None,
@@ -685,6 +652,7 @@ def _render_crawler_detail(
     # The gapfill and price-forecast panels are absent without oeds-post-scripts.
     gapfill_view = None
     gapfill_form_values = gapfill_values or {}
+    gapfill_last_run, gapfill_last_run_note = None, ""
     price_forecast_view = None
     if POST_INSTALLED:
         gapfill_view = build_gapfill_runtime_view(
@@ -696,6 +664,10 @@ def _render_crawler_detail(
         gapfill_form_values = gapfill_values or _build_gapfill_form_defaults_from_view(
             gapfill_view
         )
+        if gapfill_view.supported:
+            gapfill_last_run, gapfill_last_run_note = load_last_gapfill_run(
+                overview.effective_config, gapfill_view.target_schema
+            )
         if crawler_name == "entsoe_api":
             price_forecast_view = build_price_forecast_runtime_view(overview.effective_config)
 
@@ -727,6 +699,9 @@ def _render_crawler_detail(
             "price_forecast_view": price_forecast_view,
             "check_gapfill_db": check_gapfill_db,
             "gapfill_errors": gapfill_errors or [],
+            "gapfill_saved": gapfill_saved,
+            "gapfill_last_run": gapfill_last_run,
+            "gapfill_last_run_note": gapfill_last_run_note,
             "gapfill_values": gapfill_form_values,
             "gapfill_methods": gapfill_method_options() if POST_INSTALLED else [],
             "base_hash": state.config_hash,

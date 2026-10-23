@@ -246,17 +246,6 @@
         </article>
       </div>
 
-      {% if gapfill_errors %}
-        <section class="flash flash--error">
-          <strong>The gapfill settings could not be saved.</strong>
-          <ul class="stack-list">
-            {% for error in gapfill_errors %}
-              <li>{{ error }}</li>
-            {% endfor %}
-          </ul>
-        </section>
-      {% endif %}
-
       {% if gapfill_view %}
       <section class="panel gapfill-ops-panel" id="gapfill-operations">
         <div class="panel-heading panel-heading--stack">
@@ -317,10 +306,49 @@
                 </div>
               </dl>
             </article>
+
+            <article class="settings-card">
+              <span class="fleet-summary__label">Last gapfill run</span>
+              {% if gapfill_last_run %}
+                <strong><span class="status-pill status-pill--{{ gapfill_last_run.status }}">{{ gapfill_last_run.status }}</span></strong>
+                <dl class="detail-list detail-list--compact">
+                  <div>
+                    <dt>Started</dt>
+                    <dd>{{ gapfill_last_run.started_at }}</dd>
+                  </div>
+                  <div>
+                    <dt>Filled points</dt>
+                    <dd>{{ gapfill_last_run.values_filled }}</dd>
+                  </div>
+                </dl>
+                {% if gapfill_last_run.message %}
+                  <p class="subtle-note">{{ gapfill_last_run.message }}</p>
+                {% endif %}
+              {% else %}
+                <strong>-</strong>
+                <p class="subtle-note">{{ gapfill_last_run_note }}</p>
+              {% endif %}
+            </article>
           </div>
 
-          <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill" class="gapfill-config-form">
-            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}" />
+          {% if gapfill_saved %}
+            <section class="flash flash--success">
+              <strong>Saved gapfill settings.</strong>
+            </section>
+          {% endif %}
+          {% if gapfill_errors %}
+            <section class="flash flash--error">
+              <strong>The gapfill settings were not saved.</strong>
+              <ul class="stack-list">
+                {% for error in gapfill_errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endif %}
+
+          <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill#gapfill-operations" class="gapfill-config-form">
+            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}#gapfill-operations" />
             <input type="hidden" name="base_hash" value="{{ base_hash }}" />
 
             <div class="studio-form-grid">
