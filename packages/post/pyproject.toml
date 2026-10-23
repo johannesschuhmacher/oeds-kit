@@ -15,18 +15,19 @@ dependencies = [
     "psycopg2-binary",
     "python-dotenv",
     "pyyaml",
-    "scikit-learn",
-    "scipy",
     "sqlalchemy",
 ]
 
 [project.optional-dependencies]
 # `oeds-post backfill entsoe-unavailability` imports the pack's ENTSO-E FMS crawler.
 backfill = ["oeds-crawler-pack"]
+# da-price-forecasting imports scikit-learn and scipy without declaring them.
 price-forecast = [
     "da-price-forecasting @ git+https://github.com/philipprisk/DA_Price_Forecasting_Pipeline_DE_LU.git@c3f8a270cbeff328a30609f9b66e96ced693b676",
     "holidays",
     "matplotlib",
+    "scikit-learn",
+    "scipy",
 ]
 
 [project.scripts]
@@ -39,9 +40,8 @@ packages = [
     "oeds_price_forecast",
     "scripts",
     "scripts.lib",
-    "scripts.lib.gapfiller",
 ]
-package-dir = {oeds_post_scripts = "src/oeds_post_scripts", oeds_gapfill = "oeds_gapfill", oeds_price_forecast = "oeds_price_forecast", scripts = "scripts", "scripts.lib" = "scripts/lib", "scripts.lib.gapfiller" = "scripts/lib/gapfiller"}
+package-dir = {oeds_post_scripts = "src/oeds_post_scripts", oeds_gapfill = "oeds_gapfill", oeds_price_forecast = "oeds_price_forecast", scripts = "scripts", "scripts.lib" = "scripts/lib"}
 
 [tool.setuptools.package-data]
 "scripts.lib" = ["*.sql"]

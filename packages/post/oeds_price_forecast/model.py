@@ -12,6 +12,7 @@ forecasts, and weather proxies when available.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from zoneinfo import ZoneInfo
@@ -200,6 +201,15 @@ def _metrics(actual: pd.Series, predicted: pd.Series) -> pd.DataFrame:
     return pd.DataFrame([{"metric": metric, "value": value} for metric, value in values.items()])
 
 
+def quantile_forecast(point: pd.DataFrame, offsets: pd.Series, quantiles: tuple[float, ...]) -> pd.DataFrame:
+    """Quantile rows: the point forecast shifted by each quantile's offset, one block per quantile."""
+    blocks = [
+        point.assign(quantile=float(quantile), value_eur_mwh=point["value_eur_mwh"] + float(offsets.loc[quantile]))
+        for quantile in quantiles
+    ]
+    return pd.concat(blocks, ignore_index=True)[["delivery_start_utc", "delivery_end_utc", "quantile", "value_eur_mwh"]]
+
+
 def forecast_day(
     price: pd.Series,
     exaa: pd.Series | None,
@@ -234,24 +244,11 @@ def forecast_day(
         }
     )
 
-    quantile_rows = []
     residual_quantiles = residuals.quantile(list(config.quantiles)) if not residuals.empty else pd.Series(0.0, index=config.quantiles)
-    for quantile in config.quantiles:
-        values = point_values + float(residual_quantiles.loc[quantile])
-        for delivery_start, delivery_end, value in zip(point["delivery_start_utc"], point["delivery_end_utc"], values, strict=True):
-            quantile_rows.append(
-                {
-                    "delivery_start_utc": delivery_start,
-                    "delivery_end_utc": delivery_end,
-                    "quantile": float(quantile),
-                    "value_eur_mwh": float(value),
-                }
-            )
-
     metrics = _metrics(target["y"], pd.Series(point_values, index=target.index))
     return ForecastResult(
         point_forecast=point,
-        quantile_forecast=pd.DataFrame(quantile_rows),
+        quantile_forecast=quantile_forecast(point, residual_quantiles, config.quantiles),
         metrics=metrics,
         feature_columns=tuple(feature_columns),
         train_start_utc=train.index.min(),
@@ -265,14 +262,25 @@ def backtest_forecast(
     covariates: pd.DataFrame | None,
     target_dates: list[date],
     config: PriceForecastConfig | None = None,
+    forecast_fn: Callable[..., ForecastResult] = forecast_day,
+    fill_actual_gaps: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Forecast each target date with `forecast_fn` and score it against the actual prices.
+
+    With `fill_actual_gaps` the actuals are forward-filled over up to three missing
+    periods, as in the ridge features; otherwise missing actuals stay missing.
+    """
     config = config or PriceForecastConfig()
     forecast_frames = []
     metric_frames = []
 
     for target_date in target_dates:
-        result = forecast_day(price, exaa, covariates, target_date, config)
-        actual = _regularize_series(price, pd.DatetimeIndex(result.point_forecast["delivery_start_utc"]), "actual")
+        result = forecast_fn(price, exaa, covariates, target_date, config)
+        delivery_index = pd.DatetimeIndex(result.point_forecast["delivery_start_utc"])
+        if fill_actual_gaps:
+            actual = _regularize_series(price, delivery_index, "actual")
+        else:
+            actual = _as_utc_series(price, "actual").reindex(delivery_index)
         forecast = result.point_forecast.copy()
         forecast["target_date"] = target_date
         forecast["actual_eur_mwh"] = actual.to_numpy(dtype=float)

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
+from functools import partial
 import json
 import os
 from pathlib import Path
@@ -109,108 +110,31 @@ def _backend_model_identity(backend: str) -> tuple[str, str]:
     return MODEL_NAME, MODEL_VERSION
 
 
-def _forecast_with_backend(
-    backend: str,
+def _backend_functions(backend: str, args: argparse.Namespace):
+    """Return the (forecast, backtest) functions of a backend."""
+    if backend == BACKEND_UPSTREAM:
+        options = {"repo_path": args.upstream_repo_path, "variant": args.upstream_variant}
+        return partial(forecast_day_upstream, **options), partial(backtest_forecast_upstream, **options)
+    return forecast_day, backtest_forecast
+
+
+def _run_forecast(
+    args: argparse.Namespace,
     price: pd.Series,
     exaa: pd.Series | None,
     covariates: pd.DataFrame | None,
     target_date: date,
     config: PriceForecastConfig,
-    upstream_repo_path: str | None,
-    upstream_variant: str,
 ):
-    if backend == BACKEND_UPSTREAM:
-        return forecast_day_upstream(
-            price,
-            exaa,
-            covariates,
-            target_date,
-            config,
-            repo_path=upstream_repo_path,
-            variant=upstream_variant,
-        )
-    return forecast_day(price, exaa, covariates, target_date, config)
-
-
-def _backtest_with_backend(
-    backend: str,
-    price: pd.Series,
-    exaa: pd.Series | None,
-    covariates: pd.DataFrame | None,
-    target_dates: list[date],
-    config: PriceForecastConfig,
-    upstream_repo_path: str | None,
-    upstream_variant: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    if backend == BACKEND_UPSTREAM:
-        return backtest_forecast_upstream(
-            price,
-            exaa,
-            covariates,
-            target_dates,
-            config,
-            repo_path=upstream_repo_path,
-            variant=upstream_variant,
-        )
-    return backtest_forecast(price, exaa, covariates, target_dates, config)
-
-
-def _run_forecast_auto(
-    requested_backend: str,
-    price: pd.Series,
-    exaa: pd.Series | None,
-    covariates: pd.DataFrame | None,
-    target_date: date,
-    config: PriceForecastConfig,
-    upstream_repo_path: str | None,
-    upstream_variant: str,
-):
-    if requested_backend == BACKEND_AUTO:
-        try:
-            return (
-                BACKEND_UPSTREAM,
-                _forecast_with_backend(
-                    BACKEND_UPSTREAM,
-                    price,
-                    exaa,
-                    covariates,
-                    target_date,
-                    config,
-                    upstream_repo_path,
-                    upstream_variant,
-                ),
-                None,
-            )
-        except UpstreamBackendUnavailable as exc:
-            return (
-                BACKEND_RIDGE,
-                _forecast_with_backend(
-                    BACKEND_RIDGE,
-                    price,
-                    exaa,
-                    covariates,
-                    target_date,
-                    config,
-                    upstream_repo_path,
-                    upstream_variant,
-                ),
-                str(exc),
-            )
-
-    return (
-        requested_backend,
-        _forecast_with_backend(
-            requested_backend,
-            price,
-            exaa,
-            covariates,
-            target_date,
-            config,
-            upstream_repo_path,
-            upstream_variant,
-        ),
-        None,
-    )
+    """Forecast with the requested backend; `auto` tries upstream and falls back to ridge."""
+    backend = BACKEND_UPSTREAM if args.model_backend == BACKEND_AUTO else args.model_backend
+    forecast, _ = _backend_functions(backend, args)
+    try:
+        return backend, forecast(price, exaa, covariates, target_date, config), None
+    except UpstreamBackendUnavailable as exc:
+        if args.model_backend != BACKEND_AUTO:
+            raise
+        return BACKEND_RIDGE, forecast_day(price, exaa, covariates, target_date, config), str(exc)
 
 
 def _delivery_bounds(target_date: date, train_days: int) -> tuple[pd.Timestamp, pd.Timestamp]:
@@ -235,25 +159,23 @@ def _market_area_params(market_area: str, **extra) -> dict:
     }
 
 
-def _table_exists(engine, schema: str, table: str) -> bool:
-    with engine.connect() as conn:
-        return bool(
-            conn.execute(
-                text(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_schema = :schema AND table_name = :table
-                    )
-                    """
-                ),
-                {"schema": schema, "table": table},
-            ).scalar()
+def _existing_tables(conn) -> set[tuple[str, str]]:
+    rows = conn.execute(
+        text(
+            """
+            SELECT table_schema, table_name FROM information_schema.tables
+            WHERE table_schema IN ('entsoe_fms', 'entsoe_api', 'weather')
+            """
         )
+    )
+    return {(schema, table) for schema, table in rows}
 
 
-def _read_series(engine, sql: str, params: dict, value_column: str) -> pd.Series:
-    frame = pd.read_sql_query(text(sql), engine, params=params)
+def _read_series(conn, sql: str, params: dict, value_column: str) -> pd.Series:
+    return _series_from_frame(pd.read_sql_query(text(sql), conn, params=params), value_column)
+
+
+def _series_from_frame(frame: pd.DataFrame, value_column: str) -> pd.Series:
     if frame.empty:
         return pd.Series(dtype=float, name=value_column)
     frame["ts"] = pd.to_datetime(frame["ts"], utc=True, errors="coerce")
@@ -338,7 +260,8 @@ def _combine_covariates(*frames: pd.DataFrame) -> pd.DataFrame:
 
 
 def _load_price_series(
-    engine,
+    conn,
+    tables: set[tuple[str, str]],
     market_area: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
@@ -349,64 +272,48 @@ def _load_price_series(
     fms_exaa = pd.Series(dtype=float, name="exaa")
     api_sdac = pd.Series(dtype=float, name="price")
     api_exaa = pd.Series(dtype=float, name="exaa")
+    params = _market_area_params(market_area, start=start, end=end)
 
-    if _table_exists(engine, "entsoe_fms", "EnergyPrices"):
-        fms_sdac = _read_series(
-            engine,
-            """
-            SELECT "DateTime(UTC)" AS ts, "Price[Currency/MWh]" AS price
-            FROM entsoe_fms."EnergyPrices"
-            WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
-              AND "AreaTypeCode" = 'BZN'
-              AND (TRIM(COALESCE("Sequence", '')) = '' OR "Sequence" = '1')
-              AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
-            ORDER BY 1
-            """,
-            _market_area_params(market_area, start=start, end=end),
-            "price",
+    if ("entsoe_fms", "EnergyPrices") in tables:
+        # Sequence 1 (or none) is the SDAC auction, sequence 2 the EXAA auction.
+        frame = pd.read_sql_query(
+            text(
+                """
+                SELECT
+                    "DateTime(UTC)" AS ts,
+                    "Price[Currency/MWh]" AS price,
+                    CASE WHEN TRIM(COALESCE("Sequence", '')) = '2' THEN 'EXAA' ELSE 'SDAC' END AS auction
+                FROM entsoe_fms."EnergyPrices"
+                WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
+                  AND "AreaTypeCode" = 'BZN'
+                  AND (TRIM(COALESCE("Sequence", '')) IN ('', '2') OR "Sequence" = '1')
+                  AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
+                ORDER BY 1
+                """
+            ),
+            conn,
+            params=params,
         )
-        fms_exaa = _read_series(
-            engine,
-            """
-            SELECT "DateTime(UTC)" AS ts, "Price[Currency/MWh]" AS exaa
-            FROM entsoe_fms."EnergyPrices"
-            WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
-              AND "AreaTypeCode" = 'BZN'
-              AND TRIM(COALESCE("Sequence", '')) = '2'
-              AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
-            ORDER BY 1
-            """,
-            _market_area_params(market_area, start=start, end=end),
-            "exaa",
-        )
+        fms_sdac = _series_from_frame(frame[frame["auction"] == "SDAC"], "price")
+        fms_exaa = _series_from_frame(frame[frame["auction"] == "EXAA"], "price")
 
-    if _table_exists(engine, "entsoe_api", "day_ahead_prices"):
-        api_sdac = _read_series(
-            engine,
-            """
-            SELECT delivery_start_utc AS ts, price_eur_mwh AS price
-            FROM entsoe_api.day_ahead_prices
-            WHERE market_area IN (:market_area, :market_area_alt)
-              AND source_market = 'SDAC'
-              AND delivery_start_utc >= :start AND delivery_start_utc < :end
-            ORDER BY 1
-            """,
-            _market_area_params(market_area, start=start, end=end),
-            "price",
+    if ("entsoe_api", "day_ahead_prices") in tables:
+        frame = pd.read_sql_query(
+            text(
+                """
+                SELECT delivery_start_utc AS ts, price_eur_mwh AS price, source_market AS auction
+                FROM entsoe_api.day_ahead_prices
+                WHERE market_area IN (:market_area, :market_area_alt)
+                  AND source_market IN ('SDAC', 'EXAA')
+                  AND delivery_start_utc >= :start AND delivery_start_utc < :end
+                ORDER BY 1
+                """
+            ),
+            conn,
+            params=params,
         )
-        api_exaa = _read_series(
-            engine,
-            """
-            SELECT delivery_start_utc AS ts, price_eur_mwh AS exaa
-            FROM entsoe_api.day_ahead_prices
-            WHERE market_area IN (:market_area, :market_area_alt)
-              AND source_market = 'EXAA'
-              AND delivery_start_utc >= :start AND delivery_start_utc < :end
-            ORDER BY 1
-            """,
-            _market_area_params(market_area, start=start, end=end),
-            "exaa",
-        )
+        api_sdac = _series_from_frame(frame[frame["auction"] == "SDAC"], "price")
+        api_exaa = _series_from_frame(frame[frame["auction"] == "EXAA"], "price")
 
     history_start, training_end, required_days = _training_history_window(target_date, config)
     required_rows = required_days * PERIODS_PER_DAY
@@ -461,7 +368,8 @@ def _combine_training_fallback_covariates(
 
 
 def _load_entsoe_covariate_sources(
-    engine,
+    conn,
+    tables: set[tuple[str, str]],
     market_area: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
@@ -469,9 +377,9 @@ def _load_entsoe_covariate_sources(
     fms_frames = []
     api_frames = []
 
-    if _table_exists(engine, "entsoe_fms", "DayAheadTotalLoadForecast"):
+    if ("entsoe_fms", "DayAheadTotalLoadForecast") in tables:
         load = _read_series(
-            engine,
+            conn,
             """
             SELECT "DateTime(UTC)" AS ts, "TotalLoad[MW]" AS load_mw
             FROM entsoe_fms."DayAheadTotalLoadForecast"
@@ -485,9 +393,9 @@ def _load_entsoe_covariate_sources(
         if not load.empty:
             fms_frames.append(load.to_frame())
 
-    if _table_exists(engine, "entsoe_api", "load_forecasts"):
+    if ("entsoe_api", "load_forecasts") in tables:
         load = _read_series(
-            engine,
+            conn,
             """
             SELECT delivery_start_utc AS ts, load_mw
             FROM entsoe_api.load_forecasts
@@ -502,7 +410,7 @@ def _load_entsoe_covariate_sources(
         if not load.empty:
             api_frames.append(load.to_frame())
 
-    if _table_exists(engine, "entsoe_fms", "GenerationForecastsForWindAndSolar"):
+    if ("entsoe_fms", "GenerationForecastsForWindAndSolar") in tables:
         res_frame = pd.read_sql_query(
             text(
                 """
@@ -517,7 +425,7 @@ def _load_entsoe_covariate_sources(
                 ORDER BY 1
                 """
             ),
-            engine,
+            conn,
             params=_market_area_params(market_area, start=start, end=end),
         )
         if not res_frame.empty:
@@ -525,7 +433,7 @@ def _load_entsoe_covariate_sources(
             res_frame = res_frame.set_index("ts").apply(pd.to_numeric, errors="coerce")
             fms_frames.append(res_frame)
 
-    if _table_exists(engine, "entsoe_api", "wind_solar_forecasts"):
+    if ("entsoe_api", "wind_solar_forecasts") in tables:
         api_res = pd.read_sql_query(
             text(
                 """
@@ -540,7 +448,7 @@ def _load_entsoe_covariate_sources(
                 ORDER BY 1
                 """
             ),
-            engine,
+            conn,
             params=_market_area_params(market_area, start=start, end=end),
         )
         if not api_res.empty:
@@ -552,14 +460,15 @@ def _load_entsoe_covariate_sources(
 
 
 def _load_entsoe_covariates(
-    engine,
+    conn,
+    tables: set[tuple[str, str]],
     market_area: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
     training_end: pd.Timestamp,
     api_training_ready: bool,
 ) -> tuple[pd.DataFrame, dict]:
-    fms_covariates, api_covariates = _load_entsoe_covariate_sources(engine, market_area, start, end)
+    fms_covariates, api_covariates = _load_entsoe_covariate_sources(conn, tables, market_area, start, end)
     covariates = _combine_training_fallback_covariates(
         fms_covariates,
         api_covariates,
@@ -573,8 +482,14 @@ def _load_entsoe_covariates(
     }
 
 
-def _load_weather_covariates(engine, market_area: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    if _table_exists(engine, "weather", "price_forecast_weather_features"):
+def _load_weather_covariates(
+    conn,
+    tables: set[tuple[str, str]],
+    market_area: str,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> pd.DataFrame:
+    if ("weather", "price_forecast_weather_features") in tables:
         frame = pd.read_sql_query(
             text(
                 """
@@ -585,10 +500,10 @@ def _load_weather_covariates(engine, market_area: str, start: pd.Timestamp, end:
                 ORDER BY delivery_start_utc
                 """
             ),
-            engine,
+            conn,
             params={"market_area": market_area, "start": start, "end": end},
         )
-    elif _table_exists(engine, "weather", "latest_country_hourly_forecast"):
+    elif ("weather", "latest_country_hourly_forecast") in tables:
         country_code = "DE" if market_area in {"DE_LU", "DE-LU"} else market_area[:2]
         frame = pd.read_sql_query(
             text(
@@ -608,7 +523,7 @@ def _load_weather_covariates(engine, market_area: str, start: pd.Timestamp, end:
                 ORDER BY forecast_time
                 """
             ),
-            engine,
+            conn,
             params={"country_code": country_code, "start": start, "end": end},
         )
     else:
@@ -631,20 +546,21 @@ def load_oeds_inputs(
     config: PriceForecastConfig,
 ) -> tuple[pd.Series, pd.Series, pd.DataFrame, dict]:
     start, end = _delivery_bounds(target_date, config.train_days)
-    price, exaa, price_source_summary = _load_price_series(engine, market_area, start, end, target_date, config)
     _, training_end, _ = _training_history_window(target_date, config)
-    entsoe_covariates, entsoe_covariate_summary = _load_entsoe_covariates(
-        engine,
-        market_area,
-        start,
-        end,
-        training_end,
-        bool(price_source_summary["api_training_ready"]),
-    )
-    covariates = _combine_covariates(
-        entsoe_covariates,
-        _load_weather_covariates(engine, market_area, start, end),
-    )
+    with engine.connect() as conn:
+        tables = _existing_tables(conn)
+        price, exaa, price_source_summary = _load_price_series(conn, tables, market_area, start, end, target_date, config)
+        entsoe_covariates, entsoe_covariate_summary = _load_entsoe_covariates(
+            conn,
+            tables,
+            market_area,
+            start,
+            end,
+            training_end,
+            bool(price_source_summary["api_training_ready"]),
+        )
+        weather_covariates = _load_weather_covariates(conn, tables, market_area, start, end)
+    covariates = _combine_covariates(entsoe_covariates, weather_covariates)
     summary = {
         "window_start_utc": start.isoformat(),
         "window_end_utc": end.isoformat(),
@@ -919,16 +835,7 @@ def run_self_test(args: argparse.Namespace) -> int:
     )
     target_date = _parse_target_date(args.target_date)
     price, exaa, covariates = generate_self_test_series(days=max(args.train_days + args.backtest_days + 20, 120), end_date=target_date)
-    backend, result, fallback_message = _run_forecast_auto(
-        args.model_backend,
-        price,
-        exaa,
-        covariates,
-        target_date,
-        config,
-        args.upstream_repo_path,
-        args.upstream_variant,
-    )
+    backend, result, fallback_message = _run_forecast(args, price, exaa, covariates, target_date, config)
     if fallback_message:
         print(f"Upstream backend unavailable; using ridge fallback. Reason: {fallback_message}")
     print(f"Self-test backend: {backend}")
@@ -937,16 +844,8 @@ def run_self_test(args: argparse.Namespace) -> int:
 
     dates = _backtest_dates(target_date, args.backtest_days)
     if dates:
-        _, metrics = _backtest_with_backend(
-            backend,
-            price,
-            exaa,
-            covariates,
-            dates,
-            config,
-            args.upstream_repo_path,
-            args.upstream_variant,
-        )
+        _, backtest = _backend_functions(backend, args)
+        _, metrics = backtest(price, exaa, covariates, dates, config)
         aggregate = metrics[metrics["target_date"].isna()] if "target_date" in metrics.columns else metrics
         print("Self-test backtest aggregate:")
         print(aggregate.to_string(index=False))
@@ -970,16 +869,7 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     run_id = str(uuid.uuid4())
 
     try:
-        backend, result, fallback_message = _run_forecast_auto(
-            args.model_backend,
-            price,
-            exaa,
-            covariates,
-            target_date,
-            config,
-            args.upstream_repo_path,
-            args.upstream_variant,
-        )
+        backend, result, fallback_message = _run_forecast(args, price, exaa, covariates, target_date, config)
     except UpstreamBackendUnavailable as exc:
         model_name, model_version = _backend_model_identity(BACKEND_UPSTREAM)
         write_run(
@@ -1053,16 +943,8 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     dates = _backtest_dates(target_date, args.backtest_days)
     if dates:
         backtest_run_id = str(uuid.uuid4())
-        _, metrics = _backtest_with_backend(
-            backend,
-            price,
-            exaa,
-            covariates,
-            dates,
-            config,
-            args.upstream_repo_path,
-            args.upstream_variant,
-        )
+        _, backtest = _backend_functions(backend, args)
+        _, metrics = backtest(price, exaa, covariates, dates, config)
         write_run(
             engine,
             backtest_run_id,
