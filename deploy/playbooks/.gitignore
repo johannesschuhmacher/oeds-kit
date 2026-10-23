@@ -1,4 +1,3 @@
-inventory.yml
 group_vars/oeds.yml
 *.retry
 

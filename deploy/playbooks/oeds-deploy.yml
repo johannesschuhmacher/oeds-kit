@@ -1,5 +1,5 @@
 # Install or update OEDS from the oeds-kit checkout at oeds_repo_local_src on
-# the control node. Install and update are the same run:
+# this host. Install and update are the same run:
 #   1. stage the new source in <repo>.next and build the images there while
 #      the current services keep running; a failed build stops here,
 #   2. optionally dump the database (oeds_backup_before_update),
@@ -23,19 +23,16 @@
         mountpoint: "{{ oeds_data_dir }}/pgadmin-varlib"
   tasks:
   # --- Checks and directories ------------------------------------------------
-  - name: Check the oeds-kit checkout on the control node
+  - name: Check the oeds-kit checkout
     ansible.builtin.stat:
       path: "{{ oeds_repo_local_src }}"
-    delegate_to: localhost
-    become: false
-    run_once: true
     register: oeds_repo_local_src_stat
   - name: Require an oeds-kit checkout as the source
     ansible.builtin.assert:
       that:
         - oeds_repo_local_src | length > 0
         - oeds_repo_local_src_stat.stat.isdir | default(false)
-      fail_msg: Set oeds_repo_local_src to an oeds-kit checkout on the control node.
+      fail_msg: Set oeds_repo_local_src to an oeds-kit checkout on this host.
       quiet: true
   - name: Measure the filesystems that will hold OEDS data
     # On a fresh install the data dirs do not exist yet and df needs an
@@ -154,44 +151,6 @@
     register: oeds_legacy_compose
 
   # --- Stage and build; the current services keep running ---------------------
-  - name: Create a temporary archive path on the control node
-    ansible.builtin.tempfile:
-      state: file
-      suffix: .tar
-    delegate_to: localhost
-    become: false
-    run_once: true
-    register: oeds_repo_archive
-  - name: Pack the checkout on the control node
-    ansible.builtin.command:
-      argv:
-        - tar
-        - --exclude=.git
-        - --exclude=__pycache__
-        - --exclude=*.pyc
-        - --exclude=.venv
-        - --exclude=venv
-        - --exclude=.mypy_cache
-        - --exclude=.ruff_cache
-        - --exclude=logs
-        - --exclude=runtime
-        - --exclude=docker_data
-        - --exclude=crawler_admin_state
-        - --exclude=.tmp
-        - -cf
-        - "{{ oeds_repo_archive.path }}"
-        - .
-      chdir: "{{ oeds_repo_local_src }}"
-    delegate_to: localhost
-    become: false
-    run_once: true
-  - name: Make the archive readable by the unarchive action
-    ansible.builtin.file:
-      path: "{{ oeds_repo_archive.path }}"
-      mode: "0644"
-    delegate_to: localhost
-    become: false
-    run_once: true
   - name: Remove a staging directory left by an earlier run
     ansible.builtin.file:
       path: "{{ oeds_repo_dir }}.next"
@@ -203,17 +162,27 @@
       owner: root
       group: root
       mode: "0755"
-  - name: Unpack the checkout into the staging directory
-    ansible.builtin.unarchive:
-      src: "{{ oeds_repo_archive.path }}"
-      dest: "{{ oeds_repo_dir }}.next"
-  - name: Remove the temporary archive on the control node
-    ansible.builtin.file:
-      path: "{{ oeds_repo_archive.path }}"
-      state: absent
-    delegate_to: localhost
-    become: false
-    run_once: true
+  # Copies uncommitted changes as well, but no Git data, caches or runtime files.
+  - name: Copy the checkout into the staging directory
+    ansible.builtin.shell: >-
+      set -o pipefail;
+      tar -C {{ oeds_repo_local_src | quote }}
+      --exclude=.git
+      --exclude=__pycache__
+      --exclude='*.pyc'
+      --exclude=.venv
+      --exclude=venv
+      --exclude=.mypy_cache
+      --exclude=.ruff_cache
+      --exclude=logs
+      --exclude=runtime
+      --exclude=docker_data
+      --exclude=crawler_admin_state
+      --exclude=.tmp
+      -cf - .
+      | tar -C {{ (oeds_repo_dir ~ '.next') | quote }} -xf -
+    args:
+      executable: /bin/bash
   - name: Check for existing Compose settings
     ansible.builtin.stat:
       path: "{{ oeds_compose_dir }}/.env"
