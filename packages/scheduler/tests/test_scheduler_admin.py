@@ -225,16 +225,14 @@ class CrawlerRunServiceTest(unittest.TestCase):
             effective_config={},
             config_overrides={},
             action_payload={},
-            run_post_scripts=False,
             executor=executor,
-            requires_crawler=False,
         )
         run_id = service._create_run_record(prepared)
         service._execute_run(run_id, prepared)
         return service.get_run(run_id)
 
     def test_skipped_crawler_run_is_recorded_as_skipped(self) -> None:
-        def skip_run(_crawler: object, _log: object) -> str | None:
+        def skip_run(_log: object) -> str | None:
             raise CrawlerSkipped("ENTSOE_API_KEY is not configured")
 
         with tempfile.TemporaryDirectory() as temp_dir, _environment(OEDS_ADMIN_STATE_DIR=temp_dir):
@@ -262,7 +260,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
                     plan = service._crawler_plan("entsoe_fms", config)
                     record = self._execute(
                         service,
-                        lambda _crawler, log: service._run_oeds_crawl(plan, log),
+                        lambda log: service._run_oeds_crawl(plan, log),
                     )
                     log_text = Path(record.log_path).read_text(encoding="utf-8")
 
