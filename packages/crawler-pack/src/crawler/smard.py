@@ -261,24 +261,3 @@ class SmardCrawler(KitCrawler):
             "temporal_start": str(start) if start is not None else None,
             "temporal_end": str(end) if end is not None else None,
         })
-
-
-def main(schema_name):
-    ec = SmardCrawler(
-        "smard",
-        {
-            "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-            "schema_name": schema_name,
-        },
-    )
-    ec.run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="[%(asctime)s] %(levelname)-8s [%(filename)s:%(lineno)d] :: %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%S",
-    )
-    # db_uri = 'sqlite:///./data/smard.db'
-    main("smard")

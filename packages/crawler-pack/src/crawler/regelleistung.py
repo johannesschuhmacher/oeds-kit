@@ -318,16 +318,3 @@ class RegelleistungCrawler(KitCrawler):
         self.logger.info("Regelleistung crawler discovered %s files and imported %s.", len(files), downloaded)
         if failures:
             raise RuntimeError(f"Regelleistung files failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "regelleistung"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    RegelleistungCrawler("regelleistung", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

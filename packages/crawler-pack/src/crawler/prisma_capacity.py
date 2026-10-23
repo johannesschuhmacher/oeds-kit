@@ -171,16 +171,3 @@ class PrismaCapacityCrawler(KitCrawler):
         self.logger.info("PRISMA crawler wrote %s rows.", len(frame))
         if failures:
             raise RuntimeError(f"PRISMA resources failed: {', '.join(failures)}")
-
-
-def main(schema_name: str = "prisma_capacity"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    PrismaCapacityCrawler("prisma_capacity", config).run()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

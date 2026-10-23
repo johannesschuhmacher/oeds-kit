@@ -185,19 +185,3 @@ class EnergyForecastCrawler(KitCrawler):
 
         print("Crawler run finished successfully.")
         self.logger.info("Crawler run finished successfully.")
-
-
-def main(schema_name: str):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": "energy_forecast",
-    }
-    print("EnergyForecast crawler start")
-    
-    crawler = EnergyForecastCrawler(schema_name, config)
-    print("EnergyForecastCrawler created")
-    
-    crawler.run()
-
-if __name__ == '__main__':
-    main("energy_forecast")

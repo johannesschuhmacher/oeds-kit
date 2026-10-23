@@ -769,16 +769,3 @@ class WeatherForecastCrawler(KitCrawler):
 
         self.logger.info("Weather crawler finished successfully with %s rows.", len(combined_frame))
         print(f"Weather crawler finished successfully with {len(combined_frame)} rows.")
-
-
-def main(schema_name: str = "weather"):
-    config = {
-        "database_uri": "postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=",
-        "schema_name": schema_name,
-    }
-    crawler = WeatherForecastCrawler("weather_forecast", config)
-    crawler.run()
-
-
-if __name__ == "__main__":
-    main()
