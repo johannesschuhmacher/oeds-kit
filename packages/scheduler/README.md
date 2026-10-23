@@ -70,14 +70,18 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
 - The admin's "Run once" uses the same runner for the crawler section (no
   `--job`), with the same post-run handling, `run_post_scripts` and
   `run_timeout_seconds`; its output goes to the admin's run log.
+- The admin's dashboard and crawler pages show whether a crawler is running
+  (its advisory lock in `pg_locks`, "unknown" without database) and the newer
+  of the admin's and the scheduler's latest run. Scheduler runs are read from
+  `logs/runs/` under `OEDS_ADMIN_REPO_ROOT`, which both containers mount.
 
 ## Optional post-processing
 
 `oeds-post-scripts` is not required. Without it, scheduled runs and the admin
 UI work as usual; a post-run command whose executable is not installed (for
 example `oeds-post gapfill entsoe-fms`) is skipped with a WARNING and does not
-mark the run failed. The admin's Gapfill Tests page, the per-crawler gapfill and
-price-forecast panels and their actions are absent until the package is installed.
+mark the run failed. The admin's per-crawler gapfill and price-forecast panels
+and their actions are absent until the package is installed.
 
 ## Current CLIs
 
@@ -147,8 +151,5 @@ identical to KIT. Test behavior, not source-file identity.
 
 ## Future Work
 
-- run the admin UI's specialised actions (ENTSO-E targeted/backfill, weather
-  window, Eurostat range) through `oeds-crawl` as well; they are still
-  in-process
 - upstream contribution of generic crawler-contract improvements currently
   provided by the `oeds-crawler-pack` compatibility facade

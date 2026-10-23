@@ -85,7 +85,7 @@
         data-filter-text="{{ (card.name ~ ' ' ~ (card.schema_name or '') ~ ' ' ~ card.description)|lower }}"
         data-is-enabled="{% if card.enabled is sameas true %}true{% else %}false{% endif %}"
         data-is-disabled="{% if card.enabled is sameas false %}true{% else %}false{% endif %}"
-        data-is-running="{% if active_run %}true{% else %}false{% endif %}"
+        data-is-running="{% if active_run or row.running_now %}true{% else %}false{% endif %}"
         data-has-issues="{% if has_inline_issue %}true{% else %}false{% endif %}"
         {% if row.is_expanded %}open{% endif %}
         {% if active_run %}data-active-run-id="{{ active_run.run_id }}"{% endif %}
@@ -139,7 +139,7 @@
               <span class="subtle-note">{{ latest_run.action_label }} at {{ latest_run.created_at | replace('T', ' ') | truncate(16, True, '') }}</span>
             {% else %}
               <strong>Idle</strong>
-              <span class="subtle-note">No manual runs yet.</span>
+              <span class="subtle-note">No runs yet.</span>
             {% endif %}
           </div>
 
@@ -230,9 +230,12 @@
                 {% elif latest_run %}
                   {{ latest_run.action_label }} at {{ latest_run.created_at | replace('T', ' ') | truncate(16, True, '') }}
                 {% else %}
-                  No manual runs recorded yet.
+                  No runs recorded yet.
                 {% endif %}
               </p>
+              {% if latest_run %}
+                <a class="subtle-note" href="/admin/crawlers/{{ card.name }}{% if latest_run.run_id is defined %}?run={{ latest_run.run_id }}#run-log{% else %}#scheduler-run{% endif %}">View log</a>
+              {% endif %}
               <div class="fleet-detail-metrics fleet-detail-metrics--compact">
                 <div>
                   <dt>Schema</dt>

@@ -196,10 +196,15 @@
               <dd>{{ post_run_script_count }}</dd>
             </div>
             <div>
+              <dt>Running now</dt>
+              <dd>{% if running_now is none %}unknown{% elif running_now %}yes{% else %}no{% endif %}</dd>
+            </div>
+            <div>
               <dt>Latest run</dt>
               <dd>
                 {% if latest_run %}
                   <span class="status-pill status-pill--{{ latest_run.status }}">{{ latest_run.status }}</span>
+                  {{ latest_run.action_label }}, {{ latest_run.created_at | replace('T', ' ') }} UTC
                 {% else %}
                   -
                 {% endif %}
@@ -245,17 +250,6 @@
           </dl>
         </article>
       </div>
-
-      {% if gapfill_errors %}
-        <section class="flash flash--error">
-          <strong>The gapfill settings could not be saved.</strong>
-          <ul class="stack-list">
-            {% for error in gapfill_errors %}
-              <li>{{ error }}</li>
-            {% endfor %}
-          </ul>
-        </section>
-      {% endif %}
 
       {% if gapfill_view %}
       <section class="panel gapfill-ops-panel" id="gapfill-operations">
@@ -319,19 +313,47 @@
             </article>
 
             <article class="settings-card">
-              <span class="fleet-summary__label">QA and visibility</span>
-              <strong>Algorithm tests are separate</strong>
-              <p class="subtle-note">
-                Use Gapfill Tests for synthetic self-tests and holdout checks. Use the form below for the productive tables that should be gapfilled after crawler runs.
-              </p>
-              <div class="settings-card__actions">
-                <a href="/admin/gapfill" class="button button--secondary button--small">Open Gapfill Tests</a>
-              </div>
+              <span class="fleet-summary__label">Last gapfill run</span>
+              {% if gapfill_last_run %}
+                <strong><span class="status-pill status-pill--{{ gapfill_last_run.status }}">{{ gapfill_last_run.status }}</span></strong>
+                <dl class="detail-list detail-list--compact">
+                  <div>
+                    <dt>Started</dt>
+                    <dd>{{ gapfill_last_run.started_at }}</dd>
+                  </div>
+                  <div>
+                    <dt>Filled points</dt>
+                    <dd>{{ gapfill_last_run.values_filled }}</dd>
+                  </div>
+                </dl>
+                {% if gapfill_last_run.message %}
+                  <p class="subtle-note">{{ gapfill_last_run.message }}</p>
+                {% endif %}
+              {% else %}
+                <strong>-</strong>
+                <p class="subtle-note">{{ gapfill_last_run_note }}</p>
+              {% endif %}
             </article>
           </div>
 
-          <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill" class="gapfill-config-form">
-            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}" />
+          {% if gapfill_saved %}
+            <section class="flash flash--success">
+              <strong>Saved gapfill settings.</strong>
+            </section>
+          {% endif %}
+          {% if gapfill_errors %}
+            <section class="flash flash--error">
+              <strong>The gapfill settings were not saved.</strong>
+              <ul class="stack-list">
+                {% for error in gapfill_errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endif %}
+
+          <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill#gapfill-operations" class="gapfill-config-form">
+            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}#gapfill-operations" />
             <input type="hidden" name="base_hash" value="{{ base_hash }}" />
 
             <div class="studio-form-grid">
@@ -793,6 +815,24 @@
         </div>
       {% else %}
         <p class="empty-state">No manual runs recorded yet.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel" id="scheduler-run">
+      <div class="panel-heading">
+        <h3>Latest Scheduler Run</h3>
+      </div>
+      {% if scheduler_run %}
+        <div class="log-meta">
+          <p>
+            <span class="status-pill status-pill--{{ scheduler_run.status }}">{{ scheduler_run.status }}</span>
+            | {{ scheduler_run.action_label }} | started {{ scheduler_run.created_at | replace('T', ' ') }} UTC
+          </p>
+          <p class="subtle-note"><code>{{ scheduler_run.log_path }}</code></p>
+        </div>
+        <pre class="log-viewer">{{ scheduler_log }}</pre>
+      {% else %}
+        <p class="empty-state">No scheduler run log found under <code>logs/runs</code>.</p>
       {% endif %}
     </article>
 
