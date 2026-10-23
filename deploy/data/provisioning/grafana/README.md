@@ -8,7 +8,10 @@ a Grafana folder:
   data once its crawler has run; before that its panels report missing tables.
 - `Analyses/` has dashboards that combine sources: day-ahead price forecast,
   energy weather, and the ENTSO-E cross-border, country, stress, forecast
-  accuracy and negative price views.
+  accuracy and negative price views, and ENTSO-E power plants and
+  availability. Its plant maps need the `power_system_data` crawler, its
+  availability map the `entsoe_fms` crawler, whose post-run script
+  `oeds-post refresh entsoe-availability-map` fills it.
 
 The SMARD and Weather dashboards were exported read-only from
 <https://oeds.iip.kit.edu>; `python3 tools/sync_grafana_dashboards.py` refreshes
