@@ -1,13 +1,6 @@
 - name: OEDS package installation
   hosts: oeds
   become: true
-  vars:
-    oeds_package_state: present
-    oeds_data_root_effective: "{{ oeds_data_root | default('/home') }}"
-    oeds_docker_data_root_effective: "{{ oeds_docker_data_root | default(oeds_data_root_effective ~ '/docker') }}"
-    oeds_docker_log_max_size: '10m'
-    oeds_docker_log_max_file: '3'
-    oeds_docker_builder_keep_storage: '20GB'
   tasks:
   - name: Install Docker packages
     ansible.builtin.dnf:
@@ -30,7 +23,7 @@
       - ansible_user != "root"
   - name: Ensure Docker data-root directory exists on the data partition
     ansible.builtin.file:
-      path: "{{ oeds_docker_data_root_effective }}"
+      path: "{{ oeds_docker_data_root }}"
       state: directory
       owner: root
       group: root
@@ -43,7 +36,7 @@
       mode: "0644"
       content: |
         {
-          "data-root": "{{ oeds_docker_data_root_effective }}",
+          "data-root": "{{ oeds_docker_data_root }}",
           "log-driver": "json-file",
           "log-opts": {
             "max-size": "{{ oeds_docker_log_max_size }}",
