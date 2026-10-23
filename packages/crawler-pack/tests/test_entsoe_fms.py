@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 from sqlalchemy import MetaData, UniqueConstraint
 
 from crawler.entsoe_fms import EntsoeFMSCrawler
@@ -25,7 +25,6 @@ def test_run_uses_runtime_directory_and_reports_failure(monkeypatch):
     crawler = object.__new__(EntsoeFMSCrawler)
     crawler.config = {'fms_package_window_months': 1}
     crawler.logger = Mock()
-    crawler.save_power_system_data = Mock()
     crawler.fetch_from_entsoe_fms_to_database = Mock(side_effect=RuntimeError('download failed'))
     monkeypatch.setenv('OEDS_CRAWLER_DATA_DIR', '/tmp/crawler-downloads')
     with pytest.raises(RuntimeError, match='download failed'):
@@ -265,24 +264,6 @@ def test_download_file_streams_body_to_disk(tmp_path):
     assert crawler.session.post.call_args.kwargs["stream"] is True
     assert crawler.session.post.call_args.kwargs["timeout"] == 120
     assert target.read_bytes() == b"abcdef"
-
-
-def test_save_power_system_data_downloads_with_timeout(monkeypatch):
-    import requests
-
-    csv_bytes = b"id,Name,lat,lon,EIC\n1,Plant,50.0,8.0,X1\n2,NoCoords,,,X2\n"
-    get = Mock(return_value=Mock(content=csv_bytes, raise_for_status=Mock()))
-    monkeypatch.setattr(requests, "get", get)
-    written = []
-    monkeypatch.setattr(pd.DataFrame, "to_sql", lambda self, *args, **kwargs: written.append(len(self)))
-    crawler = _fake_crawler(engine=MagicMock())
-    crawler._table_columns = Mock(return_value=[])
-
-    crawler.save_power_system_data()
-
-    assert get.call_args.kwargs["timeout"] == 120
-    assert written == [1]  # row without coordinates dropped
-    crawler.logger.error.assert_not_called()
 
 
 def test_new_tables_index_update_time(monkeypatch):
