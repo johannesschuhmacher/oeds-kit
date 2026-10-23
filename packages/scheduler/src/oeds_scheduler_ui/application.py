@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from oeds_scheduler_ui.config import file_signature, load_scheduler_config
 from oeds_scheduler_ui.factory import known_crawler_names
@@ -24,12 +23,7 @@ from oeds_scheduler_ui.runtime import (
     JobDispatcher,
     PostRunExecutor,
 )
-from oeds_scheduler_ui.service import (
-    ScheduleFactory,
-    SchedulerService,
-    SchedulerServiceIssue,
-    cron_schedule_factory,
-)
+from oeds_scheduler_ui.service import SchedulerService, SchedulerServiceIssue
 
 try:
     from crawler.common.local_env import apply_email_env_overrides
@@ -38,8 +32,6 @@ except ImportError:  # pragma: no cover - crawler pack is optional for the core.
 
 
 logger = logging.getLogger(__name__)
-
-ConfigLoader = Callable[[Path], Mapping[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -67,17 +59,13 @@ class SchedulerApplication:
         inventory_path: str | Path | None = None,
         workspace_root: str | Path | None = None,
         *,
-        schedule_factory: ScheduleFactory = cron_schedule_factory,
         post_run_executor: PostRunExecutor | None = None,
-        config_loader: ConfigLoader = load_scheduler_config,
         reference_time: datetime | None = None,
     ) -> None:
         # inventory_path and workspace_root are ignored: crawlers come from the
         # oeds.crawlers entry points. Kept until the deployment stops passing them.
         self.config_path = Path(config_path).resolve()
-        self._schedule_factory = schedule_factory
         self._post_run_executor = post_run_executor
-        self._config_loader = config_loader
         # The dispatcher outlives reloads so runs that are active during a
         # config change are still tracked and reported.
         self.dispatcher = JobDispatcher()
@@ -110,7 +98,7 @@ class SchedulerApplication:
         self,
         reference_time: datetime | None = None,
     ) -> SchedulerApplicationSnapshot:
-        raw_config = self._config_loader(self.config_path)
+        raw_config = load_scheduler_config(self.config_path)
         if apply_email_env_overrides is not None:
             # Same OEDS_EMAIL_* overrides the admin UI applies; the config file
             # lives in the repo root that also holds crawler/.env.
@@ -142,7 +130,6 @@ class SchedulerApplication:
         service = SchedulerService(
             plan_result.plans,
             self.dispatcher,
-            schedule_factory=self._schedule_factory,
             reference_time=reference_time,
         )
 
