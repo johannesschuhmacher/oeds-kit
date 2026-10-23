@@ -1,22 +1,26 @@
 # Operations
 
-For a first installation, use the [main README](../README.md). For a clean VM
-test, follow [the step-by-step test guide](../docs/testing.md).
+For the installation, see [the deployment README](../README.md). For a clean
+VM test, follow [the step-by-step test guide](../docs/testing.md).
 
-Run the commands below from this directory on the Linux VM. `-K` asks for
-the sudo password. Use `inventory.local.yml` on the VM itself, or copy
-`inventory.example.yml` for remote hosts. Change `ansible_user` to your user.
+Ansible runs on the OEDS VM itself: run the commands below from this
+directory on the VM. `inventory.yml` (named in `ansible.cfg`) has the single
+host `localhost` with a local connection, sudo and the current user. `-K`
+asks for the sudo password; for automation, use
+`--become-password-file /path/to/file` (mode `600`) instead.
 
 ```bash
 export ANSIBLE_CONFIG=ansible.cfg
 ansible-galaxy collection install -r requirements.yml
-ansible -i inventory.local.yml oeds -m ping
+ansible oeds -m ping
 ```
 
 The defaults of all playbooks, with comments, are in `group_vars/all.yml`. To
-change one for a host, set it in `group_vars/oeds.yml` (ignored by Git), as a
-host variable in the inventory or with `-e`. Group `vars:` inside the
-inventory file rank below `group_vars/all.yml` and have no effect.
+change one for a host, set it in `group_vars/oeds.yml` (ignored by Git) or
+with `-e`. For installer runs, that file belongs in the installer's clone
+(`$HOME/oeds-modular-git-install/oeds-kit/deploy/playbooks/group_vars/`);
+leave the committed files unchanged, because the installer refuses a clone
+with local changes.
 
 The automated host preparation targets CentOS Stream and currently sets SELinux
 to permissive mode. Review this host-wide security change with your administrator.
@@ -25,23 +29,30 @@ only trusted operators should join the `docker` group.
 
 ## Update without losing settings
 
-Check out the new revision of oeds-kit outside the installed `repo/` directory
-first (for example `$HOME/oeds-kit`). For private forks, use your Git
-credential helper or the installer's temporary `GIT_ASKPASS` token mechanism.
-Never embed credentials in clone URLs.
+Re-run the installer with the options of the installation; it fetches the
+requested revision (`--ref`, default `main`) into its clone. `--backup` dumps
+the database first.
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-install-crawlers.yml \
-  -e oeds_repo_local_src="$HOME/oeds-kit"
+bash deploy/tools/oeds_clean_install_from_git.sh --crawler-env-file "$HOME/crawler.env"
 ```
+
+Or check out the new revision of oeds-kit outside the installed `repo/`
+directory (for example `$HOME/oeds-kit`) and run, from this directory:
+
+```bash
+ansible-playbook -K oeds-install-crawlers.yml -e oeds_repo_local_src="$HOME/oeds-kit"
+```
+
+For private forks, use your Git credential helper or the installer's
+temporary `GIT_ASKPASS` token mechanism. Never embed credentials in clone URLs.
 
 Install and update are the same run of `oeds-deploy.yml`, which
 `oeds-install-crawlers.yml` imports together with the smoke test and the
-post-processing SQL. Re-running the installer does the same. The source is
-the checkout at `oeds_repo_local_src` on the control node, copied as it is
-(including uncommitted changes, without `.git`).
+post-processing SQL. The source is the checkout at `oeds_repo_local_src` on
+the VM, copied as it is (including uncommitted changes, without `.git`).
 
-1. The new source is unpacked to `repo.next/` and the crawler image is built
+1. The new source is copied to `repo.next/` and the crawler image is built
    and missing service images pulled there, while the running services continue.
    If the build fails, the build cache is cleared and the build repeated once;
    a second failure stops the update with the old services still running.
@@ -63,7 +74,7 @@ Crawler settings, Compose passwords/ports and Docker volumes are preserved.
 Docker itself is installed and configured by `oeds-install-host-prep.yml`,
 which the installer runs first unless `--skip-host-prep` is given;
 `oeds-install-crawlers.yml` expects Docker to be there.
-`ansible-playbook -i inventory.local.yml -K oeds-packages.yml -e oeds_package_state=latest`
+`ansible-playbook -K oeds-packages.yml -e oeds_package_state=latest`
 also updates the Docker packages; normal runs leave them alone. PostgreSQL
 major version changes require a separate migration (`oeds-db-migrate.yml`),
 not an ordinary update.
@@ -75,8 +86,8 @@ When a package changes its dependencies or the `oeds` revision in the root
 ## Backup and restore
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-db-backup.yml
-ansible-playbook -i inventory.local.yml -K oeds-db-migrate.yml \
+ansible-playbook -K oeds-db-backup.yml
+ansible-playbook -K oeds-db-migrate.yml \
   -e oeds_apply_cutover=false
 ```
 
@@ -96,7 +107,7 @@ before taking its backup. Stop any external writers yourself first. If restore
 fails, inspect the error before restarting those services. Rollback uses that directory:
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-db-rollback.yml \
+ansible-playbook -K oeds-db-rollback.yml \
   -e oeds_rollback_source_dir=/absolute/path/to/postgres-home-pre-cutover \
   -e oeds_enable_crawlers_after_rollback=true
 ```
@@ -108,7 +119,7 @@ Migration, cutover and rollback are administrator operations, not first-install 
 ## Stop or remove OEDS
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-uninstall.yml
+ansible-playbook -K oeds-uninstall.yml
 ```
 
 This stops and removes OEDS containers/networks, preserving database volumes,
@@ -128,16 +139,22 @@ owned by that UID (group `docker`, not world-writable), and every update
 re-applies this ownership, recursively for `logs/`. Keep the admin port behind
 SSH or authenticated access.
 
-The password rotation feature requires the Bitwarden `bw` CLI on the target
-and `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` in the control environment.
+The password rotation feature requires the Bitwarden `bw` CLI on the VM
+and `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` in the environment of the
+shell that runs Ansible.
 Set `BW_SERVER_URL` for a self-hosted vault. It rotates database, readonly,
 Grafana and pgAdmin passwords, verifies services and stores credentials in
 Bitwarden. It attempts rollback on failure.
 
 ```bash
-ansible-playbook -i inventory.local.yml -K oeds-rotate-passwords.yml \
-  -e oeds_rotation_deployment_name=intern-test
+ansible-playbook -K oeds-rotate-passwords.yml \
+  -e oeds_rotation_deployment_name=intern-test \
+  -e oeds_rotation_access_host=iip-vm-oeds-intern-test.iip.kit.edu
 ```
+
+Both default to the inventory host name `localhost`. The deployment name
+selects the Bitwarden folder `OEDS/<name>`; the access host is used in the
+service URLs stored with the credentials.
 
 Use `-e oeds_rotation_dry_run=true` for a preview. Direct host invocation is
 `python3 oeds_ops/password_rotation.py --dry-run` from `repo/deploy`. Real Bitwarden writes require
@@ -161,10 +178,9 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | File | Purpose |
 | --- | --- |
 | `oeds-install-host-prep.yml` | OS repositories, SELinux policy, Docker packages |
-| `oeds-install-core.yml` | Database, Grafana, pgAdmin and PostgREST |
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
-| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin on a prepared host; also the update |
-| `oeds-deploy.yml` | Stage, build, optional backup, switch; imported by both install playbooks |
+| `oeds-install-crawlers.yml` | Complete stack (database, Grafana, pgAdmin, PostgREST, scheduler and admin UI) on a prepared host, smoke test and post-processing SQL; also the update |
+| `oeds-deploy.yml` | Stage, build, optional backup, switch; imported by `oeds-install-crawlers.yml` |
 | `oeds-smoke-test.yml` | Service/database health checks, `oeds-crawl --list` and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |
 | `oeds-rotate-passwords.yml` | Bitwarden-backed credential rotation |
