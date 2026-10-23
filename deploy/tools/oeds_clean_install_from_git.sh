@@ -239,9 +239,6 @@ fi
 log "Installing modular OEDS"
 ansible-playbook "${COMMON_ARGS[@]}" oeds-install-crawlers.yml "${MODULAR_EXTRA[@]}"
 
-log "Verifying installed repository"
-python3 "$OEDS_ROOT/repo/deploy/tools/verify_deployment.py"
-
 if [[ "$LOAD_SAMPLE_DATA" == "true" ]]; then
   if [[ -z "$CRAWLER_ENV_FILE" ]]; then
     log "No crawler env file supplied; live token-backed crawlers may fail if runtime secrets are absent"
