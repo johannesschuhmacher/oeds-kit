@@ -13,26 +13,16 @@ import time
 
 import pandas as pd
 import requests
-from requests.adapters import HTTPAdapter
 from sqlalchemy import MetaData, Table, text
 from sqlalchemy.dialects.postgresql import insert
 
-from urllib3.util.retry import Retry
-
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
 
 log = logging.getLogger("smard")
 DEFAULT_START_DATE = "2024-06-02 22:00:00"  # "2023-11-26 22:45:00"
 # Catching up issues many requests in a row; smard.de resets connections when they come too fast.
 REQUEST_PAUSE_SECONDS = 0.5
-
-
-def _http_session() -> requests.Session:
-    retry = Retry(total=5, backoff_factor=5, status_forcelist=(429, 500, 502, 503, 504),
-                  allowed_methods=("GET",))
-    session = requests.Session()
-    session.mount("https://", HTTPAdapter(max_retries=retry))
-    return session
 
 
 metadata_info = {
@@ -155,7 +145,7 @@ class SmardCrawler(KitCrawler):
             # 5097: 'Prognostizierte Erzeugung PV und Wind Day-Ahead'
         }
 
-        session = _http_session()
+        session = build_session(retries=5, backoff_factor=5)
         for commodity_id, commodity_name in keys.items():
             start_date, latest = self.select_latest(commodity_id)
             # start_date_tz to unix time
