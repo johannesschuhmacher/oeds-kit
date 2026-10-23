@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import math
-import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -97,11 +95,6 @@ class TableFillResult:
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS  (unchanged from upstream)
 # ══════════════════════════════════════════════════════════════════════════════
-
-def slugify_column(name: str) -> str:
-    slug = re.sub(r"[^0-9A-Za-z]+", "_", name).strip("_").lower()
-    return slug or "value"
-
 
 def group_key_from_values(groupby_columns: tuple[str, ...], values: dict[str, object]) -> str:
     if not groupby_columns:
@@ -439,15 +432,12 @@ def _donor_start_candidates(
     start_max = min(last_start, gap.start + radius_steps)
     starts.update(range(start_min, start_max + 1))
 
+    # Period multiples inside the search radius are already in the range above;
+    # a period longer than the radius still adds the starts one period away.
     for period in candidate_periods:
         period_steps = _timedelta_to_steps(period, frequency)
-        if period_steps is None:
-            continue
-        multiples = max(1, radius_steps // period_steps)
-        for multiple in range(1, multiples + 1):
-            offset = multiple * period_steps
-            starts.add(gap.start - offset)
-            starts.add(gap.start + offset)
+        if period_steps is not None and period_steps > radius_steps:
+            starts.update((gap.start - period_steps, gap.start + period_steps))
 
     return sorted(s for s in starts if 0 <= s <= last_start)
 
@@ -782,11 +772,3 @@ def _empty_output(dataframe: pd.DataFrame) -> pd.DataFrame:
             output[column] = None
     return output
 
-
-def serialise_metric(metric: GroupMetric) -> dict[str, object]:
-    row = metric.__dict__.copy()
-    for key in ("start_time", "end_time"):
-        value = row[key]
-        if value is not None and not (isinstance(value, float) and math.isnan(value)):
-            row[key] = pd.Timestamp(value).isoformat()
-    return row

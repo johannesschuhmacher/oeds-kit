@@ -14,17 +14,6 @@ from scripts.lib.gapfiller.config import GapfillJobConfig, TimeSeriesTableConfig
 from scripts.lib.gapfiller.core import GroupMetric, fill_table
 from sqlalchemy import Engine, text
 
-CONTROL_TABLES = (
-    "gapfill_runs",
-    "gapfill_metrics",
-    "gapfill_tracking",
-    "gapfill_test_results",
-    "gapfill_test_series",
-    "gapfill_holdout_results",
-    "gapfill_holdout_series",
-)
-
-
 @dataclass(frozen=True)
 class TrackingState:
     last_source_timestamp: pd.Timestamp | None
@@ -121,8 +110,6 @@ def run_gapfill_job(
                 ],
                 recorded_at=started_at,
             )
-            if job.fail_on_table_error:
-                continue
             continue
 
         if result["status"] == "processed":
