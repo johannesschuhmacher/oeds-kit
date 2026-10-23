@@ -114,7 +114,8 @@ ansible-playbook -i inventory.local.yml -K oeds-uninstall.yml
 This stops and removes OEDS containers/networks, preserving database volumes,
 source, runtime settings and backups. Docker and host-level settings remain.
 Use the explicit reset command in the test guide to destroy data as well.
-Optional flags `oeds_uninstall_remove_backups=true` and
+Optional flags `oeds_uninstall_remove_backups=true` (removes `oeds_backup_dir`
+and the migration backups in `/open_energy_data_server/backups`) and
 `oeds_uninstall_remove_images=true` are deliberately not enabled by default.
 
 ## Credentials and permissions
