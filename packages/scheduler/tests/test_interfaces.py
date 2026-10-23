@@ -459,21 +459,17 @@ def test_dispatcher_respects_max_parallel_runs():
 
 # --- service, daemon, application --------------------------------------------
 
-
-class EverySecondSchedule:
-    def next_after(self, ref_time):
-        return ref_time + timedelta(seconds=1)
+EVERY_MINUTE = "* * * * *"
 
 
-def test_scheduler_service_enqueues_due_jobs_with_injected_schedule():
+def test_scheduler_service_enqueues_due_jobs():
     runner = FakeRunner()
-    plan = _plan(extra={"schedule": "1"})[0]
+    plan = _plan(extra={"schedule": EVERY_MINUTE})[0]
     reference_time = datetime(2026, 1, 1, 0, 0, 0)
     service = SchedulerService(
         [plan],
         JobDispatcher(runner=runner),
-        schedule_factory=lambda expression: EverySecondSchedule(),
-        reference_time=reference_time - timedelta(seconds=1),
+        reference_time=reference_time - timedelta(minutes=1),
     )
 
     assert not service.issues
@@ -484,33 +480,28 @@ def test_scheduler_service_enqueues_due_jobs_with_injected_schedule():
     assert [result.job_id for result in results] == ["stub:default"]
     assert results[0].success is True
     assert runner.started == ["stub:default"]
-    assert service.next_run_time == reference_time + timedelta(seconds=1)
+    assert service.next_run_time == reference_time + timedelta(minutes=1)
     assert [*service.tick(reference_time), *service.wait_for_runs()] == []
 
 
 def test_scheduler_service_reports_missing_schedule():
     plan = _plan(extra={"schedule": None})[0]
 
-    service = SchedulerService(
-        [plan],
-        JobDispatcher(runner=FakeRunner()),
-        schedule_factory=lambda expression: None,
-    )
+    service = SchedulerService([plan], JobDispatcher(runner=FakeRunner()))
 
-    assert service.jobs == ()
+    assert service.next_run_time is None
     assert service.issues[0].job_id == "stub:default"
     assert service.issues[0].reason == "job has no schedule"
 
 
 def test_scheduler_daemon_runs_one_tick_and_polls_faster_while_runs_are_active(caplog):
     runner = FakeRunner(block=True)
-    plan = _plan(extra={"schedule": "1"})[0]
+    plan = _plan(extra={"schedule": EVERY_MINUTE})[0]
     reference_time = datetime(2026, 1, 1, 0, 0, 0)
     service = SchedulerService(
         [plan],
         JobDispatcher(runner=runner),
-        schedule_factory=lambda expression: EverySecondSchedule(),
-        reference_time=reference_time - timedelta(seconds=1),
+        reference_time=reference_time - timedelta(minutes=1),
     )
 
     class App:
@@ -533,9 +524,9 @@ def test_scheduler_daemon_runs_one_tick_and_polls_faster_while_runs_are_active(c
     assert daemon.seconds_until_next_tick(reference_time) == 0.2
     runner.release.set()
     _wait_until(lambda: service.active_run_count == 0)
-    assert daemon.seconds_until_next_tick(reference_time) == 1.0
+    assert daemon.seconds_until_next_tick(reference_time) == 30.0  # next run in 60s
     with caplog.at_level(logging.INFO, logger="oeds_scheduler_ui.daemon"):
-        assert daemon.run_once(reference_time + timedelta(seconds=0.5))[0].job_id == "stub:default"
+        assert daemon.run_once(reference_time + timedelta(seconds=30))[0].job_id == "stub:default"
     assert "succeeded" in caplog.text
 
 
@@ -579,7 +570,7 @@ def test_application_reloads_changed_config_and_keeps_the_dispatcher(crawl_stub,
     monkeypatch.setattr(application_module, "lock_engine", fake_lock_engine)
     config_path = crawl_stub / "CRAWLER_CONFIG.yml"
     config_path.write_text(
-        "default:\n  enable: true\n  schedule: '1'\n"
+        f"default:\n  enable: true\n  schedule: '{EVERY_MINUTE}'\n"
         f"  database_uri: {DATABASE_URI}\n"
         "stub:\n  schema_name: stub\n",
         encoding="utf-8",
@@ -590,7 +581,6 @@ def test_application_reloads_changed_config_and_keeps_the_dispatcher(crawl_stub,
         config_path,
         "ignored.json",
         "ignored",
-        schedule_factory=lambda expression: EverySecondSchedule(),
         reference_time=start,
     )
     dispatcher = app.dispatcher
@@ -603,22 +593,22 @@ def test_application_reloads_changed_config_and_keeps_the_dispatcher(crawl_stub,
     assert app.tick(start, reload_if_changed=False) == ()  # nothing due yet
 
     config_path.write_text(
-        "default:\n  enable: true\n  schedule: '1'\n  max_parallel_runs: 1\n"
+        f"default:\n  enable: true\n  schedule: '{EVERY_MINUTE}'\n  max_parallel_runs: 1\n"
         f"  database_uri: {DATABASE_URI}\n"
         "stub:\n  schema_name: stub\n"
         "other:\n  schema_name: other\n",
         encoding="utf-8",
     )
-    reload_time = start + timedelta(seconds=1)
+    reload_time = start + timedelta(minutes=1)
     assert app.tick(reload_time) == ()  # reloads; schedules restart from here
     assert app.snapshot.planned_job_count == 2
     assert app.dispatcher is dispatcher
     assert dispatcher.max_parallel_runs == 1
 
     # Both jobs are due; one slot means one run per tick.
-    results = [*app.tick(reload_time + timedelta(seconds=1)), *app.service.wait_for_runs()]
+    results = [*app.tick(reload_time + timedelta(minutes=1)), *app.service.wait_for_runs()]
     assert app.service.pending_job_count == 1
-    results += [*app.tick(reload_time + timedelta(seconds=1.5)), *app.service.wait_for_runs()]
+    results += [*app.tick(reload_time + timedelta(minutes=1.5)), *app.service.wait_for_runs()]
     assert sorted(result.job_id for result in results) == ["other:default", "stub:default"]
     assert all(result.status == "succeeded" for result in results)
     assert len(list((crawl_stub / "logs" / "runs").glob("*.log"))) == 2

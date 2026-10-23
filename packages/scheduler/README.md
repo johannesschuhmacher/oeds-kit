@@ -22,7 +22,7 @@ The module contains the scheduler core:
 - `runtime.py`: `oeds-crawl` subprocess runner, per-run logs, queue locking,
   bounded-concurrency dispatcher, post-run commands
 - `locks.py`: cross-process crawler lock (PostgreSQL advisory lock)
-- `service.py`: schedule adapter and scheduler service tick
+- `service.py`: cron schedules (`cron-converter`) and scheduler service tick
 - `application.py`: config assembly and reload boundary
 - `config.py`: YAML config loading and file change signature
 - `daemon.py`: stoppable loop around the scheduler application
