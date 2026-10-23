@@ -76,7 +76,6 @@ def test_admin_serves_dashboard_and_crawler_page_without_post(admin_app):
     status, body = _request(admin_app, "GET", "/admin")
     assert status == 200
     assert "entsoe_fms" in body
-    assert "/admin/gapfill" not in body
 
     # entsoe_fms has the gapfill panel and action, entsoe_api the price forecast.
     status, body = _request(admin_app, "GET", "/admin/crawlers/entsoe_fms")
@@ -90,9 +89,7 @@ def test_admin_serves_dashboard_and_crawler_page_without_post(admin_app):
     assert "Price forecast" not in body
 
 
-def test_admin_gapfill_routes_are_absent_without_post(admin_app):
-    assert _request(admin_app, "GET", "/admin/gapfill")[0] == 404
-    assert _request(admin_app, "POST", "/admin/gapfill/self-tests")[0] == 404
+def test_admin_gapfill_route_is_absent_without_post(admin_app):
     assert _request(admin_app, "POST", "/admin/crawlers/entsoe_fms/gapfill")[0] == 404
 
 

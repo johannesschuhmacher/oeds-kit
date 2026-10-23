@@ -317,17 +317,6 @@
                 </div>
               </dl>
             </article>
-
-            <article class="settings-card">
-              <span class="fleet-summary__label">QA and visibility</span>
-              <strong>Algorithm tests are separate</strong>
-              <p class="subtle-note">
-                Use Gapfill Tests for synthetic self-tests and holdout checks. Use the form below for the productive tables that should be gapfilled after crawler runs.
-              </p>
-              <div class="settings-card__actions">
-                <a href="/admin/gapfill" class="button button--secondary button--small">Open Gapfill Tests</a>
-              </div>
-            </article>
           </div>
 
           <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill" class="gapfill-config-form">
