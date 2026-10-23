@@ -35,13 +35,27 @@ ansible-playbook -i inventory.local.yml -K oeds-smoke-test.yml \
   -e oeds_expect_crawler_admin=true
 ```
 
-Re-running the installer updates an existing installation the same way.
-Both paths first dump the running database (`pg_dump -Fc` plus the globals)
-into `/home/oeds/backups/<timestamp>/` (`oeds_backup_dir`) and keep only the
-newest `oeds_backup_keep` (default 3) directories there; skip the dump with
-`-e oeds_backup_before_update=false`. The update then replaces source code,
-preserves crawler settings and Compose passwords/ports, and restarts services.
-It does not replace existing Docker volumes. `oeds_update_docker_packages=true`
+Re-running the installer updates an existing installation the same way:
+
+1. The new source is unpacked to `repo.next/` and the crawler images are built
+   and the service images pulled there, while the running services continue.
+   If the build fails, the build cache is cleared and the build repeated once;
+   a second failure stops the update with the old services still running.
+2. With `-e oeds_backup_before_update=true` (installer: `--backup`) the
+   database is dumped (`pg_dump -Fc` plus the globals) into
+   `/home/oeds/backups/<timestamp>/` (`oeds_backup_dir`); only the newest
+   `oeds_backup_keep` (default 3) directories are kept. The dump is off by
+   default because it takes over 30 minutes for a 140-GB database and an
+   update does not change the database.
+3. The update waits up to `oeds_update_wait_for_crawls_minutes` (default 15)
+   for running crawls, then moves `repo/` to `repo.prev/` and `repo.next/`
+   to `repo/`.
+4. `docker compose up -d --remove-orphans` replaces only the containers whose
+   image or settings changed; Grafana and pgAdmin are recreated because they
+   mount files from `repo/`. PostgreSQL keeps running unless its image changed.
+   `repo.prev/` is removed afterwards.
+
+Crawler settings, Compose passwords/ports and Docker volumes are preserved. `oeds_update_docker_packages=true`
 also updates Docker packages; normal updates leave them alone. PostgreSQL major
 version changes require a separate migration, not an ordinary update.
 
