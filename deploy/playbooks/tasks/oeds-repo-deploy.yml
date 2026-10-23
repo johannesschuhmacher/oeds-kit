@@ -1,41 +1,33 @@
-- name: Remove existing repo checkout before local archive/worktree deploy
+# The new source goes to <repo>.next while the current services keep running
+# from <repo>; tasks/oeds-switch-repo.yml swaps the two after the images built.
+- name: Remove a staging directory left by an earlier run
   ansible.builtin.file:
-    path: "{{ oeds_repo_dir_effective }}"
+    path: "{{ oeds_repo_dir_effective }}.next"
     state: absent
-  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
 
-- name: Remove existing repo path before git deploy when it is not a checkout
+- name: Create the staging directory for the new source
   ansible.builtin.file:
-    path: "{{ oeds_repo_dir_effective }}"
-    state: absent
-  when:
-    - oeds_repo_source_mode_effective == "git"
-    - oeds_repo_stat.stat.exists | default(false)
-    - oeds_repo_stat.stat.isdir | default(false)
-    - not (oeds_repo_git_metadata.stat.exists | default(false))
+    path: "{{ oeds_repo_dir_effective }}.next"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
 
 - name: Unpack repo archive from control node
   ansible.builtin.unarchive:
     src: "{{ oeds_repo_archive.path }}"
-    dest: "{{ oeds_root_effective }}"
+    dest: "{{ oeds_repo_dir_effective }}.next"
     remote_src: false
+    extra_opts:
+      - --strip-components=1
   when: oeds_repo_source_mode_effective in ["local_archive", "local_worktree"]
-
-- name: Remove non-git repo path before git deploy
-  ansible.builtin.file:
-    path: "{{ oeds_repo_dir_effective }}"
-    state: absent
-  when:
-    - oeds_repo_source_mode_effective == "git"
-    - oeds_repo_stat.stat.exists
-    - not (oeds_repo_git_metadata.stat.exists | default(false))
 
 - name: Git checkout requested release
   ansible.builtin.git:
     repo: "{{ oeds_repo_url_effective }}"
-    dest: "{{ oeds_repo_dir_effective }}"
+    dest: "{{ oeds_repo_dir_effective }}.next"
     version: "{{ oeds_repo_version_effective }}"
-    update: true
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GIT_ASKPASS: /bin/false

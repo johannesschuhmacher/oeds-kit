@@ -1,0 +1,34 @@
+# Build and pull from <repo>.next while the current services keep running. A
+# failed build stops the play here, so nothing has been stopped yet.
+# Imported by oeds-docker-config.yml and oeds-update.yml.
+- name: Build the crawler images
+  when: oeds_enable_crawlers_effective | bool
+  block:
+    - name: Build the crawler images while the current services keep running
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers build
+      args:
+        chdir: "{{ oeds_repo_dir_effective }}.next/deploy"
+  rescue:
+    # A damaged build cache ("parent snapshot does not exist") broke the
+    # 23 October 2026 update on intern; an empty cache fixed it.
+    - name: Clear the Docker build cache after the failed build
+      ansible.builtin.command: docker builder prune -f
+
+    - name: Build the crawler images again with an empty cache
+      ansible.builtin.shell: >-
+        docker compose
+        {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+        --profile crawlers build
+      args:
+        chdir: "{{ oeds_repo_dir_effective }}.next/deploy"
+
+- name: Pull the service images while the current services keep running
+  ansible.builtin.shell: >-
+    docker compose
+    {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+    pull
+  args:
+    chdir: "{{ oeds_repo_dir_effective }}.next/deploy"

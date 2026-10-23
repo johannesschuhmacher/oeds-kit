@@ -37,9 +37,13 @@ oeds_data_root: /home
 oeds_min_data_filesystem_gb: 200
 oeds_data_dir: "{{ oeds_data_root }}/oeds/docker_data"
 oeds_docker_data_root: "{{ oeds_data_root }}/docker"
-# Database dumps taken before each update; only the newest oeds_backup_keep remain.
+# Database dump before an update, off by default (over 30 min for 140 GB); only
+# the newest oeds_backup_keep remain.
+oeds_backup_before_update: false
 oeds_backup_dir: "{{ oeds_data_root }}/oeds/backups"
 oeds_backup_keep: 3
+# Minutes an update waits for running crawls before it replaces the scheduler.
+oeds_update_wait_for_crawls_minutes: 15
 oeds_repo_dir: "{{ oeds_root }}/repo"
 
 # Uninstall defaults are intentionally non-destructive.

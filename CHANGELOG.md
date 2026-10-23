@@ -3,6 +3,17 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- Installer and updates build the new images in `repo.next/` while the
+  running services continue, retry once with an empty build cache, and then
+  replace only the changed containers (`up -d`, no `down`). A failed build
+  leaves the old services running. The database dump before an update is
+  off by default (`--backup` / `oeds_backup_before_update=true`); the update
+  waits up to 15 minutes for running crawls.
+- `copy_insert` writes whole floats as integers, so COPY accepts them in
+  bigint columns (#14).
+
 ## 1.0.0 (2026-10-22)
 
 First release of the merged repository; the archived module repositories end

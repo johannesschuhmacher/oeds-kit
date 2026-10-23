@@ -1,5 +1,5 @@
-# Logical PostgreSQL backup taken right before an update stops the compose
-# project. Imported by oeds-docker-config.yml and oeds-update.yml, which define
+# Logical PostgreSQL backup taken before an update switches the services, only
+# when oeds_backup_before_update is true. Imported by oeds-docker-config.yml and oeds-update.yml, which define
 # oeds_backup_before_update_effective, oeds_backup_dir_effective,
 # oeds_backup_keep_effective and oeds_db_{container_name,name,user}_effective.
 - name: Check whether the database container is running

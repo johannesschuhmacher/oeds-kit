@@ -23,7 +23,7 @@
     oeds_repo_local_src_effective: "{{ oeds_repo_local_src | default('') }}"
     oeds_compose_dir_effective: "{{ oeds_compose_dir | default(oeds_repo_dir_effective ~ '/deploy') }}"
     oeds_compose_files_effective: "{{ oeds_compose_files | default(['compose.yml']) }}"
-    oeds_backup_before_update_effective: "{{ oeds_backup_before_update | default(true) }}"
+    oeds_backup_before_update_effective: "{{ oeds_backup_before_update | default(false) }}"
     oeds_backup_dir_effective: "{{ oeds_backup_dir | default(oeds_data_root_effective ~ '/oeds/backups') }}"
     oeds_backup_keep_effective: "{{ oeds_backup_keep | default(3) }}"
     oeds_db_container_name_effective: "{{ oeds_db_container_name | default('open-data') }}"
@@ -118,31 +118,25 @@
     ansible.builtin.stat:
       path: "{{ oeds_root_effective }}/compose.yml"
     register: oeds_legacy_compose
-  - name: Check whether the selected compose project exists
-    ansible.builtin.stat:
-      path: "{{ oeds_compose_dir_effective }}/{{ oeds_compose_files_effective[0] }}"
-    register: oeds_selected_compose
   - name: Prepare repo source before any downtime
     ansible.builtin.import_tasks: tasks/oeds-repo-prepare.yml
-  - name: Back up the database before any downtime
+  - name: Stage the new repo content next to the running one
+    ansible.builtin.import_tasks: tasks/oeds-repo-deploy.yml
+  - name: Restore Compose settings in the staged source
+    ansible.builtin.import_tasks: tasks/oeds-compose-env.yml
+    vars:
+      oeds_compose_dir_effective: "{{ oeds_repo_dir_effective }}.next/deploy"
+  - name: Build and pull images before any downtime
+    ansible.builtin.import_tasks: tasks/oeds-build-images.yml
+  - name: Back up the database when requested
     ansible.builtin.import_tasks: tasks/oeds-db-backup-before-update.yml
   - name: Stop legacy compose project before switching to repo-root compose
     ansible.builtin.shell: docker compose --profile crawlers down --remove-orphans
     args:
       chdir: "{{ oeds_root_effective }}"
     when: oeds_legacy_compose.stat.exists
-  # Scheduler and admin are in the crawlers profile; without it, down leaves them running
-  # and stops the database under the running crawls (alert mail on every update).
-  - name: Stop current compose project before updating repo
-    ansible.builtin.shell: >-
-      docker compose
-      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
-      --profile crawlers down --remove-orphans
-    args:
-      chdir: "{{ oeds_compose_dir_effective }}"
-    when: oeds_selected_compose.stat.exists
-  - name: Deploy repo content
-    ansible.builtin.import_tasks: tasks/oeds-repo-deploy.yml
+  - name: Switch to the new repo content
+    ansible.builtin.import_tasks: tasks/oeds-switch-repo.yml
   - name: Seed static crawler data files into runtime mount
     ansible.builtin.copy:
       src: "{{ oeds_repo_dir_effective }}/{{ item }}"
@@ -195,8 +189,6 @@
     when: oeds_crawler_env_file | default('') | length > 0
   - name: Give runtime files to the container user
     ansible.builtin.import_tasks: tasks/oeds-runtime-permissions.yml
-  - name: Restore Compose settings
-    ansible.builtin.import_tasks: tasks/oeds-compose-env.yml
   - name: Check grafana directory
     ansible.builtin.file:
       path: "{{ oeds_data_dir_effective }}/grafana-varlib"
@@ -204,22 +196,30 @@
       group: "472"
       mode: "0750"
       state: directory
-  - name: Run docker compose pull
-    ansible.builtin.shell: >-
-      docker compose
-      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
-      pull
-    args:
-      chdir: "{{ oeds_compose_dir_effective }}"
+  # Recreates only the containers whose image or settings changed; the images
+  # were built above, so up does not build.
   - name: Run docker compose up
     ansible.builtin.shell: >-
       docker compose
       {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
       {% if oeds_enable_crawlers_effective | bool %} --profile crawlers{% endif %}
-      up -d
-      {% if oeds_enable_crawlers_effective | bool %} --build{% endif %}
+      up -d --remove-orphans
     args:
       chdir: "{{ oeds_compose_dir_effective }}"
+  # Grafana and pgAdmin bind-mount files from the repo; after the swap their
+  # mounts still point to the old checkout until they are recreated.
+  - name: Recreate the services that mount repo files
+    ansible.builtin.shell: >-
+      docker compose
+      {% for compose_file in oeds_compose_files_effective %} -f {{ compose_file | quote }}{% endfor %}
+      up -d --no-deps --force-recreate grafana pgadmin
+    args:
+      chdir: "{{ oeds_compose_dir_effective }}"
+    when: oeds_repo_stat.stat.exists
+  - name: Remove the previous repo content
+    ansible.builtin.file:
+      path: "{{ oeds_repo_dir_effective }}.prev"
+      state: absent
   - name: Wait for PostgreSQL to become ready
     ansible.builtin.shell: >-
       docker compose
