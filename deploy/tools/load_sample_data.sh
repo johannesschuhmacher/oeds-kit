@@ -4,14 +4,12 @@ set -euo pipefail
 TIMEOUT_SECONDS=1800
 START_DATE=""
 INCLUDE_ENTSOE_FMS=false
-RUN_POST_SCRIPTS=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --timeout-seconds) TIMEOUT_SECONDS=$2; shift 2 ;;
     --start-date) START_DATE=$2; shift 2 ;;
     --include-entsoe-fms) INCLUDE_ENTSOE_FMS=true; shift ;;
-    --no-post-scripts) RUN_POST_SCRIPTS=false; shift ;;
     -h|--help)
       cat <<'USAGE'
 Usage: sudo bash tools/load_sample_data.sh [options]
@@ -21,7 +19,6 @@ that the expected tables contain rows.
 
 Options:
   --include-entsoe-fms       Load one FMS price package and the plant-capacity reference.
-  --no-post-scripts          Do not run SMARD gapfill post-script.
   --start-date VALUE         SMARD start date, default seven days ago (one chart week).
   --timeout-seconds VALUE    Service wait timeout, default 1800.
 USAGE
@@ -119,12 +116,6 @@ if [[ -f "$RUNTIME_ROOT/crawler/.env" ]]; then
   chmod 0600 "$RUNTIME_ROOT/crawler/.env"
 fi
 
-POST_RUN_BLOCK='  post_run_scripts: []'
-if [[ "$RUN_POST_SCRIPTS" == "true" ]]; then
-  POST_RUN_BLOCK='  post_run_scripts:
-    - "oeds-post gapfill smard"'
-fi
-
 FMS_BLOCK=""
 EXPECTED='["smard","entsoe_api","power_system_data","weather_forecast"]'
 if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
@@ -159,8 +150,7 @@ smard:
   schema_name: "smard"
   schedule: "* * * * *"
   default_start_date: "$START_DATE"
-  run_post_scripts: $RUN_POST_SCRIPTS
-$POST_RUN_BLOCK
+  run_post_scripts: false
 entsoe_api:
   enable: true
   schema_name: "entsoe_api"
@@ -240,7 +230,6 @@ DO $$
 DECLARE
   smard_rows integer;
   price_rows integer;
-  gapfilled_rows integer;
   entsoe_price_rows integer;
   power_rows integer;
   weather_rows integer;
@@ -262,11 +251,6 @@ BEGIN
   IF entsoe_price_rows <= 0 THEN RAISE EXCEPTION 'entsoe_api.day_ahead_prices has no rows'; END IF;
   IF power_rows <= 0 THEN RAISE EXCEPTION 'power_system_data.powersystemdata has no rows'; END IF;
   IF weather_rows <= 0 THEN RAISE EXCEPTION 'weather.hourly_forecast has no rows'; END IF;
-
-  IF to_regclass('smard.smard_gapfilled') IS NOT NULL THEN
-    SELECT COUNT(*) INTO gapfilled_rows FROM smard.smard_gapfilled;
-    IF gapfilled_rows <= 0 THEN RAISE EXCEPTION 'smard.smard_gapfilled has no rows'; END IF;
-  END IF;
 END
 $$;
 SELECT
@@ -276,12 +260,6 @@ SELECT
   (SELECT COUNT(*) FROM power_system_data.powersystemdata) AS power_system_data_rows,
   (SELECT COUNT(*) FROM weather.hourly_forecast) AS weather_hourly_forecast_rows;
 SQL
-
-if [[ "$RUN_POST_SCRIPTS" == "true" ]]; then
-  cat <<'SQL' | "${COMPOSE[@]}" exec -T open-data psql -U opendata -d opendata -v ON_ERROR_STOP=1
-SELECT COUNT(*) AS smard_gapfilled_rows FROM smard.smard_gapfilled;
-SQL
-fi
 
 if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
   cat <<'SQL' | "${COMPOSE[@]}" exec -T open-data psql -U opendata -d opendata -v ON_ERROR_STOP=1
