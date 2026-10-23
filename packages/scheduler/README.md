@@ -67,6 +67,9 @@ this module imports `crawler.common.*` where it needs to, nothing above it.
 - Post-run commands (`post_run_scripts`) run as subprocesses after a
   successful crawler run; `*.py` paths use the current interpreter with the
   working directory on `PYTHONPATH`.
+- The admin's "Run once" uses the same runner for the crawler section (no
+  `--job`), with the same post-run handling, `run_post_scripts` and
+  `run_timeout_seconds`; its output goes to the admin's run log.
 
 ## Optional post-processing
 
