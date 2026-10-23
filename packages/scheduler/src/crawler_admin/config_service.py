@@ -19,7 +19,9 @@ from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
 CONFIG_FILENAME = "CRAWLER_CONFIG.yml"
-GAPFILL_POSTRUN_SCRIPT = "scripts/gapfill_timeseries.py"
+# The post-run command the gapfill panel adds; any "oeds-post gapfill ..."
+# command (for example with extra arguments) counts as the gapfill step.
+GAPFILL_POSTRUN_SCRIPT = "oeds-post gapfill entsoe-fms"
 WINDOWS_TIMEZONE_ABBREVIATIONS = {
     "W. Europe Standard Time": "CET",
     "W. Europe Daylight Time": "CEST",
@@ -176,6 +178,10 @@ def discover_crawler_modules() -> list[str]:
     """Crawler names registered under the ``oeds.crawlers`` entry points."""
 
     return list(known_crawler_names())
+
+
+def is_gapfill_command(command: str) -> bool:
+    return command.split()[:2] == ["oeds-post", "gapfill"]
 
 
 def merge_with_defaults(default_config: dict[str, Any], crawler_config: dict[str, Any]) -> dict[str, Any]:
@@ -864,8 +870,9 @@ def update_gapfill_config_text(
     else:
         raise ValueError("The crawler 'post_run_scripts' value must be a list before gapfill can be edited.")
 
-    post_run_list = [script for script in post_run_list if script != GAPFILL_POSTRUN_SCRIPT]
-    if script_enabled:
+    if not script_enabled:
+        post_run_list = [script for script in post_run_list if not is_gapfill_command(script)]
+    elif not any(is_gapfill_command(script) for script in post_run_list):
         post_run_list.insert(0, GAPFILL_POSTRUN_SCRIPT)
     crawler_config["post_run_scripts"] = [DoubleQuotedScalarString(script) for script in post_run_list]
 

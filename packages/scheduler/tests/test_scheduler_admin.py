@@ -19,7 +19,9 @@ from crawler_admin.config_service import (
     CronPreview,
     get_repo_root,
     update_crawler_schedule_config_text,
+    update_gapfill_config_text,
 )
+from crawler_admin.gapfill_service import build_gapfill_runtime_view
 from crawler_admin.runtime_service import CrawlerRunService, PreparedAction
 
 
@@ -104,6 +106,41 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                     schedule="15 3 * * *",
                     repo_root=Path(temp_dir),
                 )
+
+    def test_gapfill_panel_detects_and_keeps_the_oeds_post_command(self) -> None:
+        post_run_scripts = ["oeds-post gapfill entsoe-fms", "oeds-post refresh entsoe-availability-map"]
+        config = {"schema_name": "entsoe_fms", "post_run_scripts": post_run_scripts}
+        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", config, config).script_enabled)
+
+        settings = {
+            "enabled": True,
+            "selected_tables": [],
+            "target_schema": "entsoe_fms_gapfilled",
+            "method": "linear",
+            "candidate_periods": ["24h"],
+            "donor_context_periods": 6,
+            "donor_search_radius": "28d",
+            "refinement_periods": 3,
+            "max_gap_periods": 24,
+            "lookback": "7d",
+            "fail_on_table_error": True,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            (Path(temp_dir) / "CRAWLER_CONFIG.yml").write_text(
+                yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
+            )
+            kept = update_gapfill_config_text(
+                "entsoe_fms", script_enabled=True, repo_root=Path(temp_dir), **settings
+            )
+            removed = update_gapfill_config_text(
+                "entsoe_fms", script_enabled=False, repo_root=Path(temp_dir), **settings
+            )
+
+        self.assertEqual(yaml.safe_load(kept)["entsoe_fms"]["post_run_scripts"], post_run_scripts)
+        self.assertEqual(
+            yaml.safe_load(removed)["entsoe_fms"]["post_run_scripts"],
+            ["oeds-post refresh entsoe-availability-map"],
+        )
 
     def test_scheduler_form_uses_selected_job_values(self) -> None:
         card = CrawlerCard(

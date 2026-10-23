@@ -9,12 +9,13 @@ import pandas as pd
 from crawler.common.runtime_env import resolve_database_uri
 from sqlalchemy import bindparam, create_engine, text
 
+from crawler_admin.config_service import is_gapfill_command
+
 # ``oeds_gapfill`` (oeds-post-scripts) is optional for the admin, so it is
 # imported inside the functions that need it; see ``crawler_admin.POST_INSTALLED``.
 if TYPE_CHECKING:
     from oeds_gapfill.selftest import HoldoutTestResult, SelfTestResult
 
-GAPFILL_POSTRUN_SCRIPT = "scripts/gapfill_timeseries.py"
 GAPFILL_DASHBOARD_NAME = "OEDS Gapfilling Quality"
 
 
@@ -325,7 +326,7 @@ def build_gapfill_runtime_view(
         supported=bool(supported_tables),
         source_schema=source_schema,
         target_schema=target_schema,
-        script_enabled=GAPFILL_POSTRUN_SCRIPT in scripts,
+        script_enabled=any(is_gapfill_command(str(script)) for script in scripts),
         gapfill_enabled=bool(
             effective_gapfill.get("enable", False) if effective_gapfill else False
         ),
