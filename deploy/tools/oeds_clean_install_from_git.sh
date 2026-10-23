@@ -196,7 +196,15 @@ YAML
 
 cd "$PLAYBOOK_DIR"
 export ANSIBLE_CONFIG=ansible.cfg
-ansible-galaxy collection install -r requirements.yml
+# Install only when a collection from requirements.yml is missing; the
+# install contacts Ansible Galaxy even when everything is present.
+INSTALLED_COLLECTIONS=$(ansible-galaxy collection list 2>/dev/null || true)
+for collection in $(sed -n 's/^ *- name: *//p' requirements.yml); do
+  if ! grep -q "^$collection " <<<"$INSTALLED_COLLECTIONS"; then
+    ansible-galaxy collection install -r requirements.yml
+    break
+  fi
+done
 
 BECOME_ARGS=()
 readarray_nul BECOME_ARGS < <(become_args)

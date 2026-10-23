@@ -41,8 +41,8 @@ post-processing SQL. Re-running the installer does the same. The source is
 the checkout at `oeds_repo_local_src` on the control node, copied as it is
 (including uncommitted changes, without `.git`).
 
-1. The new source is unpacked to `repo.next/` and the crawler images are built
-   and the service images pulled there, while the running services continue.
+1. The new source is unpacked to `repo.next/` and the crawler image is built
+   and missing service images pulled there, while the running services continue.
    If the build fails, the build cache is cleared and the build repeated once;
    a second failure stops the update with the old services still running.
 2. With `-e oeds_backup_before_update=true` (installer: `--backup`) the

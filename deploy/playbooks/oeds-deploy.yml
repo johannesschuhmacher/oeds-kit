@@ -251,8 +251,9 @@
         ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers build"
         args:
           chdir: "{{ oeds_repo_dir }}.next/deploy"
-  - name: Pull the service images while the current services keep running
-    ansible.builtin.shell: "{{ oeds_compose }} pull"
+  # The images are pinned by tag, so only a tag that is not here yet is pulled.
+  - name: Pull missing service images while the current services keep running
+    ansible.builtin.shell: "{{ oeds_compose }} pull --policy missing"
     args:
       chdir: "{{ oeds_repo_dir }}.next/deploy"
 
