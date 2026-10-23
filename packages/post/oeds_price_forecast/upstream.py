@@ -14,9 +14,9 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from datetime import date
+from functools import partial
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from oeds_price_forecast.model import (
@@ -27,6 +27,8 @@ from oeds_price_forecast.model import (
     _as_utc_series,
     _metrics,
     _regularize_covariates,
+    backtest_forecast,
+    quantile_forecast,
 )
 
 UPSTREAM_MODEL_NAME = "upstream_lear"
@@ -180,19 +182,7 @@ def _quantiles_from_residual_proxy(
     else:
         residual_offsets = residuals.tail(config.train_days * 96).quantile(list(config.quantiles))
 
-    rows = []
-    for quantile in config.quantiles:
-        offset = float(residual_offsets.loc[quantile])
-        for _, row in point.iterrows():
-            rows.append(
-                {
-                    "delivery_start_utc": row["delivery_start_utc"],
-                    "delivery_end_utc": row["delivery_end_utc"],
-                    "quantile": float(quantile),
-                    "value_eur_mwh": float(row["value_eur_mwh"] + offset),
-                }
-            )
-    return pd.DataFrame(rows)
+    return quantile_forecast(point, residual_offsets, config.quantiles)
 
 
 def forecast_day_upstream(
@@ -259,26 +249,13 @@ def backtest_forecast_upstream(
     repo_path: str | None = None,
     variant: str = "exaa_only",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    forecast_frames = []
-    metric_frames = []
-    for target_date in target_dates:
-        result = forecast_day_upstream(price, exaa, covariates, target_date, config, repo_path, variant)
-        actual = _as_utc_series(price, "actual").reindex(pd.DatetimeIndex(result.point_forecast["delivery_start_utc"]))
-        forecast = result.point_forecast.copy()
-        forecast["target_date"] = target_date
-        forecast["actual_eur_mwh"] = actual.to_numpy(dtype=float)
-        forecast_frames.append(forecast)
-        metrics = _metrics(
-            pd.Series(forecast["actual_eur_mwh"].to_numpy(dtype=float), index=forecast["delivery_start_utc"]),
-            pd.Series(forecast["value_eur_mwh"].to_numpy(dtype=float), index=forecast["delivery_start_utc"]),
-        )
-        metrics["target_date"] = target_date
-        metric_frames.append(metrics)
-
-    forecasts = pd.concat(forecast_frames, ignore_index=True) if forecast_frames else pd.DataFrame()
-    metrics = pd.concat(metric_frames, ignore_index=True) if metric_frames else pd.DataFrame()
-    if not metrics.empty:
-        aggregate = metrics.groupby("metric", as_index=False)["value"].mean()
-        aggregate["target_date"] = np.nan
-        metrics = pd.concat([metrics, aggregate], ignore_index=True)
-    return forecasts, metrics
+    # Upstream backtests score against the raw prices, without forward-filling gaps.
+    return backtest_forecast(
+        price,
+        exaa,
+        covariates,
+        target_dates,
+        config,
+        forecast_fn=partial(forecast_day_upstream, repo_path=repo_path, variant=variant),
+        fill_actual_gaps=False,
+    )
