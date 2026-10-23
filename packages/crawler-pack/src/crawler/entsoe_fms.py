@@ -31,13 +31,11 @@ from sqlalchemy import (
     Index,
     MetaData,
     UniqueConstraint,
-    or_,
 )
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from entsoe.mappings import PSRTYPE_MAPPINGS, Area
 
-from crawler.common.crawler_utils import build_session
+from crawler.common.crawler_utils import build_session, copy_upsert
 from crawler.common.kit_base import KitCrawler
 
 
@@ -762,21 +760,13 @@ class EntsoeFMSCrawler(KitCrawler):
         )
 
     def _upsert_dataframe(self, table_name: str, df: pd.DataFrame) -> None:
-        """Upsert a dataframe into the target table in conflict-safe batches."""
+        """Upsert a dataframe into the target table with COPY (see copy_upsert)."""
         if df.empty:
             return
 
         df = self._deduplicate_on_unique_keys(table_name, df)
-        if df.empty:
-            return
-
-        # NaT and NaN must reach PostgreSQL as NULL, not as the strings 'NaT'/'NaN'.
-        data = df.astype(object).where(df.notna(), None).to_dict(orient="records")
         table_obj = self._reflected_table(table_name)
-        batch_size = 5000
 
-        stmt = insert(table_obj)
-        update_dict = {c.name: stmt.excluded[c.name] for c in table_obj.columns}
         # Only rewrite a row when the file carries a newer UpdateTime; the hourly
         # package refresh re-upserts the whole month and would otherwise rewrite
         # every unchanged row (WAL and bloat). Rows whose stored UpdateTime is NULL
@@ -786,18 +776,11 @@ class EntsoeFMSCrawler(KitCrawler):
         )
         where = None
         if update_time_column:
-            stored = table_obj.c[update_time_column]
-            where = or_(stored.is_(None), stored < stmt.excluded[update_time_column])
-        stmt = stmt.on_conflict_do_update(
-            constraint=self.UNIQUE_KEY_DICT[table_name],
-            set_=update_dict,
-            where=where,
+            stored = f'"entsoe_fms"."{table_name}"."{update_time_column}"'
+            where = f'{stored} IS NULL OR {stored} < EXCLUDED."{update_time_column}"'
+        copy_upsert(
+            self.engine, table_obj, df, self.UNIQUE_KEY_DICT[table_name], self.UNIQUE_KEY_COLUMNS[table_name], where
         )
-
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-            with self.engine.begin() as conn:
-                conn.execute(stmt, batch)
 
     def _reflected_table(self, table_name: str) -> Table:
         """Reflect the table once per run; _add_missing_columns and renames invalidate it."""
