@@ -13,6 +13,11 @@ ansible-galaxy collection install -r requirements.yml
 ansible -i inventory.local.yml oeds -m ping
 ```
 
+The defaults of all playbooks, with comments, are in `group_vars/all.yml`. To
+change one for a host, set it in `group_vars/oeds.yml` (ignored by Git), as a
+host variable in the inventory or with `-e`. Group `vars:` inside the
+inventory file rank below `group_vars/all.yml` and have no effect.
+
 The automated host preparation targets CentOS Stream and currently sets SELinux
 to permissive mode. Review this host-wide security change with your administrator.
 Ubuntu host setup has not been verified. Docker access grants host-level control;
@@ -36,8 +41,8 @@ post-processing SQL. Re-running the installer does the same. The source is
 the checkout at `oeds_repo_local_src` on the control node, copied as it is
 (including uncommitted changes, without `.git`).
 
-1. The new source is unpacked to `repo.next/` and the crawler images are built
-   and the service images pulled there, while the running services continue.
+1. The new source is unpacked to `repo.next/` and the crawler image is built
+   and missing service images pulled there, while the running services continue.
    If the build fails, the build cache is cleared and the build repeated once;
    a second failure stops the update with the old services still running.
 2. With `-e oeds_backup_before_update=true` (installer: `--backup`) the
@@ -55,9 +60,13 @@ the checkout at `oeds_repo_local_src` on the control node, copied as it is
    `repo.prev/` is removed afterwards.
 
 Crawler settings, Compose passwords/ports and Docker volumes are preserved.
-`-e oeds_package_state=latest` also updates the Docker packages; normal runs
-leave them alone. PostgreSQL major version changes require a separate
-migration (`oeds-db-migrate.yml`), not an ordinary update.
+Docker itself is installed and configured by `oeds-install-host-prep.yml`,
+which the installer runs first unless `--skip-host-prep` is given;
+`oeds-install-crawlers.yml` expects Docker to be there.
+`ansible-playbook -i inventory.local.yml -K oeds-packages.yml -e oeds_package_state=latest`
+also updates the Docker packages; normal runs leave them alone. PostgreSQL
+major version changes require a separate migration (`oeds-db-migrate.yml`),
+not an ordinary update.
 
 The crawler image installs exactly the root `uv.lock` (`uv sync --frozen`).
 When a package changes its dependencies or the `oeds` revision in the root
@@ -105,7 +114,8 @@ ansible-playbook -i inventory.local.yml -K oeds-uninstall.yml
 This stops and removes OEDS containers/networks, preserving database volumes,
 source, runtime settings and backups. Docker and host-level settings remain.
 Use the explicit reset command in the test guide to destroy data as well.
-Optional flags `oeds_uninstall_remove_backups=true` and
+Optional flags `oeds_uninstall_remove_backups=true` (removes `oeds_backup_dir`
+and the migration backups in `/open_energy_data_server/backups`) and
 `oeds_uninstall_remove_images=true` are deliberately not enabled by default.
 
 ## Credentials and permissions
@@ -115,8 +125,8 @@ overrides belong in the installed `repo/deploy/.env`. Ansible protects
 these files with `root:docker` and mode `0640`. Both crawler containers run as
 UID 1000; the runtime config file and the data/log/admin-state directories are
 owned by that UID (group `docker`, not world-writable), and every update
-re-applies this ownership recursively. Keep the admin port behind SSH or
-authenticated access.
+re-applies this ownership, recursively for `logs/`. Keep the admin port behind
+SSH or authenticated access.
 
 The password rotation feature requires the Bitwarden `bw` CLI on the target
 and `BW_CLIENTID`, `BW_CLIENTSECRET`, `BW_PASSWORD` in the control environment.
@@ -153,7 +163,7 @@ your SMTP service. Syntax errors before callback initialization cannot send mail
 | `oeds-install-host-prep.yml` | OS repositories, SELinux policy, Docker packages |
 | `oeds-install-core.yml` | Database, Grafana, pgAdmin and PostgREST |
 | `oeds-install-post.yml` | Post-processing SQL functions, safe to rerun |
-| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin; also the update |
+| `oeds-install-crawlers.yml` | Complete stack including scheduler/admin on a prepared host; also the update |
 | `oeds-deploy.yml` | Stage, build, optional backup, switch; imported by both install playbooks |
 | `oeds-smoke-test.yml` | Service/database health checks, `oeds-crawl --list` and an offline crawler run in the built image |
 | `oeds-db-backup.yml`, `oeds-db-migrate.yml`, `oeds-db-rollback.yml` | Database recovery lifecycle |

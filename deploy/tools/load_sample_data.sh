@@ -39,7 +39,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 DEPLOYMENT_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 REPO_ROOT=$(cd -- "$DEPLOYMENT_ROOT/.." && pwd)
 CRAWLER_DATA_SOURCE=$REPO_ROOT/packages/crawler-pack/src/crawler/data
-source "$SCRIPT_DIR/smoke_lib.sh"
 
 compose_env_value() {
   local key=$1
@@ -54,6 +53,26 @@ resolve_path_from_deployment() {
     /*) printf '%s\n' "$value" ;;
     *) realpath -m "$DEPLOYMENT_ROOT/$value" ;;
   esac
+}
+
+wait_for_container_health() {
+  local container=$1
+  local timeout_seconds=$2
+  local service_name=$3
+  local deadline=$((SECONDS + timeout_seconds))
+  local state=""
+
+  while ((SECONDS < deadline)); do
+    state=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || true)
+    if [[ "$state" == "healthy" ]]; then
+      return 0
+    fi
+    sleep 5
+  done
+
+  "${COMPOSE[@]}" logs --no-color "$service_name" | tail -120 || true
+  echo "$container did not become healthy within ${timeout_seconds}s" >&2
+  return 1
 }
 
 cd "$DEPLOYMENT_ROOT"
@@ -124,7 +143,13 @@ fi
 
 cat > "$RUNTIME_ROOT/CRAWLER_CONFIG.yml" <<YAML
 default:
-$(write_default_email_config)
+  email:
+    mailhost: ""
+    fromaddr: ""
+    toaddrs: []
+    subject: "OEDS Crawler :crawler_name Critical Error Notification"
+    username: ""
+    password: ""
   enable: false
   schedule: "* * * * *"
   post_run_scripts: []
