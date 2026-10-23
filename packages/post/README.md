@@ -15,7 +15,6 @@ crawlers have written source tables.
 - gapfilling
 - price forecasting
 - ENTSO-E availability map refresh
-- dashboard generation
 - derived SQL refresh tools
 - stable `oeds-post` CLI
 
