@@ -16,7 +16,7 @@ from typing import Any
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
-from sqlalchemy import text
+from sqlalchemy import Integer, text
 from urllib3.util.retry import Retry
 
 DEFAULT_USER_AGENT = "OEDS crawler/0.1 (+https://open-energy-data-server.readthedocs.io/)"
@@ -44,6 +44,51 @@ def copy_insert(pd_table, conn, keys, data_iter) -> None:
     columns = ", ".join(f'"{key}"' for key in keys)
     with conn.connection.cursor() as cursor:
         cursor.copy_expert(f"COPY {target} ({columns}) FROM STDIN WITH (FORMAT csv)", buffer)
+
+
+def copy_upsert(engine, table, df: pd.DataFrame, constraint_name: str, key_columns: list[str], where: str | None = None) -> int:
+    """Upsert ``df`` into the SQLAlchemy ``table`` with COPY into a temporary table and one INSERT ... ON CONFLICT.
+
+    Batched INSERT statements with bound values were the bottleneck (EPEX: about
+    8 minutes per daily trade archive). Conflicting rows get every non-key column
+    from ``df``; columns of ``table`` missing from ``df`` are written as NULL.
+    ``where`` is an optional SQL condition of DO UPDATE; the stored row is
+    ``"schema"."table"``, the new row ``EXCLUDED``. PostgreSQL only.
+    """
+    if df.empty:
+        return 0
+    columns = [column.name for column in table.columns]
+    # ON CONFLICT DO UPDATE fails if one statement touches the same key twice.
+    df = df.reindex(columns=columns).drop_duplicates(subset=key_columns, keep="last")
+
+    # As in copy_insert: NaN/NaT become unquoted empty fields (NULL), every other
+    # value is quoted, so an empty string stays an empty string. Whole floats are
+    # written as integers only for integer columns, where COPY rejects "0.0"; a text
+    # column keeps "1.0", as the former INSERT of the float did.
+    integer = [isinstance(column.type, Integer) for column in table.columns]
+    values = df.astype(object).where(df.notna(), None)
+    rows = (
+        [int(v) if is_int and isinstance(v, float) and v.is_integer() else v for v, is_int in zip(row, integer)]
+        for row in values.itertuples(index=False, name=None)
+    )
+    buffer = io.StringIO()
+    csv.writer(buffer, quoting=csv.QUOTE_NOTNULL).writerows(rows)
+    buffer.seek(0)
+
+    target = f'"{table.schema}"."{table.name}"'
+    column_list = ", ".join(f'"{column}"' for column in columns)
+    updates = ", ".join(f'"{column}" = EXCLUDED."{column}"' for column in columns if column not in key_columns)
+    upsert = (
+        f"INSERT INTO {target} ({column_list}) SELECT {column_list} FROM upsert_stage "
+        f'ON CONFLICT ON CONSTRAINT "{constraint_name}" DO UPDATE SET {updates}'
+    )
+    if where:
+        upsert += f" WHERE {where}"
+    with engine.begin() as conn, conn.connection.cursor() as cursor:
+        cursor.execute(f"CREATE TEMP TABLE upsert_stage (LIKE {target}) ON COMMIT DROP")
+        cursor.copy_expert(f"COPY upsert_stage ({column_list}) FROM STDIN WITH (FORMAT csv)", buffer)
+        cursor.execute(upsert)
+    return len(df)
 
 
 def build_session(user_agent: str | None = None, retries: int = 4, backoff_factor: float = 1.0) -> requests.Session:
