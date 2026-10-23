@@ -2032,8 +2032,6 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
     { name = "sqlalchemy" },
 ]
 
@@ -2045,6 +2043,8 @@ price-forecast = [
     { name = "da-price-forecasting" },
     { name = "holidays" },
     { name = "matplotlib" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
 ]
 
 [package.metadata]
@@ -2058,8 +2058,8 @@ requires-dist = [
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
+    { name = "scikit-learn", marker = "extra == 'price-forecast'" },
+    { name = "scipy", marker = "extra == 'price-forecast'" },
     { name = "sqlalchemy" },
 ]
 provides-extras = ["backfill", "price-forecast"]
