@@ -522,9 +522,9 @@
               </strong>
               <p class="subtle-note">
                 {% if price_forecast_view.script_enabled %}
-                  <code>scripts/run_price_forecast.py</code> runs after successful crawler executions.
+                  <code>oeds-post forecast day-ahead-price</code> runs after successful crawler executions.
                 {% else %}
-                  Add <code>scripts/run_price_forecast.py</code> to this crawler's <code>post_run_scripts</code> to run it automatically.
+                  Add <code>oeds-post forecast day-ahead-price</code> to this crawler's <code>post_run_scripts</code> to run it automatically.
                 {% endif %}
               </p>
             </article>
