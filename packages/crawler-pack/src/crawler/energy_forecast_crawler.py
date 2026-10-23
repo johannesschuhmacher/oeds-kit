@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import os
-import sys
 from dotenv import load_dotenv
 from pathlib import Path
 import requests
 import pandas as pd
-from datetime import datetime, timezone
-from sqlalchemy import text, Table, MetaData, Column, DateTime, Float, String
+from datetime import datetime
+from sqlalchemy import Table, MetaData, Column, DateTime, Float, String
 from sqlalchemy.dialects.postgresql import insert
 
 from crawler.common.kit_base import KitCrawler

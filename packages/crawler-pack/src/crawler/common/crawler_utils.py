@@ -84,10 +84,6 @@ def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def qident(identifier: str) -> str:
-    return '"' + identifier.replace('"', '""') + '"'
-
-
 def stable_hash(*parts: Any) -> str:
     payload = "|".join("" if part is None else str(part) for part in parts)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -208,15 +204,3 @@ def write_access_status(
                 "checked_at": utc_now(),
             },
         )
-
-
-def replace_table(engine, frame: pd.DataFrame, table_name: str) -> None:
-    with engine.begin() as conn:
-        frame.to_sql(table_name, conn, if_exists="replace", index=False)
-
-
-def append_table(engine, frame: pd.DataFrame, table_name: str) -> None:
-    if frame.empty:
-        return
-    with engine.begin() as conn:
-        frame.to_sql(table_name, conn, if_exists="append", index=False)

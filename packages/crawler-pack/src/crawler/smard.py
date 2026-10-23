@@ -178,12 +178,7 @@ class SmardCrawler(KitCrawler):
 
             yield timeseries
 
-    def select_latest(
-        self, commodity_id, delete=False, prev_latest=None
-    ) -> tuple[pd.Timestamp, pd.Timestamp | None]:
-        # day = default_start_date
-        # today = date.today().strftime('%d.%m.%Y')
-        # sql = f"select timestamp from smard where timestamp > '{day}' and timestamp < '{today}' order by timestamp desc limit 1"
+    def select_latest(self, commodity_id) -> tuple[pd.Timestamp, pd.Timestamp | None]:
         if commodity_id != 4169:
             sql = f"select timestamp from smard where commodity_id='{commodity_id}' order by timestamp desc limit 1"
         else:

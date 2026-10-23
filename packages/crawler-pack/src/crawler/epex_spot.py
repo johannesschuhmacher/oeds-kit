@@ -27,7 +27,6 @@ import pandas as pd
 import paramiko
 from dotenv import load_dotenv
 from sqlalchemy import BigInteger, Column, Date, DateTime, Float, MetaData, String, Table, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import insert
 
 from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
