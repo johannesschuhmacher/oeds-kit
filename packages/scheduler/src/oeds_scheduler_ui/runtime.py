@@ -62,49 +62,12 @@ class CrawlerRunResult:
     post_run_success: bool
     success: bool
     status: str  # "succeeded" | "failed" | "skipped"
-    crawler_result: Any = None
     error: str | None = None
     post_run_results: tuple[PostRunCommandResult, ...] = ()
     log_path: Path | None = None
 
 
-@dataclass(frozen=True)
-class ScheduledCrawlerJob:
-    """Runtime queue item created from a dry scheduler plan."""
-
-    plan: SchedulerJobPlan
-    lock_keys: frozenset[str]
-
-    @property
-    def job_id(self) -> str:
-        return self.plan.job_id
-
-    @property
-    def display_name(self) -> str:
-        return self.plan.display_name
-
-
-@dataclass(frozen=True)
-class QueuedCrawlerJob:
-    """Queued runtime job with scheduling timestamps."""
-
-    job: ScheduledCrawlerJob
-    scheduled_for: datetime
-    enqueued_at: datetime
-
-
 PostRunExecutor = Callable[[str, SchedulerJobPlan, TextIO], PostRunCommandResult]
-
-
-def is_crawler_skipped(exc: BaseException) -> bool:
-    """Return whether ``exc`` is a crawler's ``CrawlerSkipped``.
-
-    Matched by class name so the scheduler does not depend on crawler-pack
-    internals (``crawler.common.crawler_utils.CrawlerSkipped`` today, possibly
-    ``oeds.CrawlerSkipped`` later).
-    """
-
-    return any(cls.__name__ == "CrawlerSkipped" for cls in type(exc).__mro__)
 
 
 def find_executable(name: str) -> str | None:
@@ -188,9 +151,12 @@ class CrawlerJobRunner:
         self.logs_dir = Path(logs_dir)
         self.keep_run_logs = keep_run_logs
 
-    def run(self, plan: SchedulerJobPlan) -> CrawlerRunResult:
+    def run(self, plan: SchedulerJobPlan, log_path: Path | None = None) -> CrawlerRunResult:
+        """Run one job; output goes to ``log_path`` or a new file under ``logs/runs/``."""
+
         started_at = datetime.now()
-        log_path = self._new_run_log_path(plan, started_at)
+        if log_path is None:
+            log_path = self._new_run_log_path(plan, started_at)
         argv = crawl_command(
             plan.crawler_name, self.config_path, plan.job_name, self.command
         )
@@ -311,45 +277,39 @@ class CrawlerJobRunner:
 
 
 class CrawlerJobQueue:
-    """Queue planned jobs while preventing duplicate and conflicting runs."""
+    """Queue planned jobs; skip duplicates and run one job per crawler at a time.
+
+    The cross-process advisory lock is per crawler as well, so a second job of
+    an active crawler waits here instead of failing to get the lock.
+    """
 
     def __init__(self) -> None:
         self._lock = Lock()
-        self._pending: deque[QueuedCrawlerJob] = deque()
+        self._pending: deque[SchedulerJobPlan] = deque()
         self._pending_job_ids: set[str] = set()
-        self._active_job_ids: set[str] = set()
-        self._active_job_locks: dict[str, frozenset[str]] = {}
-        self._active_lock_keys: set[str] = set()
+        self._active_job_ids: dict[str, str] = {}  # crawler name -> active job id
 
     @property
     def pending_count(self) -> int:
         with self._lock:
             return len(self._pending)
 
-    def enqueue(
-        self,
-        job: ScheduledCrawlerJob,
-        scheduled_for: datetime | None = None,
-    ) -> bool:
+    def enqueue(self, plan: SchedulerJobPlan) -> bool:
         with self._lock:
-            if job.job_id in self._pending_job_ids or job.job_id in self._active_job_ids:
+            if (
+                plan.job_id in self._pending_job_ids
+                or plan.job_id in self._active_job_ids.values()
+            ):
                 return False
-
-            self._pending.append(
-                QueuedCrawlerJob(
-                    job=job,
-                    scheduled_for=scheduled_for or datetime.now(),
-                    enqueued_at=datetime.now(),
-                )
-            )
-            self._pending_job_ids.add(job.job_id)
+            self._pending.append(plan)
+            self._pending_job_ids.add(plan.job_id)
             return True
 
-    def pop_ready_jobs(self, limit: int | None = None) -> tuple[QueuedCrawlerJob, ...]:
-        """Pop unblocked jobs (at most ``limit``) and mark them active."""
+    def pop_ready_jobs(self, limit: int | None = None) -> tuple[SchedulerJobPlan, ...]:
+        """Pop jobs whose crawler is idle (at most ``limit``) and mark them active."""
 
-        ready: list[QueuedCrawlerJob] = []
-        blocked: deque[QueuedCrawlerJob] = deque()
+        ready: list[SchedulerJobPlan] = []
+        blocked: deque[SchedulerJobPlan] = deque()
 
         with self._lock:
             while self._pending:
@@ -357,41 +317,31 @@ class CrawlerJobQueue:
                     blocked.extend(self._pending)
                     self._pending.clear()
                     break
-                queued_job = self._pending.popleft()
-                job = queued_job.job
-
-                if job.lock_keys & self._active_lock_keys:
-                    blocked.append(queued_job)
+                plan = self._pending.popleft()
+                if plan.crawler_name in self._active_job_ids:
+                    blocked.append(plan)
                     continue
 
-                self._pending_job_ids.remove(job.job_id)
-                self._active_job_ids.add(job.job_id)
-                self._active_job_locks[job.job_id] = job.lock_keys
-                self._active_lock_keys.update(job.lock_keys)
-                ready.append(queued_job)
+                self._pending_job_ids.remove(plan.job_id)
+                self._active_job_ids[plan.crawler_name] = plan.job_id
+                ready.append(plan)
 
             self._pending = blocked
 
         return tuple(ready)
 
-    def requeue(self, queued_job: QueuedCrawlerJob) -> None:
-        """Put a popped job back for the next tick, keeping its timestamps."""
+    def requeue(self, plan: SchedulerJobPlan) -> None:
+        """Put a popped job back for the next tick."""
 
         with self._lock:
-            self._release(queued_job.job)
-            if queued_job.job.job_id not in self._pending_job_ids:
-                self._pending.append(queued_job)
-                self._pending_job_ids.add(queued_job.job.job_id)
+            self._active_job_ids.pop(plan.crawler_name, None)
+            if plan.job_id not in self._pending_job_ids:
+                self._pending.append(plan)
+                self._pending_job_ids.add(plan.job_id)
 
-    def mark_finished(self, job: ScheduledCrawlerJob) -> None:
+    def mark_finished(self, plan: SchedulerJobPlan) -> None:
         with self._lock:
-            self._release(job)
-
-    def _release(self, job: ScheduledCrawlerJob) -> None:
-        self._active_job_ids.discard(job.job_id)
-        lock_keys = self._active_job_locks.pop(job.job_id, frozenset())
-        for lock_key in lock_keys:
-            self._active_lock_keys.discard(lock_key)
+            self._active_job_ids.pop(plan.crawler_name, None)
 
 
 def execute_post_command(
@@ -463,47 +413,6 @@ def _subprocess_env_with_workspace_pythonpath() -> dict[str, str]:
     return env
 
 
-def scheduled_job_from_plan(
-    plan: SchedulerJobPlan,
-    lock_keys: Sequence[str] | None = None,
-) -> ScheduledCrawlerJob:
-    """Create a runtime queue job from a dry scheduler plan."""
-
-    effective_lock_keys = (
-        frozenset(lock_keys) if lock_keys is not None else lock_keys_from_plan(plan)
-    )
-    return ScheduledCrawlerJob(plan=plan, lock_keys=effective_lock_keys)
-
-
-def lock_keys_from_plan(plan: SchedulerJobPlan) -> frozenset[str]:
-    """Return conservative lock keys without importing crawler modules."""
-
-    configured_lock_keys = plan.raw_config.get("lock_keys")
-    if isinstance(configured_lock_keys, str) and configured_lock_keys:
-        return frozenset({configured_lock_keys})
-    if isinstance(configured_lock_keys, Sequence) and not isinstance(
-        configured_lock_keys,
-        str,
-    ):
-        lock_keys = tuple(str(lock_key) for lock_key in configured_lock_keys)
-        if lock_keys:
-            return frozenset(lock_keys)
-
-    if plan.crawler_name == "entsoe_fms":
-        target_data_items = plan.raw_config.get("target_data_items")
-        if isinstance(target_data_items, Sequence) and not isinstance(
-            target_data_items,
-            str,
-        ):
-            data_item_keys = tuple(str(item) for item in target_data_items)
-            if data_item_keys:
-                return frozenset(
-                    f"{plan.crawler_name}:{data_item}" for data_item in data_item_keys
-                )
-
-    return frozenset({f"crawler:{plan.crawler_name}"})
-
-
 class JobDispatcher:
     """Start queued jobs in background threads, at most ``max_parallel_runs`` at once.
 
@@ -547,8 +456,8 @@ class JobDispatcher:
         with self._guard:
             free_slots = self.max_parallel_runs - len(self._threads)
         if free_slots > 0:
-            for queued_job in self.queue.pop_ready_jobs(limit=free_slots):
-                self._start(queued_job)
+            for plan in self.queue.pop_ready_jobs(limit=free_slots):
+                self._start(plan)
         return self._collect()
 
     def wait(self, timeout: float | None = None) -> tuple[CrawlerRunResult, ...]:
@@ -560,8 +469,7 @@ class JobDispatcher:
             thread.join(timeout)
         return self._collect()
 
-    def _start(self, queued_job: QueuedCrawlerJob) -> None:
-        plan = queued_job.job.plan
+    def _start(self, plan: SchedulerJobPlan) -> None:
         lock = None
         if self.lock_engine is not None:
             try:
@@ -572,25 +480,24 @@ class JobDispatcher:
                     plan.display_name,
                     exc,
                 )
-                self.queue.requeue(queued_job)
+                self.queue.requeue(plan)
                 return
             if lock is None:
                 logger.info(
                     "%s is already running elsewhere (advisory lock busy); retrying next tick",
                     plan.display_name,
                 )
-                self.queue.requeue(queued_job)
+                self.queue.requeue(plan)
                 return
 
         thread = Thread(
-            target=self._run, args=(queued_job, lock), name=f"run-{plan.job_id}"
+            target=self._run, args=(plan, lock), name=f"run-{plan.job_id}"
         )
         with self._guard:
             self._threads[plan.job_id] = thread
         thread.start()
 
-    def _run(self, queued_job: QueuedCrawlerJob, lock: CrawlerLock | None) -> None:
-        plan = queued_job.job.plan
+    def _run(self, plan: SchedulerJobPlan, lock: CrawlerLock | None) -> None:
         result: CrawlerRunResult | None = None
         try:
             result = self.runner.run(plan)
@@ -599,7 +506,7 @@ class JobDispatcher:
         finally:
             if lock is not None:
                 lock.release()
-            self.queue.mark_finished(queued_job.job)
+            self.queue.mark_finished(plan)
             with self._guard:
                 self._threads.pop(plan.job_id, None)
                 if result is not None:
