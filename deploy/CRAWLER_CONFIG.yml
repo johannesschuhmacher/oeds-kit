@@ -67,6 +67,7 @@ entsoe_fms:
       - PhysicalFlows_12.1.G_r3
       - AggregatedGenerationPerType_16.1.B_C_r3
       - DayAheadAggregatedGeneration_14.1.C_r3
+      - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
     revision_sweep_daily:
       enable: false
       schedule: 30 2 * * *
@@ -84,6 +85,16 @@ entsoe_fms:
       - AggregatedGenerationPerType_16.1.B_C_r3
       - DayAheadAggregatedGeneration_14.1.C_r3
       - InstalledGenerationCapacityAggregated_14.1.A_r3
+      - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
+      - InstalledGenerationCapacityPerProductionUnit_14.1.B
+    # Run once by hand (oeds-crawl entsoe_fms --job initial_unit_data) to load
+    # the history from default_start_date; the availability map needs both.
+    initial_unit_data:
+      enable: false
+      run_post_scripts: true
+      target_data_items:
+      - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
+      - InstalledGenerationCapacityPerProductionUnit_14.1.B
   gapfill:
     enable: false
     target_schema: entsoe_fms_gapfilled
