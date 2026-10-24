@@ -1,5 +1,47 @@
 # Test results
 
+## Release 1.2.0, 2026-10-24
+
+Release 1.2.0 removes unused code and functions and speeds up writes (see
+`CHANGELOG.md`); data sources, tables and dashboards are as in 1.1.0 plus the
+dashboard "ENTSO-E – Power plants and availability".
+
+**Automated tests.** 148 tests pass: crawler pack 77, scheduler/admin 34,
+post-processing 31, deployment 6. The count is lower than in 1.1.0 because
+tests of removed functions were removed.
+
+**Unchanged outputs.**
+
+- ENTSO-E FMS: old and new upsert wrote the same September 2026 data into
+  two scratch copies of each table on PostgreSQL (iip-vm-oeds-intern-test,
+  23 October), including inserted rows and stored rows with missing, older and
+  newer UpdateTime. `EXCEPT ALL` in both directions found 0 differing rows:
+  EnergyPrices 139,872 rows (68.9 s before, 4.3 s after), ActualTotalLoad
+  138,142 rows (42.9 s, 3.1 s), AggregatedGenerationPerType 1,444,091 rows
+  (576.5 s, 41.9 s).
+- FMS table definitions: the CREATE TABLE and CREATE INDEX statements of all
+  33 active tables are identical before and after.
+- Gap filling: 163 cases (self-tests, holdout sets with all five methods,
+  synthetic hourly and 15-minute series) gave identical filled values; the
+  vectorised donor search took 0.43 s instead of 87.2 s on an 8-week series.
+- Price forecast: 12 forecast, quantile and backtest cases identical.
+
+**Two installations, one day.** On 24 October the tables of 20 October 2026
+were compared read-only between iip-vm-oeds-intern and
+iip-vm-oeds-intern-test (column list, row count and md5 over all values,
+download timestamps excluded). Six of eight tables were identical
+(SMARD prices; ENTSO-E ActualTotalLoad, DayAheadTotalLoadForecast,
+AggregatedGenerationPerType, GenerationForecastsForWindAndSolar,
+PhysicalFlows). The two differences come from the sources: SMARD revised the
+consumption series between the two downloads (21 and 22 October, about 0.04 %),
+and intern holds 96 DK1 day-ahead rows with sequence 2 from a file version of
+21 October that ENTSO-E later withdrew; upserts keep rows that a source no
+longer publishes.
+
+**Installation.** Both VMs were updated to the streamlined code on
+23 October with the installer of 1.1.0; PostgreSQL stayed available, the smoke
+test and the dashboard checks passed.
+
 ## Release 1.1.0, 2026-10-23
 
 Release 1.1.0 changes the installer and the COPY writes (see `CHANGELOG.md`);
