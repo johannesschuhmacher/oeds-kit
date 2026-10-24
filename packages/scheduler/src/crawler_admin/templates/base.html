@@ -5,23 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}OEDS Crawler Control{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('admin_static', path='admin.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('admin_static', path='ui.css') }}" />
   </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div class="brand-block brand-block--compact">
-          <span class="brand-mark">OEDS</span>
-          <span class="brand-submark">Crawler Control</span>
-        </div>
-        <nav class="topnav" aria-label="Primary">
-          <a href="/admin" class="{% if page_name == 'dashboard' %}is-active{% endif %}">Dashboard</a>
-          <a href="/admin/editor" class="{% if page_name == 'editor' %}is-active{% endif %}">YAML Editor</a>
-        </nav>
-      </header>
+  <body class="ui">
+    <header class="appbar">
+      <a href="/admin" class="appbar__brand"><strong>OEDS</strong><span>Crawler control</span></a>
+      <nav class="appbar__nav" aria-label="Primary">
+        <a href="/admin" {% if page_name in ('dashboard', 'crawler_detail') %}aria-current="page"{% endif %}>Crawlers</a>
+        <a href="/admin/editor" {% if page_name == 'editor' %}aria-current="page"{% endif %}>Configuration</a>
+      </nav>
+    </header>
 
-      <main class="page-shell">
-        {% block content %}{% endblock %}
-      </main>
-    </div>
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
   </body>
 </html>

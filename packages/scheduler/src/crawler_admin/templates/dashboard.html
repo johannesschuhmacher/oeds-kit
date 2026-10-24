@@ -3,304 +3,162 @@
 {% block title %}Dashboard | OEDS Crawler Control{% endblock %}
 
 {% block content %}
-  <section class="dashboard-head dashboard-head--compact">
-    <div class="dashboard-head__copy">
-      <p class="eyebrow">OEDS Operations</p>
-      <h2>Crawler Control</h2>
-      <div class="dashboard-head__meta">
-        <span>Source <code>{{ state.config_path.name }}</code></span>
-        <span>{{ state.server_time }} {{ state.time_label }}</span>
-        <span>Updated {{ state.config_mtime }}</span>
-      </div>
+  {% set ns = namespace(enabled=0, running=0, failed=0, next_name=none, next_at=none) %}
+  {% set scheduled_rows = [] %}
+  {% set other_rows = [] %}
+  {% for row in crawler_rows %}
+    {% if row.card.enabled is sameas true %}
+      {% set ns.enabled = ns.enabled + 1 %}
+      {% set _ = scheduled_rows.append(row) %}
+      {% set next_at = row.card.preview.next_runs[0].split(": ")[-1] if row.card.preview.next_runs else none %}
+      {% if next_at and (ns.next_at is none or next_at < ns.next_at) %}
+        {% set ns.next_at = next_at %}
+        {% set ns.next_name = row.card.name %}
+      {% endif %}
+    {% else %}
+      {% set _ = other_rows.append(row) %}
+    {% endif %}
+    {% if row.active_run or row.running_now %}{% set ns.running = ns.running + 1 %}
+    {% elif row.latest_run and row.latest_run.status == "failed" %}{% set ns.failed = ns.failed + 1 %}{% endif %}
+  {% endfor %}
+
+  <header class="page-head">
+    <div>
+      <h1>Crawlers</h1>
+      <p class="page-head__summary">
+        <span>{{ ns.enabled }} scheduled</span>
+        <span>{{ ns.running }} running</span>
+        <span class="{% if ns.failed %}text-fail{% endif %}">{{ ns.failed }} failed on last run</span>
+        {% if ns.next_name %}
+          <span>next: {{ ns.next_name }} <time class="js-rel" data-local="{{ ns.next_at }}">{{ ns.next_at }}</time></span>
+        {% endif %}
+      </p>
     </div>
-    <div class="stat-strip" aria-label="Dashboard summary">
-      <article class="stat-tile">
-        <span class="stat-label">Crawlers</span>
-        <strong>{{ state.available_count }}</strong>
-      </article>
-      <article class="stat-tile">
-        <span class="stat-label">Configured</span>
-        <strong>{{ state.configured_count }}</strong>
-      </article>
-      <article class="stat-tile">
-        <span class="stat-label">Enabled</span>
-        <strong>{{ state.enabled_count }}</strong>
-      </article>
-      <article class="stat-tile">
-        <span class="stat-label">Validation</span>
-        <strong>{{ state.validation.error_count }} / {{ state.validation.warning_count }}</strong>
-      </article>
+    <div class="page-head__meta">
+      <span>{{ state.config_path.name }}</span>
+      <span>saved {{ state.config_mtime }}</span>
+      {% if state.validation.error_count or state.validation.warning_count %}
+        <a href="/admin/editor" class="text-fail">{{ state.validation.error_count }} errors, {{ state.validation.warning_count }} warnings</a>
+      {% endif %}
     </div>
-  </section>
+  </header>
 
   {% if message_text %}
-    <section class="flash flash--{{ message_kind or 'info' }}">
-      <strong>{{ message_text }}</strong>
-    </section>
+    <div class="banner banner--{{ message_kind or 'info' }}">{{ message_text }}</div>
   {% endif %}
-
   {% if state.global_issues %}
-    <section class="notice-bar notice-bar--warning">
-      <div class="notice-bar__copy">
-        <strong>{{ state.global_issues|length }} configuration issue{% if state.global_issues|length != 1 %}s{% endif %}</strong>
-        <span>{{ state.global_issues[0].message }}</span>
-      </div>
-      <a href="/admin/editor" class="button button--secondary button--small">Open YAML Editor</a>
-    </section>
+    <div class="banner banner--warning">
+      {{ state.global_issues|length }} configuration issue{% if state.global_issues|length != 1 %}s{% endif %}: {{ state.global_issues[0].message }}
+    </div>
   {% endif %}
 
-  <section class="fleet-toolbar" aria-label="Crawler filters">
-    <div class="fleet-toolbar__search">
-      <label class="sr-only" for="crawler-search">Search crawlers</label>
-      <input
-        id="crawler-search"
-        type="search"
-        class="js-fleet-search"
-        placeholder="Search crawler or schema"
-        autocomplete="off"
-      />
+  <div class="toolbar" aria-label="Crawler filters">
+    <div class="segmented" role="group">
+      <button type="button" class="is-active js-fleet-filter" data-filter="all">All</button>
+      <button type="button" class="js-fleet-filter" data-filter="running">Running</button>
+      <button type="button" class="js-fleet-filter" data-filter="failed">Failed</button>
+      <button type="button" class="js-fleet-filter" data-filter="issues">Config issues</button>
     </div>
-    <div class="fleet-toolbar__filters" role="group" aria-label="Quick filters">
-      <button type="button" class="filter-chip is-active js-fleet-filter" data-filter="all">All</button>
-      <button type="button" class="filter-chip js-fleet-filter" data-filter="enabled">Enabled</button>
-      <button type="button" class="filter-chip js-fleet-filter" data-filter="disabled">Disabled</button>
-      <button type="button" class="filter-chip js-fleet-filter" data-filter="running">Running</button>
-      <button type="button" class="filter-chip js-fleet-filter" data-filter="issues">Issues</button>
-    </div>
-  </section>
+    <input type="search" class="input js-fleet-search" placeholder="Filter by name or schema" aria-label="Filter crawlers" />
+  </div>
 
-  <section class="fleet-accordion" aria-label="Crawler overview">
-    <p class="fleet-empty-state is-hidden js-fleet-empty">No crawlers match the current filters.</p>
+  {% macro crawler_row(row, time_label) %}
+    {% set card = row.card %}
+    {% set latest_run = row.latest_run %}
+    {% set active_run = row.active_run %}
+    {% set is_running = active_run or row.running_now %}
+    {% set has_issue = card.issues or row.email_state.filter_state == "incomplete" %}
+    {% if card.enabled is not sameas true %}{% set st = "off" %}
+    {% elif is_running %}{% set st = "running" %}
+    {% elif latest_run %}{% set st = latest_run.status %}
+    {% else %}{% set st = "none" %}{% endif %}
+    <tr
+      class="crawler-row"
+      id="crawler-{{ card.name }}"
+      data-href="/admin/crawlers/{{ card.name }}"
+      data-filter-text="{{ (card.name ~ ' ' ~ (card.schema_name or ''))|lower }}"
+      data-is-running="{% if is_running %}true{% else %}false{% endif %}"
+      data-is-failed="{% if not is_running and latest_run and latest_run.status == 'failed' %}true{% else %}false{% endif %}"
+      data-has-issues="{% if has_issue %}true{% else %}false{% endif %}"
+      {% if active_run %}data-active-run-id="{{ active_run.run_id }}"{% endif %}
+    >
+      <td class="cell-name">
+        <span class="dot dot--{{ st }} js-dot" title="{{ st }}"></span>
+        <a href="/admin/crawlers/{{ card.name }}" class="crawler-link">{{ card.name }}</a>
+        {% if card.schema_name and card.schema_name != card.name %}<span class="muted">{{ card.schema_name }}</span>{% endif %}
+        {% if has_issue %}<span class="tag tag--warn" title="{% if card.issues %}{{ card.issues[0].message }}{% else %}{{ row.email_state.summary }}{% endif %}">config</span>{% endif %}
+      </td>
+      <td class="cell-schedule">
+        {% if card.preview.error %}
+          <span class="text-fail">{{ card.preview.error }}</span>
+        {% elif card.schedule_source == "jobs" and card.job_previews %}
+          {% set enabled_jobs = card.job_previews|selectattr("enabled")|list %}
+          <span title="{% for job in card.job_previews %}{{ job.name }}: {{ job.preview.summary }}{% if not job.enabled %} (off){% endif %}&#10;{% endfor %}">{{ enabled_jobs|map(attribute="preview.summary")|join("; ") or "no enabled job" }}</span>
+        {% elif card.preview.summary and card.schedule %}
+          {{ card.preview.summary }}
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td class="cell-time">
+        {% if card.enabled is sameas true and card.preview.next_runs %}
+          {# Crawlers with jobs list "job: YYYY-MM-DD HH:MM"; the earliest comes first. #}
+          {% set next_run = card.preview.next_runs[0].split(": ") %}
+          <time class="js-rel" data-local="{{ next_run[-1] }}" title="{{ card.preview.next_runs[0] }} {{ time_label }}">{{ next_run[-1] }}</time>
+          {% if next_run|length > 1 %}<span class="muted">{{ next_run[0] }}</span>{% endif %}
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td class="cell-run js-run-state">
+        {% if active_run %}
+          <span class="status status--running">Running</span>
+          <time class="muted js-rel" data-utc="{{ active_run.created_at }}">{{ active_run.created_at }}</time>
+        {% elif row.running_now %}
+          <span class="status status--running">Running</span>
+          <span class="muted">scheduler</span>
+        {% elif latest_run %}
+          <a class="status status--{{ latest_run.status }}" href="/admin/crawlers/{{ card.name }}{% if latest_run.run_id is defined %}?run={{ latest_run.run_id }}#run-log{% endif %}">{{ latest_run.status|capitalize }}</a>
+          <time class="muted js-rel" data-utc="{{ latest_run.created_at }}" title="{{ latest_run.action_label }}">{{ latest_run.created_at }}</time>
+        {% else %}
+          <span class="muted">never run</span>
+        {% endif %}
+      </td>
+      <td class="cell-actions">
+        {% if row.can_start %}
+          <a href="/admin?confirm_run={{ card.name }}#run-confirm-modal" class="btn btn--small"{% if row.is_locked %} aria-disabled="true"{% endif %}>Run</a>
+        {% endif %}
+        <a href="/admin/crawlers/{{ card.name }}" class="btn btn--small btn--ghost" aria-label="Open {{ card.name }}">Open</a>
+      </td>
+    </tr>
+  {% endmacro %}
 
-    {% for row in crawler_rows %}
-      {% set card = row.card %}
-      {% set latest_run = row.latest_run %}
-      {% set active_run = row.active_run %}
-      {% set has_inline_issue = card.issues or row.email_state.filter_state == "incomplete" %}
-      {% set has_description = card.description and card.description != "Crawler module available without dedicated description." %}
-      <details
-        id="crawler-{{ card.name }}"
-        class="fleet-row fleet-row--{{ card.state_variant }} {% if row.is_selected %}is-selected{% endif %} {% if row.is_expanded %}is-expanded{% endif %}"
-        data-crawler-name="{{ card.name }}"
-        data-filter-text="{{ (card.name ~ ' ' ~ (card.schema_name or '') ~ ' ' ~ card.description)|lower }}"
-        data-is-enabled="{% if card.enabled is sameas true %}true{% else %}false{% endif %}"
-        data-is-disabled="{% if card.enabled is sameas false %}true{% else %}false{% endif %}"
-        data-is-running="{% if active_run or row.running_now %}true{% else %}false{% endif %}"
-        data-has-issues="{% if has_inline_issue %}true{% else %}false{% endif %}"
-        {% if row.is_expanded %}open{% endif %}
-        {% if active_run %}data-active-run-id="{{ active_run.run_id }}"{% endif %}
-      >
-        <summary class="fleet-summary">
-          <div class="fleet-summary__main">
-            <span
-              class="fleet-toggle"
-              aria-hidden="true"
-            >
-              <span class="fleet-toggle__chevron" aria-hidden="true"></span>
-              <span class="fleet-toggle__label">{% if row.is_expanded %}Hide{% else %}Show{% endif %}</span>
-            </span>
-            <div class="fleet-summary__identity">
-              <h3>{{ card.name }}</h3>
-              <p class="fleet-summary__meta">
-                {% if card.schema_name %}
-                  schema {{ card.schema_name }}
-                {% elif card.configured %}
-                  schema not set
-                {% else %}
-                  no YAML section
-                {% endif %}
-              </p>
-            </div>
-          </div>
+  <table class="table crawler-table">
+    <thead>
+      <tr>
+        <th>Crawler</th>
+        <th>Schedule</th>
+        <th>Next run</th>
+        <th>Last run</th>
+        <th class="cell-actions"><span class="sr-only">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in scheduled_rows %}{{ crawler_row(row, state.time_label) }}{% endfor %}
+    </tbody>
+  </table>
+  <p class="empty js-fleet-empty is-hidden">No crawlers match the filter.</p>
 
-          <div class="fleet-summary__item fleet-summary__item--schedule">
-            <span class="fleet-summary__label">Next schedule</span>
-            {% if card.preview.error %}
-              <strong class="inline-error">{{ card.preview.error }}</strong>
-            {% elif card.preview.next_runs %}
-              <strong>{{ card.preview.next_runs[0] }} {{ state.time_label }}</strong>
-              <span class="subtle-note">{{ card.preview.summary }}</span>
-            {% elif card.schedule %}
-              <strong>No preview available</strong>
-              <span class="subtle-note"><code>{{ card.schedule }}</code></span>
-            {% else %}
-              <strong>Not scheduled</strong>
-              <span class="subtle-note">No effective schedule</span>
-            {% endif %}
-          </div>
-
-          <div class="fleet-summary__item fleet-summary__item--run js-run-state">
-            <span class="fleet-summary__label">Run</span>
-            {% if active_run %}
-              <span class="status-pill status-pill--running">{{ active_run.action_label }} running</span>
-              <span class="subtle-note">Started {{ active_run.created_at | replace('T', ' ') | truncate(16, True, '') }}</span>
-            {% elif latest_run %}
-              <span class="status-pill status-pill--{{ latest_run.status }}">{{ latest_run.status }}</span>
-              <span class="subtle-note">{{ latest_run.action_label }} at {{ latest_run.created_at | replace('T', ' ') | truncate(16, True, '') }}</span>
-            {% else %}
-              <strong>Idle</strong>
-              <span class="subtle-note">No runs yet.</span>
-            {% endif %}
-          </div>
-
-          <div class="fleet-summary__side">
-            <div class="fleet-summary__item fleet-summary__item--state">
-              <span class="fleet-summary__label">Status</span>
-              <div class="fleet-status js-status-wrap">
-                <span class="summary-pill summary-pill--{{ card.state_variant }}">{{ card.state_label }}</span>
-                {% if row.is_locked %}
-                  <span class="pill pill--warning js-lock-pill">locked</span>
-                {% endif %}
-                {% if has_inline_issue %}
-                  <span class="issue-badge">Issue</span>
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="fleet-summary__actions action-row">
-              {% if row.can_start %}
-                <a href="/admin?confirm_run={{ card.name }}#run-confirm-modal" class="button button--primary button--small js-run-once-link js-summary-action">
-                  Run Once
-                </a>
-              {% endif %}
-              <a href="/admin/crawlers/{{ card.name }}" class="button button--secondary button--small js-summary-action">
-                Settings
-              </a>
-            </div>
-          </div>
-        </summary>
-
-        <div
-          id="crawler-panel-{{ card.name }}"
-          class="fleet-row__details"
-        >
-          <div class="fleet-detail-band">
-            <section class="fleet-detail-section fleet-detail-section--lead">
-              <span class="fleet-summary__label">Summary</span>
-              {% if has_description %}
-                <p class="fleet-detail-section__lead">{{ card.description }}</p>
-              {% else %}
-                <p class="fleet-detail-section__lead">Reduced operational summary for {{ card.name }}.</p>
-              {% endif %}
-
-              <div class="fleet-detail-metrics">
-                <div>
-                  <dt>Current rule</dt>
-                  <dd>{{ card.preview.summary }}</dd>
-                </div>
-                <div>
-                  <dt>CRON</dt>
-                  <dd>{% if card.schedule %}<code>{{ card.schedule }}</code>{% else %}-{% endif %}</dd>
-                </div>
-                <div>
-                  <dt>Next runs</dt>
-                  <dd>
-                    {% if card.preview.next_runs %}
-                      <ul class="run-list run-list--compact">
-                        {% for run in card.preview.next_runs %}
-                          <li>{{ run }} {{ state.time_label }}</li>
-                        {% endfor %}
-                      </ul>
-                    {% elif card.preview.error %}
-                      <span class="inline-error">{{ card.preview.error }}</span>
-                    {% else %}
-                      -
-                    {% endif %}
-                  </dd>
-                </div>
-              </div>
-            </section>
-
-            <section class="fleet-detail-section">
-              <span class="fleet-summary__label">Activity &amp; Config</span>
-              <div class="fleet-overview-card__state">
-                <span class="status-pill status-pill--{% if active_run %}running{% elif latest_run %}{{ latest_run.status }}{% else %}idle{% endif %} js-activity-state">
-                  {% if active_run %}
-                    {{ active_run.action_label }} running
-                  {% elif latest_run %}
-                    {{ latest_run.status }}
-                  {% else %}
-                    idle
-                  {% endif %}
-                </span>
-              </div>
-              <p class="subtle-note js-activity-note">
-                {% if active_run %}
-                  Started {{ active_run.created_at | replace('T', ' ') | truncate(16, True, '') }}
-                {% elif latest_run %}
-                  {{ latest_run.action_label }} at {{ latest_run.created_at | replace('T', ' ') | truncate(16, True, '') }}
-                {% else %}
-                  No runs recorded yet.
-                {% endif %}
-              </p>
-              {% if latest_run %}
-                <a class="subtle-note" href="/admin/crawlers/{{ card.name }}{% if latest_run.run_id is defined %}?run={{ latest_run.run_id }}#run-log{% else %}#scheduler-run{% endif %}">View log</a>
-              {% endif %}
-              <div class="fleet-detail-metrics fleet-detail-metrics--compact">
-                <div>
-                  <dt>Schema</dt>
-                  <dd>{{ card.schema_name or "-" }}</dd>
-                </div>
-                <div>
-                  <dt>Module</dt>
-                  <dd>{% if card.module_present %}present{% else %}missing{% endif %}</dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>{{ card.schedule_source or "unset" }}</dd>
-                </div>
-                <div>
-                  <dt>Post-run scripts</dt>
-                  <dd>{{ row.post_run_script_count }}</dd>
-                </div>
-                <div>
-                  <dt>Lock</dt>
-                  <dd>{% if row.is_locked %}active{% else %}free{% endif %}</dd>
-                </div>
-                <div>
-                  <dt>YAML</dt>
-                  <dd>{% if card.configured %}configured{% else %}missing{% endif %}</dd>
-                </div>
-              </div>
-            </section>
-
-            <section class="fleet-detail-section fleet-detail-section--actions">
-              <span class="fleet-summary__label">Actions</span>
-              {% if card.issues %}
-                <ul class="issue-list issue-list--compact">
-                  {% for issue in card.issues[:2] %}
-                    <li class="issue issue--{{ issue.level }}">
-                      <span class="issue-badge">{{ issue.level }}</span>
-                      <div><strong>{{ issue.message }}</strong></div>
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% elif row.email_state.filter_state == "incomplete" %}
-                <p class="inline-error">{{ row.email_state.summary }}</p>
-              {% else %}
-                <p class="subtle-note">No current validation or alert issues.</p>
-              {% endif %}
-
-              <div class="fleet-action-stack">
-                {% if card.schedule_source == "jobs" %}
-                  <a href="/admin?edit={{ card.name }}&job={{ row.scheduler_job_name }}#schedule-modal" class="button button--secondary button--small">
-                    Edit Schedule
-                  </a>
-                {% else %}
-                  <a href="/admin?edit={{ card.name }}#schedule-modal" class="button button--secondary button--small">
-                    Edit Schedule
-                  </a>
-                {% endif %}
-                <a href="/admin/crawlers/{{ card.name }}" class="button button--secondary button--small">
-                  Settings &amp; Details
-                </a>
-              </div>
-            </section>
-          </div>
-        </div>
-      </details>
-    {% endfor %}
-  </section>
+  {% if other_rows %}
+    <details class="section-fold">
+      <summary>Not scheduled <span class="muted">{{ other_rows|length }} crawlers, mostly from oeds-core</span></summary>
+      <table class="table crawler-table">
+        <tbody>
+          {% for row in other_rows %}{{ crawler_row(row, state.time_label) }}{% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% endif %}
 
   {% if scheduler_target %}
     {% set card = scheduler_target.card %}
@@ -698,7 +556,7 @@
     const schedulerJobPicker = document.querySelector(".js-scheduler-job-picker");
     const closeModalButtons = document.querySelectorAll(".js-close-modal");
     const openModal = document.querySelector(".modal-shell.is-open");
-    const fleetRows = Array.from(document.querySelectorAll(".fleet-row"));
+    const fleetRows = Array.from(document.querySelectorAll(".crawler-row"));
     const fleetEmptyState = document.querySelector(".js-fleet-empty");
     const fleetSearch = document.querySelector(".js-fleet-search");
     const fleetFilterButtons = Array.from(document.querySelectorAll(".js-fleet-filter"));
@@ -724,33 +582,33 @@
       return normalized.length >= 16 ? normalized.slice(0, 16) : normalized;
     }
 
-    function updateInspectUrl(crawlerName) {
-      const nextUrl = new URL(window.location.href);
-      if (crawlerName) {
-        nextUrl.searchParams.set("inspect", crawlerName);
-        nextUrl.hash = `crawler-${crawlerName}`;
-      } else {
-        nextUrl.searchParams.delete("inspect");
-        nextUrl.hash = "";
-      }
-      window.history.replaceState({}, "", nextUrl);
+    // "in 12 min" / "3 h ago"; the absolute time stays in the title.
+    function relativeTime(date) {
+      const minutes = Math.round((date.getTime() - Date.now()) / 60000);
+      const abs = Math.abs(minutes);
+      let text;
+      if (abs < 1) text = "now";
+      else if (abs < 60) text = `${abs} min`;
+      else if (abs < 48 * 60) text = `${Math.round(abs / 60)} h`;
+      else text = `${Math.round(abs / 1440)} d`;
+      if (text === "now") return text;
+      return minutes > 0 ? `in ${text}` : `${text} ago`;
     }
 
-    function syncFleetRowState(row) {
-      const isExpanded = row.hasAttribute("open");
-      const label = row.querySelector(".fleet-toggle__label");
-      row.classList.toggle("is-expanded", isExpanded);
-      if (label) {
-        label.textContent = isExpanded ? "Hide" : "Show";
-      }
+    function renderRelativeTimes() {
+      document.querySelectorAll(".js-rel").forEach((element) => {
+        // data-utc: naive UTC ISO from the run records; data-local: server-local "YYYY-MM-DD HH:MM".
+        const raw = element.dataset.utc ? `${element.dataset.utc}Z` : (element.dataset.local || "").replace(" ", "T");
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) return;
+        if (!element.title) element.title = date.toLocaleString();
+        element.textContent = relativeTime(date);
+      });
     }
 
     function matchesFleetFilter(row, filterName) {
-      if (filterName === "enabled") {
-        return row.dataset.isEnabled === "true";
-      }
-      if (filterName === "disabled") {
-        return row.dataset.isDisabled === "true";
+      if (filterName === "failed") {
+        return row.dataset.isFailed === "true";
       }
       if (filterName === "running") {
         return row.dataset.isRunning === "true";
@@ -780,35 +638,23 @@
       }
     }
 
-    function renderCompletedRunState(card, payload) {
-      const runState = card.querySelector(".js-run-state");
-      const lockPill = card.querySelector(".js-lock-pill");
-      const activityState = card.querySelector(".js-activity-state");
-      const activityNote = card.querySelector(".js-activity-note");
-
-      if (lockPill) {
-        lockPill.remove();
-      }
-
+    function renderCompletedRunState(row, payload) {
+      const runState = row.querySelector(".js-run-state");
+      const dot = row.querySelector(".js-dot");
+      const status = escapeHtml(payload.status);
       if (runState) {
         runState.innerHTML = `
-          <span class="fleet-summary__label">Run</span>
-          <span class="status-pill status-pill--${escapeHtml(payload.status)}">${escapeHtml(payload.status)}</span>
-          <span class="subtle-note">${escapeHtml(payload.action_label)} at ${escapeHtml(formatTimestamp(payload.created_at))}</span>
+          <a class="status status--${status}" href="/admin/crawlers/${encodeURIComponent(row.id.replace("crawler-", ""))}?run=${encodeURIComponent(payload.run_id)}#run-log">${status.charAt(0).toUpperCase()}${status.slice(1)}</a>
+          <time class="muted js-rel" data-utc="${escapeHtml(payload.created_at)}">${escapeHtml(formatTimestamp(payload.created_at))}</time>
         `;
       }
-
-      if (activityState) {
-        activityState.textContent = payload.status;
-        activityState.className = `status-pill status-pill--${payload.status} js-activity-state`;
+      if (dot) {
+        dot.className = `dot dot--${status} js-dot`;
       }
-
-      if (activityNote) {
-        activityNote.textContent = `${payload.action_label} at ${formatTimestamp(payload.created_at)}`;
-      }
-
-      card.dataset.isRunning = "false";
-      card.removeAttribute("data-active-run-id");
+      row.dataset.isRunning = "false";
+      row.dataset.isFailed = payload.status === "failed" ? "true" : "false";
+      row.removeAttribute("data-active-run-id");
+      renderRelativeTimes();
       applyFleetFilters();
     }
 
@@ -1017,28 +863,11 @@
       fleetSearch.addEventListener("input", applyFleetFilters);
     }
 
-    document.querySelectorAll(".js-summary-action").forEach((link) => {
-      link.addEventListener("click", (event) => {
-        event.stopPropagation();
-      });
-    });
-
+    // The whole row opens the crawler page; links and buttons inside keep their own target.
     fleetRows.forEach((row) => {
-      syncFleetRowState(row);
-      row.addEventListener("toggle", () => {
-        const crawlerName = row.dataset.crawlerName || "";
-        if (row.open) {
-          fleetRows.forEach((otherRow) => {
-            if (otherRow !== row && otherRow.open) {
-              otherRow.removeAttribute("open");
-              syncFleetRowState(otherRow);
-            }
-          });
-          updateInspectUrl(crawlerName);
-        } else if (!fleetRows.some((candidate) => candidate.open)) {
-          updateInspectUrl("");
-        }
-        syncFleetRowState(row);
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("a, button") || !row.dataset.href) return;
+        window.location.assign(row.dataset.href);
       });
     });
 
@@ -1054,6 +883,8 @@
       });
     });
 
+    renderRelativeTimes();
+    window.setInterval(renderRelativeTimes, 30000);
     applyFleetFilters();
     pollDashboardRuns();
   </script>
