@@ -68,6 +68,7 @@ entsoe_fms:
       - AggregatedGenerationPerType_16.1.B_C_r3
       - DayAheadAggregatedGeneration_14.1.C_r3
       - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
+      - ActualGenerationOutputPerGenerationUnit_16.1.A
     revision_sweep_daily:
       enable: false
       schedule: 30 2 * * *
@@ -87,14 +88,18 @@ entsoe_fms:
       - InstalledGenerationCapacityAggregated_14.1.A_r3
       - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
       - InstalledGenerationCapacityPerProductionUnit_14.1.B
-    # Run once by hand (oeds-crawl entsoe_fms --job initial_unit_data) to load
-    # the history from default_start_date; the availability map needs both.
+      - ActualGenerationOutputPerGenerationUnit_16.1.A
+    # Run once by hand (oeds-crawl entsoe_fms --job initial_unit_data) before
+    # enabling the jobs above: it loads the history from default_start_date.
+    # Once a table exists, runs only load recent files. The availability map
+    # and its dashboard need these unit data (generation: about 42 GB of files).
     initial_unit_data:
       enable: false
       run_post_scripts: true
       target_data_items:
       - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
       - InstalledGenerationCapacityPerProductionUnit_14.1.B
+      - ActualGenerationOutputPerGenerationUnit_16.1.A
   gapfill:
     enable: false
     target_schema: entsoe_fms_gapfilled
