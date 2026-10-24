@@ -3,9 +3,9 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## Unreleased
+## 1.2.0 (2026-10-24)
 
-Streamlining without removing features in use; about 7,300 lines less.
+Streamlining without removing features in use; about 7,300 lines less (#17).
 
 - Crawler pack: dead ENTSO-E FMS code and never-created table definitions
   removed; FMS unique constraints built from one key table (identical DDL);
@@ -28,7 +28,7 @@ Streamlining without removing features in use; about 7,300 lines less.
   ownership repaired only under `logs/`; uninstall removes the real backup
   directory; `compose.test.yml` and `smoke_lib.sh` removed.
 
-Decided removals and changes, about 3,200 lines less:
+Decided removals and changes, about 3,200 lines less (#18):
 
 - Admin: the Gapfill Tests page and the in-process special actions
   (weather window, Eurostat range, ENTSO-E targeted run and backfill) are
@@ -50,6 +50,12 @@ Decided removals and changes, about 3,200 lines less:
   installer's sample-data options are removed; installation is documented
   in `deploy/README.md`, operations in `deploy/playbooks/README.md`. The
   dashboard "ENTSO-E – Power plants and availability" is provisioned.
+
+Configuration template:
+
+- The ENTSO-E FMS jobs load outages, installed capacity and generation per
+  production unit, which the availability map and its dashboard need; the
+  job `initial_unit_data` loads their history once (#19, #20).
 
 ## 1.1.0 (2026-10-23)
 
