@@ -4,863 +4,441 @@
 
 {% block content %}
   {% set card = overview.card %}
-  <section class="crawler-header">
-    <div class="crawler-header__copy">
-      <p class="eyebrow">Settings &amp; Details</p>
-      <div class="crawler-header__title">
-        <h2>{{ overview.crawler_name }}</h2>
-        <div class="fleet-status">
-          <span class="summary-pill summary-pill--{{ card.state_variant }}">{{ card.state_label }}</span>
-          {% if is_locked %}
-            <span class="pill pill--warning">locked</span>
-          {% endif %}
-          {% if email_state.filter_state == "incomplete" %}
-            <span class="issue-badge">Alert issue</span>
-          {% endif %}
-        </div>
-      </div>
-      <p class="crawler-header__meta">
-        Schema {{ card.schema_name or "-" }} |
-        {% if card.schedule %}
-          <code>{{ card.schedule }}</code>
-        {% else %}
-          no crawler schedule
-        {% endif %}
+  {% set edit_schedule_url = "/admin?edit=" ~ overview.crawler_name ~ ("&job=" ~ card.job_previews[0].name if card.schedule_source == "jobs" and card.job_previews else "") ~ "#schedule-modal" %}
+  {% if card.enabled is not sameas true %}{% set st = "off" %}
+  {% elif running_now or is_locked %}{% set st = "running" %}
+  {% elif latest_run %}{% set st = latest_run.status %}
+  {% else %}{% set st = "none" %}{% endif %}
+
+  {# One manual action (gapfill backfill, price forecast) with its fields. #}
+  {% macro action_form(action, values, crawler, locked, submitted) %}
+          <form method="post" action="/admin/crawlers/{{ crawler }}/actions/{{ action.action_id }}" class="action">
+            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ crawler }}" />
+            <p class="hint">{{ action.description }}{% if action.note %} {{ action.note }}{% endif %}</p>
+            {% for field in action.fields %}
+              {% set value = values[action.action_id][field.name] %}
+              <label class="field">
+                <span>{{ field.label }}</span>
+                {% if field.input_type == "text" %}
+                  <input class="input" type="text" name="{{ field.name }}" value="{{ value or '' }}" {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %} {% if field.required %}required{% endif %} />
+                {% elif field.input_type == "number" %}
+                  <input class="input" type="number" name="{{ field.name }}" value="{{ value }}" {% if field.min_value is not none %}min="{{ field.min_value }}"{% endif %} {% if field.max_value is not none %}max="{{ field.max_value }}"{% endif %} {% if field.required %}required{% endif %} />
+                {% elif field.input_type == "select" %}
+                  <select class="input" name="{{ field.name }}" {% if field.required %}required{% endif %}>
+                    <option value="">Select…</option>
+                    {% for option in field.options %}<option value="{{ option.value }}" {% if value == option.value %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                  </select>
+                {% elif field.input_type == "multiselect" %}
+                  {% set selected_values = value if value is iterable and value is not string else [] %}
+                  <select class="input" name="{{ field.name }}" multiple size="6">
+                    {% for option in field.options %}<option value="{{ option.value }}" {% if option.value in selected_values %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                  </select>
+                {% endif %}
+                {% if field.help_text %}<small class="hint">{{ field.help_text }}</small>{% endif %}
+              </label>
+            {% endfor %}
+            <button type="submit" class="btn btn--small" {% if locked %}disabled{% endif %}>{{ action.button_label }}</button>
+            {% if submitted == action.action_id %}<span class="muted">submitted</span>{% endif %}
+          </form>
+  {% endmacro %}
+  {% set extra_actions = {} %}
+  {% for action in actions %}{% set _ = extra_actions.update({action.action_id: action}) %}{% endfor %}
+
+  <nav class="crumbs"><a href="/admin">Crawlers</a><span>/</span>{{ overview.crawler_name }}</nav>
+
+  <header class="page-head">
+    <div>
+      <h1><span class="dot dot--{{ st }}"></span>{{ overview.crawler_name }}</h1>
+      <p class="page-head__summary">
+        <span>{{ card.state_label }}</span>
+        {% if card.schema_name %}<span>schema {{ card.schema_name }}</span>{% endif %}
+        <span>{{ card.preview.summary }}</span>
+        {% if running_now %}<span class="status--running">running now</span>{% endif %}
       </p>
     </div>
-    <div class="crawler-header__actions">
-      <a href="/admin" class="button button--secondary button--small">Back</a>
-      {% if card.schedule_source == "jobs" %}
-        <a href="/admin?edit={{ overview.crawler_name }}&job={{ card.job_previews[0].name }}#schedule-modal" class="button button--secondary button--small">Edit Schedule</a>
-      {% else %}
-        <a href="/admin?edit={{ overview.crawler_name }}#schedule-modal" class="button button--secondary button--small">Edit Schedule</a>
+    <div class="page-head__actions">
+      <a href="{{ edit_schedule_url }}" class="btn">Edit schedule</a>
+      {% if overview.raw_config %}
+        <a href="/admin?confirm_run={{ overview.crawler_name }}#run-confirm-modal" class="btn btn--primary"{% if is_locked %} aria-disabled="true"{% endif %}>Run now</a>
       {% endif %}
+    </div>
+  </header>
+
+  {% if message_text %}<div class="banner banner--{{ message_kind or 'info' }}">{{ message_text }}</div>{% endif %}
+  {% if form_errors %}
+    <div class="banner banner--error">
+      The action was not started:
+      <ul>{% for error in form_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+  {% if email_test_errors %}
+    <div class="banner banner--error">
+      The test email could not be sent:
+      <ul>{% for error in email_test_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <nav class="tabs" role="tablist">
+    <a href="#overview" data-tab="overview" role="tab">Overview</a>
+    <a href="#runs" data-tab="runs" role="tab">Runs</a>
+    {% if gapfill_view %}<a href="#gapfill" data-tab="gapfill" role="tab">Gapfill</a>{% endif %}
+    {% if price_forecast_view %}<a href="#forecast" data-tab="forecast" role="tab">Price forecast</a>{% endif %}
+    <a href="#configuration" data-tab="configuration" role="tab">Configuration{% if overview.issues %} <span class="tag tag--warn">{{ overview.issues|length }}</span>{% endif %}</a>
+  </nav>
+
+  {# ------------------------------------------------------------------ Overview #}
+  <section id="overview" class="tab-panel">
+    <div class="grid-2">
+      <div class="stack">
+        <section class="card">
+          <header class="card__head"><h2>Schedule</h2><a href="{{ edit_schedule_url }}" class="btn btn--small btn--ghost">Edit</a></header>
+          {% if card.job_previews %}
+            <table class="table table--plain">
+              <thead><tr><th>Job</th><th>Schedule</th><th>Next run</th></tr></thead>
+              <tbody>
+                {% for job in card.job_previews %}
+                  <tr{% if job.enabled is sameas false %} class="is-muted"{% endif %}>
+                    <td>{{ job.name }}</td>
+                    <td>{{ job.preview.summary }}</td>
+                    <td>
+                      {% if job.enabled is sameas false %}off
+                      {% elif job.preview.next_runs %}<time class="js-rel" data-local="{{ job.preview.next_runs[0] }}" title="{{ job.preview.next_runs[0] }} {{ time_label }}">{{ job.preview.next_runs[0] }}</time>
+                      {% elif job.preview.error %}<span class="text-fail">{{ job.preview.error }}</span>
+                      {% else %}—{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <dl class="dl">
+              <dt>Schedule</dt><dd>{{ card.preview.summary }}{% if card.schedule %} <code>{{ card.schedule }}</code>{% endif %}</dd>
+              <dt>Next runs</dt>
+              <dd>
+                {% if card.preview.error %}<span class="text-fail">{{ card.preview.error }}</span>
+                {% elif card.preview.next_runs %}{% for run in card.preview.next_runs[:3] %}<div>{{ run }} {{ time_label }}</div>{% endfor %}
+                {% else %}—{% endif %}
+              </dd>
+            </dl>
+          {% endif %}
+        </section>
+
+        <section class="card">
+          <header class="card__head"><h2>Latest run</h2>{% if latest_run %}<a href="#run-log" class="btn btn--small btn--ghost">Log</a>{% endif %}</header>
+          {% if latest_run %}
+            <dl class="dl">
+              <dt>Status</dt><dd><span class="status status--{{ latest_run.status }}">{{ latest_run.status|capitalize }}</span></dd>
+              <dt>Started</dt><dd><time class="js-rel" data-utc="{{ latest_run.created_at }}">{{ latest_run.created_at }}</time> <span class="muted">{{ latest_run.action_label }}</span></dd>
+              {% if latest_run.duration_seconds is defined and latest_run.duration_seconds is not none %}
+                <dt>Duration</dt><dd>{{ "%.0f"|format(latest_run.duration_seconds) }} s</dd>
+              {% endif %}
+            </dl>
+          {% else %}
+            <p class="empty">No run recorded yet.</p>
+          {% endif %}
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card">
+          <header class="card__head"><h2>Details</h2></header>
+          <dl class="dl">
+            {% if card.description and card.description != "Crawler module available without dedicated description." %}
+              <dt>About</dt><dd>{{ card.description }}</dd>
+            {% endif %}
+            <dt>Module</dt><dd>{% if card.module_present %}installed{% else %}<span class="text-fail">missing</span>{% endif %}</dd>
+            <dt>Post-run steps</dt><dd>{{ post_run_script_count or "none" }}</dd>
+            <dt>Running now</dt><dd>{% if running_now is none %}unknown{% elif running_now %}yes{% else %}no{% endif %}</dd>
+          </dl>
+        </section>
+
+        <section class="card">
+          <header class="card__head">
+            <h2>Alerts</h2>
+            {% if email_state.is_ready %}
+              <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/email/test">
+                <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}" />
+                <button type="submit" class="btn btn--small btn--ghost">Send test mail</button>
+              </form>
+            {% endif %}
+          </header>
+          <dl class="dl">
+            <dt>Status</dt>
+            <dd>{% if email_state.filter_state == "ready" %}ready{% elif email_state.filter_state == "incomplete" %}<span class="text-warn">incomplete</span>{% else %}not configured{% endif %}</dd>
+            <dt>Mail server</dt><dd>{{ email_state.mailhost or "—" }}</dd>
+            <dt>Recipients</dt><dd>{{ email_state.recipient_count }}</dd>
+          </dl>
+          {% if not email_state.is_ready %}<p class="hint">{{ email_state.summary }} Set it in YAML or in <code>crawler/.env</code>.</p>{% endif %}
+        </section>
+
+      </div>
     </div>
   </section>
 
-  {% if message_text %}
-    <section class="flash flash--{{ message_kind or 'info' }}">
-      <strong>{{ message_text }}</strong>
-    </section>
-  {% endif %}
-
-  {% if form_errors %}
-    <section class="flash flash--error">
-      <strong>The requested action has validation issues.</strong>
-      <ul class="stack-list">
-        {% for error in form_errors %}
-          <li>{{ error }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-  {% endif %}
-
-  {% if email_test_errors %}
-    <section class="flash flash--error">
-      <strong>The test email could not be sent.</strong>
-      <ul class="stack-list">
-        {% for error in email_test_errors %}
-          <li>{{ error }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-  {% endif %}
-
-  <section class="settings-shell">
-    <article class="panel settings-panel">
-      <div class="panel-heading">
-        <h3>Settings</h3>
-        <a href="/admin/editor" class="button button--secondary button--small">Open YAML Editor</a>
-      </div>
-
-      {% set primary_benchmark = runtime_benchmarks[0] if runtime_benchmarks else none %}
-      <div class="settings-grid">
-        <article class="settings-card">
-          <span class="fleet-summary__label">Scheduler</span>
-          <strong>{{ card.preview.summary }}</strong>
-          <dl class="detail-list detail-list--compact">
-            <div>
-              <dt>Effective status</dt>
-              <dd>
-                {% if card.enabled is sameas true %}
-                  enabled
-                {% elif card.enabled is sameas false %}
-                  disabled
-                {% else %}
-                  inherited / unknown
-                {% endif %}
-              </dd>
-            </div>
-            <div>
-              <dt>Source</dt>
-              <dd>{{ card.schedule_source or "unset" }}</dd>
-            </div>
-            <div>
-              <dt>Next runs</dt>
-              <dd>
-                {% if card.job_previews %}
-                  <ul class="run-list run-list--compact">
-                    {% for job in card.job_previews %}
-                      <li>
-                        <strong>{{ job.name }}</strong>
-                        {% if job.enabled is sameas false %}
-                          disabled
-                        {% elif job.preview.next_runs %}
-                          {{ job.preview.next_runs[0] }} {{ time_label }}
-                        {% elif job.preview.error %}
-                          {{ job.preview.error }}
-                        {% else %}
-                          -
-                        {% endif %}
-                      </li>
-                    {% endfor %}
-                  </ul>
-                {% elif card.preview.next_runs %}
-                  <ul class="run-list run-list--compact">
-                    {% for run in card.preview.next_runs %}
-                      <li>{{ run }} {{ time_label }}</li>
-                    {% endfor %}
-                  </ul>
-                {% elif card.preview.error %}
-                  <span class="inline-error">{{ card.preview.error }}</span>
-                {% else %}
-                  -
-                {% endif %}
-              </dd>
-            </div>
-          </dl>
-          <div class="settings-card__actions">
-            {% if card.schedule_source == "jobs" %}
-              <a href="/admin?edit={{ overview.crawler_name }}&job={{ card.job_previews[0].name }}#schedule-modal" class="button button--secondary button--small">Edit Schedule</a>
-            {% else %}
-              <a href="/admin?edit={{ overview.crawler_name }}#schedule-modal" class="button button--secondary button--small">Edit Schedule</a>
-            {% endif %}
-          </div>
-        </article>
-
-        <article class="settings-card">
-          <span class="fleet-summary__label">Alerts</span>
-          <strong>
-            {% if email_state.filter_state == "ready" %}
-              Email ready
-            {% elif email_state.filter_state == "incomplete" %}
-              Needs setup
-            {% else %}
-              Not configured
-            {% endif %}
-          </strong>
-          <p class="subtle-note">{{ email_state.summary }}</p>
-          <dl class="detail-list detail-list--compact">
-            <div>
-              <dt>SMTP</dt>
-              <dd>{{ email_state.mailhost or "-" }}</dd>
-            </div>
-            <div>
-              <dt>From</dt>
-              <dd>{{ email_state.fromaddr or "-" }}</dd>
-            </div>
-            <div>
-              <dt>Recipients</dt>
-              <dd>{{ email_state.recipient_count }}</dd>
-            </div>
-          </dl>
-          <div class="settings-card__actions">
-            {% if email_state.is_ready %}
-              <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/email/test" class="inline-form">
-                <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}" />
-                <button type="submit" class="button button--secondary button--small">Send Test Email</button>
-              </form>
-            {% else %}
-              <span class="subtle-note">Use YAML or <code>crawler/.env</code> overrides to enable alerts.</span>
-            {% endif %}
-          </div>
-        </article>
-
-        <article class="settings-card">
-          <span class="fleet-summary__label">Config &amp; runtime</span>
-          <strong>{% if card.configured %}Crawler section present{% else %}No crawler section{% endif %}</strong>
-          <p class="subtle-note">
-            {% if card.description and card.description != "Crawler module available without dedicated description." %}
-              {{ card.description }}
-            {% else %}
-              No additional crawler note available.
-            {% endif %}
-          </p>
-          <dl class="detail-list detail-list--compact">
-            <div>
-              <dt>Module</dt>
-              <dd>{% if card.module_present %}present{% else %}missing{% endif %}</dd>
-            </div>
-            <div>
-              <dt>Post-run scripts</dt>
-              <dd>{{ post_run_script_count }}</dd>
-            </div>
-            <div>
-              <dt>Running now</dt>
-              <dd>{% if running_now is none %}unknown{% elif running_now %}yes{% else %}no{% endif %}</dd>
-            </div>
-            <div>
-              <dt>Latest run</dt>
-              <dd>
-                {% if latest_run %}
-                  <span class="status-pill status-pill--{{ latest_run.status }}">{{ latest_run.status }}</span>
-                  {{ latest_run.action_label }}, {{ latest_run.created_at | replace('T', ' ') }} UTC
-                {% else %}
-                  -
-                {% endif %}
-              </dd>
-            </div>
-          </dl>
-        </article>
-
-        <article class="settings-card">
-          <span class="fleet-summary__label">Runtime benchmark</span>
-          <strong>
-            {% if primary_benchmark and primary_benchmark.latest_seconds is not none %}
-              {{ "%.2f"|format(primary_benchmark.latest_seconds) }}s latest
-            {% else %}
-              No completed samples yet
-            {% endif %}
-          </strong>
-          <dl class="detail-list detail-list--compact">
-            <div>
-              <dt>Action</dt>
-              <dd>{{ primary_benchmark.action_label if primary_benchmark else "-" }}</dd>
-            </div>
-            <div>
-              <dt>Samples</dt>
-              <dd>
-                {% if primary_benchmark %}
-                  {{ primary_benchmark.sample_count }}
-                {% else %}
-                  -
-                {% endif %}
-              </dd>
-            </div>
-            <div>
-              <dt>Success rate</dt>
-              <dd>
-                {% if primary_benchmark %}
-                  {{ "%.1f"|format(primary_benchmark.success_rate) }}%
-                {% else %}
-                  -
-                {% endif %}
-              </dd>
-            </div>
-          </dl>
-        </article>
-      </div>
-
-      {% if gapfill_view %}
-      <section class="panel gapfill-ops-panel" id="gapfill-operations">
-        <div class="panel-heading panel-heading--stack">
-          <div>
-            <p class="eyebrow">Derived data</p>
-            <h3>Gapfill Operations</h3>
-          </div>
-          <p class="subtle-note">
-            Raw tables stay in <code>{{ gapfill_view.source_schema }}</code>. Gapfilled copies, run metrics, self-test results, and holdout QA data are written to <code>{{ gapfill_view.target_schema }}</code>.
-            {% if gapfill_view.dashboard_name %}
-              Grafana reads that derived schema in the dashboard <strong>{{ gapfill_view.dashboard_name }}</strong>.
-            {% endif %}
-          </p>
-        </div>
-
-        {% if gapfill_view.supported %}
-          <div class="settings-grid">
-            <article class="settings-card">
-              <span class="fleet-summary__label">Runtime</span>
-              <strong>
-                {% if gapfill_view.script_enabled %}
-                  Post-run gapfill active
-                {% else %}
-                  Gapfill script disabled
-                {% endif %}
-              </strong>
-              <dl class="detail-list detail-list--compact">
-                <div>
-                  <dt>Source schema</dt>
-                  <dd><code>{{ gapfill_view.source_schema }}</code></dd>
-                </div>
-                <div>
-                  <dt>Target schema</dt>
-                  <dd><code>{{ gapfill_view.target_schema }}</code></dd>
-                </div>
-                <div>
-                  <dt>Selected tables</dt>
-                  <dd>{{ gapfill_view.selected_table_count }} / {{ gapfill_view.tables|length }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="settings-card">
-              <span class="fleet-summary__label">Default method</span>
-              <strong>{{ gapfill_view.method }}</strong>
-              <dl class="detail-list detail-list--compact">
-                <div>
-                  <dt>Candidate periods</dt>
-                  <dd>{{ gapfill_view.candidate_periods_label }}</dd>
-                </div>
-                <div>
-                  <dt>Search radius</dt>
-                  <dd>{{ gapfill_view.donor_search_radius_label }}</dd>
-                </div>
-                <div>
-                  <dt>Max gap periods</dt>
-                  <dd>{{ gapfill_view.max_gap_periods }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="settings-card">
-              <span class="fleet-summary__label">Last gapfill run</span>
-              {% if gapfill_last_run %}
-                <strong><span class="status-pill status-pill--{{ gapfill_last_run.status }}">{{ gapfill_last_run.status }}</span></strong>
-                <dl class="detail-list detail-list--compact">
-                  <div>
-                    <dt>Started</dt>
-                    <dd>{{ gapfill_last_run.started_at }}</dd>
-                  </div>
-                  <div>
-                    <dt>Filled points</dt>
-                    <dd>{{ gapfill_last_run.values_filled }}</dd>
-                  </div>
-                </dl>
-                {% if gapfill_last_run.message %}
-                  <p class="subtle-note">{{ gapfill_last_run.message }}</p>
-                {% endif %}
-              {% else %}
-                <strong>-</strong>
-                <p class="subtle-note">{{ gapfill_last_run_note }}</p>
-              {% endif %}
-            </article>
-          </div>
-
-          {% if gapfill_saved %}
-            <section class="flash flash--success">
-              <strong>Saved gapfill settings.</strong>
-            </section>
-          {% endif %}
-          {% if gapfill_errors %}
-            <section class="flash flash--error">
-              <strong>The gapfill settings were not saved.</strong>
-              <ul class="stack-list">
-                {% for error in gapfill_errors %}
-                  <li>{{ error }}</li>
-                {% endfor %}
-              </ul>
-            </section>
-          {% endif %}
-
-          <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill#gapfill-operations" class="gapfill-config-form">
-            <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}#gapfill-operations" />
-            <input type="hidden" name="base_hash" value="{{ base_hash }}" />
-
-            <div class="studio-form-grid">
-              <label class="field-block field-block--toggle">
-                <span class="field-label-row">
-                  <span class="field-label">Run gapfill after crawler</span>
-                  <span class="help-tip" tabindex="0" data-tip="Controls whether oeds-post gapfill entsoe-fms is attached to the crawler's post_run_scripts. If this is off, no productive gapfill script runs after a crawler run, regardless of the table selection.">?</span>
-                </span>
-                <input type="checkbox" name="script_enabled" value="1" {% if gapfill_values.script_enabled == "true" %}checked{% endif %} />
-              </label>
-
-              <label class="field-block field-block--toggle">
-                <span class="field-label-row">
-                  <span class="field-label">Enable table processing</span>
-                  <span class="help-tip" tabindex="0" data-tip="Controls gapfill.enable. If this is off while the post-run script stays on, the script starts but records the gapfill job as disabled and does not process or write selected tables.">?</span>
-                </span>
-                <input type="checkbox" name="gapfill_enabled" value="1" {% if gapfill_values.gapfill_enabled == "true" %}checked{% endif %} />
-              </label>
-
-              <label class="field-block">
-                <span class="field-label-row">
-                  <span class="field-label">Target schema</span>
-                  <span class="help-tip" tabindex="0" data-tip="PostgreSQL schema for derived gapfilled copies and gapfill metrics. Raw source tables remain unchanged in the source schema.">?</span>
-                </span>
-                <input type="text" name="target_schema" value="{{ gapfill_values.target_schema }}" />
-              </label>
-
-              <label class="field-block">
-                <span class="field-label-row">
-                  <span class="field-label">Default method</span>
-                  <span class="help-tip" tabindex="0" data-tip="Fallback gapfill algorithm used for tables that do not override their method in the table list below.">?</span>
-                </span>
-                <select name="method">
-                  {% for method in gapfill_methods %}
-                    <option value="{{ method }}" {% if gapfill_values.method == method %}selected{% endif %}>{{ method }}</option>
-                  {% endfor %}
-                </select>
-                <span class="field-help">Used as the default for supported tables. Individual tables can override it below.</span>
-              </label>
-
-              <label class="field-block">
-                <span class="field-label-row">
-                  <span class="field-label">Max gap periods</span>
-                  <span class="help-tip" tabindex="0" data-tip="Maximum consecutive missing timestamps or values to fill. A period is one inferred table interval, for example one hour for hourly data. Longer gaps are left open.">?</span>
-                </span>
-                <input type="number" name="max_gap_periods" min="1" value="{{ gapfill_values.max_gap_periods }}" />
-              </label>
-
-              <label class="field-block">
-                <span class="field-label-row">
-                  <span class="field-label">Lookback</span>
-                  <span class="help-tip" tabindex="0" data-tip="Extra history read before newly changed source rows on incremental runs. Larger values can repair context around updates but make post-run processing heavier. Use duration values such as 24h, 7d, or 28d.">?</span>
-                </span>
-                <input type="text" name="lookback" value="{{ gapfill_values.lookback }}" />
-              </label>
-            </div>
-
-            <details class="config-drawer">
-              <summary>Advanced gapfill settings</summary>
-              <div class="studio-form-grid">
-                <label class="field-block">
-                  <span class="field-label-row">
-                    <span class="field-label">Candidate periods</span>
-                    <span class="help-tip" tabindex="0" data-tip="Seasonal offsets used to search for comparable donor values, for example 24h for yesterday and 7d for the same time last week.">?</span>
-                  </span>
-                  <input type="text" name="candidate_periods" value="{{ gapfill_values.candidate_periods }}" />
-                </label>
-
-                <label class="field-block">
-                  <span class="field-label-row">
-                    <span class="field-label">Donor context periods</span>
-                    <span class="help-tip" tabindex="0" data-tip="Number of periods around a gap used to compare local shape when matching donor segments. Higher values need more surrounding valid data.">?</span>
-                  </span>
-                  <input type="number" name="donor_context_periods" min="1" value="{{ gapfill_values.donor_context_periods }}" />
-                </label>
-
-                <label class="field-block">
-                  <span class="field-label-row">
-                    <span class="field-label">Donor search radius</span>
-                    <span class="help-tip" tabindex="0" data-tip="Maximum distance around candidate periods for donor matching. Example: 28d allows donor search in a wider seasonal neighborhood.">?</span>
-                  </span>
-                  <input type="text" name="donor_search_radius" value="{{ gapfill_values.donor_search_radius }}" />
-                </label>
-
-                <label class="field-block">
-                  <span class="field-label-row">
-                    <span class="field-label">Refinement periods</span>
-                    <span class="help-tip" tabindex="0" data-tip="Number of edge periods used by donor_refined to smooth or adjust filled segments after donor matching.">?</span>
-                  </span>
-                  <input type="number" name="refinement_periods" min="0" value="{{ gapfill_values.refinement_periods }}" />
-                </label>
-
-                <label class="field-block field-block--toggle">
-                  <span class="field-label-row">
-                    <span class="field-label">Fail on table error</span>
-                    <span class="help-tip" tabindex="0" data-tip="If enabled, any table error makes the gapfill run fail. If disabled, other selected tables can still complete and the run is marked partial.">?</span>
-                  </span>
-                  <input type="checkbox" name="fail_on_table_error" value="1" {% if gapfill_values.fail_on_table_error == "true" %}checked{% endif %} />
-                </label>
-              </div>
-            </details>
-
-            <div class="gapfill-table-selector">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">Per time-series table</p>
-                  <h4>Tables included in the productive gapfill run</h4>
-                </div>
-                <a href="/admin/crawlers/{{ overview.crawler_name }}?check_gapfill_db=1#gapfill-operations" class="button button--secondary button--small" title="Checks whether the supported tables shown below currently exist in the configured source schema. It does not discover arbitrary database tables.">Check DB table status</a>
-              </div>
-              <p class="subtle-note">
-                The table list comes from <strong>{{ gapfill_view.metadata_source_label }}</strong>. {{ gapfill_view.database_status_note }}
-                Each checkbox controls whether the post-run gapfill processes that supported source table and writes a derived copy into <code>{{ gapfill_view.target_schema }}</code>.
-              </p>
-              <div class="gapfill-table-grid">
-                {% for item in gapfill_view.tables %}
-                  <article class="gapfill-table-option">
-                    <label class="gapfill-table-option__check" for="gapfill-table-{{ loop.index }}">
-                      <input
-                        id="gapfill-table-{{ loop.index }}"
-                        type="checkbox"
-                        name="gapfill_tables"
-                        value="{{ item.table_name }}"
-                        {% if item.table_name in gapfill_values.selected_tables %}checked{% endif %}
-                      />
-                      <span class="sr-only">Include {{ item.table_name }}</span>
-                    </label>
-                    <div class="gapfill-table-option__body">
-                      <div class="gapfill-table-option__head">
-                        <strong>{{ item.table_name }}</strong>
-                        <span class="gapfill-table-status gapfill-table-status--{{ item.database_status }}">{{ item.database_status_label }}</span>
-                      </div>
-                      <span>Values: {{ item.value_columns_label }}</span>
-                      <span>Groups: {{ item.groupby_columns_label }}</span>
-                      <label class="gapfill-table-method" for="gapfill-table-method-{{ loop.index }}">
-                        <span class="field-label-row">
-                          <span class="field-label">Method for this table</span>
-                          <span class="help-tip" tabindex="0" data-tip="Overrides the default method only for this selected table. If the table checkbox is off, this method is saved as a preference but not processed.">?</span>
-                        </span>
-                        {% set table_method = gapfill_values.table_methods.get(item.table_name, gapfill_values.method) %}
-                        <select id="gapfill-table-method-{{ loop.index }}" name="gapfill_table_method__{{ item.table_name }}">
-                          {% for method in gapfill_methods %}
-                            <option value="{{ method }}" {% if table_method == method %}selected{% endif %}>{{ method }}</option>
-                          {% endfor %}
-                        </select>
-                      </label>
-                    </div>
-                  </article>
-                {% endfor %}
-              </div>
-            </div>
-
-            <div class="action-row">
-              <button type="submit" class="button button--primary">Save gapfill settings</button>
-              <a href="/admin/editor" class="button button--secondary">Open YAML Editor</a>
-            </div>
-          </form>
-        {% else %}
-          <p class="empty-state">
-            This crawler does not expose built-in gapfill table metadata yet. Use the YAML editor for now.
-          </p>
+  {# ------------------------------------------------------------------ Runs #}
+  <section id="runs" class="tab-panel">
+    <section class="card" id="scheduler-run">
+      <header class="card__head">
+        <h2>Latest scheduler run</h2>
+        {% if scheduler_run %}
+          <span class="muted"><span class="status status--{{ scheduler_run.status }}">{{ scheduler_run.status|capitalize }}</span> · {{ scheduler_run.job_name }} · <time class="js-rel" data-utc="{{ scheduler_run.created_at }}">{{ scheduler_run.created_at }}</time></span>
         {% endif %}
-      </section>
-      {% endif %}
-
-      {% if price_forecast_view %}
-        <section class="panel price-forecast-panel" id="price-forecast">
-          <div class="panel-heading panel-heading--stack">
-            <div>
-              <p class="eyebrow">Derived forecast</p>
-              <h3>Price Forecast</h3>
-            </div>
-            <p class="subtle-note">
-              Forecast metadata and outputs are written to <code>{{ price_forecast_view.schema_name }}</code>.
-              Grafana reads this schema in <strong>{{ price_forecast_view.dashboard_name }}</strong>.
-            </p>
-          </div>
-
-          <div class="settings-grid">
-            <article class="settings-card">
-              <span class="fleet-summary__label">Post-run status</span>
-              <strong>
-                {% if price_forecast_view.script_enabled %}
-                  Price forecast active
-                {% else %}
-                  Price forecast not attached
-                {% endif %}
-              </strong>
-              <p class="subtle-note">
-                {% if price_forecast_view.script_enabled %}
-                  <code>oeds-post forecast day-ahead-price</code> runs after successful crawler executions.
-                {% else %}
-                  Add <code>oeds-post forecast day-ahead-price</code> to this crawler's <code>post_run_scripts</code> to run it automatically.
-                {% endif %}
-              </p>
-            </article>
-
-            <article class="settings-card">
-              <span class="fleet-summary__label">Latest forecast</span>
-              <strong>
-                {% if price_forecast_view.latest_run %}
-                  {{ price_forecast_view.latest_run.target_date }}
-                {% else %}
-                  No runs yet
-                {% endif %}
-              </strong>
-              <dl class="detail-list detail-list--compact">
-                <div>
-                  <dt>Status</dt>
-                  <dd>
-                    {% if price_forecast_view.latest_run %}
-                      <span class="status-pill status-pill--{{ price_forecast_view.latest_run.status }}">{{ price_forecast_view.latest_run.status }}</span>
-                    {% else %}
-                      -
-                    {% endif %}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Market</dt>
-                  <dd>{{ price_forecast_view.latest_run.market_area if price_forecast_view.latest_run else "-" }}</dd>
-                </div>
-                <div>
-                  <dt>Variant</dt>
-                  <dd>{{ price_forecast_view.latest_run.variant if price_forecast_view.latest_run else "-" }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="settings-card">
-              <span class="fleet-summary__label">Manual run</span>
-              <strong>Use Manual Actions</strong>
-              <p class="subtle-note">Start an on-demand forecast or self-test from the Price forecast action on this page.</p>
-            </article>
-          </div>
-
-          <p class="subtle-note">{{ price_forecast_view.database_status_note }}</p>
-          {% if price_forecast_view.runs %}
-            <div class="history-table-wrapper">
-              <table class="history-table">
-                <thead>
-                  <tr>
-                    <th>Created</th>
-                    <th>Target</th>
-                    <th>Market</th>
-                    <th>Variant</th>
-                    <th>Status</th>
-                    <th>Model</th>
-                    <th>Message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for run in price_forecast_view.runs %}
-                    <tr>
-                      <td>{{ run.created_at }}</td>
-                      <td>{{ run.target_date }}</td>
-                      <td>{{ run.market_area }}</td>
-                      <td>{{ run.variant }}</td>
-                      <td><span class="status-pill status-pill--{{ run.status }}">{{ run.status }}</span></td>
-                      <td>{{ run.model_name }} {{ run.model_version }}</td>
-                      <td>{{ run.message or "-" }}</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          {% endif %}
-        </section>
-      {% endif %}
-
-      {% if overview.issues %}
-        <div class="issue-cluster">
-          <h4>Validation</h4>
-          <ul class="issue-list">
-            {% for issue in overview.issues %}
-              <li class="issue issue--{{ issue.level }}">
-                <span class="issue-badge">{{ issue.badge_label }}</span>
-                <div>
-                  <strong>{{ issue.message }}</strong>
-                  {% if issue.location %}
-                    <p>{{ issue.location }}</p>
-                  {% endif %}
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-      <details class="config-drawer">
-        <summary>Configuration payloads</summary>
-        <div class="config-preview-grid">
-          <article class="config-preview-card">
-            <div>
-              <h4>Effective configuration</h4>
-              <p class="subtle-note">Merged values used by the runtime.</p>
-            </div>
-            <pre class="config-preview"><code>{{ effective_config_yaml }}</code></pre>
-          </article>
-          <article class="config-preview-card">
-            <div>
-              <h4>Crawler YAML section</h4>
-              <p class="subtle-note">Crawler-specific values from <code>CRAWLER_CONFIG.yml</code>.</p>
-            </div>
-            <pre class="config-preview"><code>{{ raw_config_yaml }}</code></pre>
-          </article>
-        </div>
-      </details>
-    </article>
-
-    <article class="panel operations-panel">
-      <div class="panel-heading">
-        <h3>Manual Actions</h3>
-      </div>
-      {% if overview.raw_config %}
-        <div class="action-stack">
-          {% for action in actions %}
-            <section class="action-card">
-              <div class="action-card__header">
-                <div>
-                  <h4>{{ action.label }}</h4>
-                  <p>{{ action.description }}</p>
-                </div>
-                {% if submitted_action_id == action.action_id %}
-                  <span class="pill pill--solid">last submission</span>
-                {% endif %}
-              </div>
-
-              {% if action.note %}
-                <p class="subtle-note">{{ action.note }}</p>
-              {% endif %}
-
-              <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/actions/{{ action.action_id }}" class="action-form">
-                <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}" />
-
-                {% for field in action.fields %}
-                  {% set value = action_values[action.action_id][field.name] %}
-                  <label class="field-block">
-                    <span class="field-label">{{ field.label }}</span>
-
-                    {% if field.input_type == "text" %}
-                      <input type="text" name="{{ field.name }}" value="{{ value or '' }}" {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %} {% if field.required %}required{% endif %} />
-                    {% elif field.input_type == "number" %}
-                      <input type="number" name="{{ field.name }}" value="{{ value }}" {% if field.min_value is not none %}min="{{ field.min_value }}"{% endif %} {% if field.max_value is not none %}max="{{ field.max_value }}"{% endif %} {% if field.required %}required{% endif %} />
-                    {% elif field.input_type == "select" %}
-                      <select name="{{ field.name }}" {% if field.required %}required{% endif %}>
-                        <option value="">Select...</option>
-                        {% for option in field.options %}
-                          <option value="{{ option.value }}" {% if value == option.value %}selected{% endif %}>{{ option.label }}</option>
-                        {% endfor %}
-                      </select>
-                    {% elif field.input_type == "multiselect" %}
-                      {% set selected_values = value if value is iterable and value is not string else [] %}
-                      <select name="{{ field.name }}" multiple size="8">
-                        {% for option in field.options %}
-                          <option value="{{ option.value }}" {% if option.value in selected_values %}selected{% endif %}>{{ option.label }}</option>
-                        {% endfor %}
-                      </select>
-                    {% endif %}
-
-                    {% if field.help_text %}
-                      <span class="field-help">{{ field.help_text }}</span>
-                    {% endif %}
-                  </label>
-                {% endfor %}
-
-                <div class="action-row">
-                  <button type="submit" class="button button--primary button--small" {% if is_locked %}disabled{% endif %}>{{ action.button_label }}</button>
-                  {% if is_locked %}
-                    <span class="subtle-note">Another run is active for this crawler.</span>
-                  {% endif %}
-                </div>
-              </form>
-            </section>
-          {% endfor %}
-        </div>
+      </header>
+      {% if scheduler_run %}
+        <pre class="log">{{ scheduler_log }}</pre>
+        <p class="hint">{{ scheduler_run.log_path }}</p>
       {% else %}
-        <p class="inline-error">No crawler section exists in CRAWLER_CONFIG.yml. Add one before using manual actions.</p>
+        <p class="empty">No scheduler run log under <code>logs/runs</code> yet.</p>
       {% endif %}
-    </article>
+    </section>
+
+    <section class="card">
+      <header class="card__head"><h2>Runs started here</h2></header>
+      {% if history %}
+        <table class="table table--plain">
+          <thead><tr><th>#</th><th>Action</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr></thead>
+          <tbody>
+            {% for record in history %}
+              <tr{% if selected_run and record.run_id == selected_run.run_id %} class="is-selected"{% endif %}>
+                <td class="muted">{{ record.run_id }}</td>
+                <td>{{ record.action_label }}</td>
+                <td><span class="status status--{{ record.status }}">{{ record.status|capitalize }}</span></td>
+                <td><time class="js-rel" data-utc="{{ record.created_at }}">{{ record.created_at }}</time></td>
+                <td>{% if record.duration_seconds is not none %}{{ "%.0f"|format(record.duration_seconds) }} s{% else %}—{% endif %}</td>
+                <td class="cell-actions"><a href="/admin/crawlers/{{ overview.crawler_name }}?run={{ record.run_id }}#run-log" class="btn btn--small btn--ghost">Log</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">No runs were started from this page yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" id="run-log">
+      <header class="card__head">
+        <h2>{% if selected_run %}Run #{{ selected_run.run_id }}{% else %}Run log{% endif %}</h2>
+        {% if selected_run %}<span class="muted"><span id="run-status-badge" class="status status--{{ selected_run.status }}">{{ selected_run.status|capitalize }}</span> · {{ selected_run.action_label }}</span>{% endif %}
+      </header>
+      {% if selected_run %}
+        <p id="run-summary" class="hint">{{ selected_run.summary or "" }}</p>
+        <p id="run-error" class="text-fail">{{ selected_run.error_message or "" }}</p>
+        <pre id="run-log-output" class="log">{{ selected_log.text if selected_log else "" }}</pre>
+      {% else %}
+        <p class="empty">Choose a run above to see its log.</p>
+      {% endif %}
+    </section>
   </section>
 
-  <section class="detail-grid detail-grid--logs">
-    <article class="panel runtime-benchmark-panel">
-      <div class="panel-heading">
-        <h3>Runtime Benchmarks</h3>
-      </div>
-      {% if runtime_benchmarks %}
-        <div class="history-table-wrapper">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>Samples</th>
-                <th>Success</th>
-                <th>Latest</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for benchmark in runtime_benchmarks %}
-                <tr>
-                  <td>{{ benchmark.action_label }}</td>
-                  <td>{{ benchmark.sample_count }}</td>
-                  <td>{{ benchmark.success_count }} / {{ benchmark.sample_count }} ({{ "%.1f"|format(benchmark.success_rate) }}%)</td>
-                  <td>
-                    {% if benchmark.latest_seconds is not none %}
-                      {{ "%.2f"|format(benchmark.latest_seconds) }}s
-                    {% else %}
-                      -
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="empty-state">No completed runs with duration samples yet.</p>
-      {% endif %}
-    </article>
+  {# ------------------------------------------------------------------ Gapfill #}
+  {% if gapfill_view %}
+  <section id="gapfill" class="tab-panel">
+    <div id="gapfill-operations"></div>
+    <p class="lead">
+      Raw tables stay in <code>{{ gapfill_view.source_schema }}</code>; gapfilled copies and run metrics go to <code>{{ gapfill_view.target_schema }}</code>.
+      {% if gapfill_view.dashboard_name %}Grafana shows them in <strong>{{ gapfill_view.dashboard_name }}</strong>.{% endif %}
+    </p>
 
-    <article class="panel">
-      <div class="panel-heading">
-        <h3>Run History</h3>
-      </div>
-      {% if history %}
-        <div class="history-table-wrapper">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Action</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Finished</th>
-                <th>Duration</th>
-                <th>Open</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for record in history %}
-                <tr {% if selected_run and record.run_id == selected_run.run_id %}class="is-selected"{% endif %}>
-                  <td>{{ record.run_id }}</td>
-                  <td>{{ record.action_label }}</td>
-                  <td><span class="status-pill status-pill--{{ record.status }}">{{ record.status }}</span></td>
-                  <td>{{ record.created_at }}</td>
-                  <td>{{ record.finished_at or "-" }}</td>
-                  <td>
-                    {% if record.duration_seconds is not none %}
-                      {{ "%.2f"|format(record.duration_seconds) }}s
-                    {% else %}
-                      -
-                    {% endif %}
-                  </td>
-                  <td><a href="/admin/crawlers/{{ overview.crawler_name }}?run={{ record.run_id }}#run-log">View log</a></td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="empty-state">No manual runs recorded yet.</p>
-      {% endif %}
-    </article>
-
-    <article class="panel" id="scheduler-run">
-      <div class="panel-heading">
-        <h3>Latest Scheduler Run</h3>
-      </div>
-      {% if scheduler_run %}
-        <div class="log-meta">
-          <p>
-            <span class="status-pill status-pill--{{ scheduler_run.status }}">{{ scheduler_run.status }}</span>
-            | {{ scheduler_run.action_label }} | started {{ scheduler_run.created_at | replace('T', ' ') }} UTC
-          </p>
-          <p class="subtle-note"><code>{{ scheduler_run.log_path }}</code></p>
-        </div>
-        <pre class="log-viewer">{{ scheduler_log }}</pre>
-      {% else %}
-        <p class="empty-state">No scheduler run log found under <code>logs/runs</code>.</p>
-      {% endif %}
-    </article>
-
-    <article class="panel" id="run-log">
-      <div class="panel-heading">
-        <h3>Log Tail</h3>
-      </div>
-      {% if selected_run %}
-        <div class="log-meta">
-          <p>
-            Run <strong>#{{ selected_run.run_id }}</strong> |
-            <span id="run-status-badge" class="status-pill status-pill--{{ selected_run.status }}">{{ selected_run.status }}</span>
-            | {{ selected_run.action_label }}
-          </p>
-          {% if selected_run.summary %}
-            <p id="run-summary" class="subtle-note">{{ selected_run.summary }}</p>
-          {% endif %}
-          {% if selected_run.error_message %}
-            <p id="run-error" class="inline-error">{{ selected_run.error_message }}</p>
+    {% if gapfill_view.supported %}
+      <div class="facts">
+        <div><span>After crawler</span><strong>{% if gapfill_view.script_enabled %}on{% else %}off{% endif %}</strong></div>
+        <div><span>Tables</span><strong>{{ gapfill_view.selected_table_count }} of {{ gapfill_view.tables|length }}</strong></div>
+        <div><span>Default method</span><strong>{{ gapfill_view.method }}</strong></div>
+        <div>
+          <span>Last run</span>
+          {% if gapfill_last_run %}
+            <strong><span class="status status--{{ gapfill_last_run.status }}">{{ gapfill_last_run.status|capitalize }}</span></strong>
+            <small>{{ gapfill_last_run.started_at }} · {{ gapfill_last_run.values_filled }} points filled{% if gapfill_last_run.message %} · {{ gapfill_last_run.message }}{% endif %}</small>
           {% else %}
-            <p id="run-error" class="inline-error"></p>
+            <strong>—</strong><small>{{ gapfill_last_run_note }}</small>
           {% endif %}
         </div>
-        <pre id="run-log-output" class="log-viewer">{{ selected_log.text if selected_log else "" }}</pre>
-      {% else %}
-        <p class="empty-state">Select a run from the history to inspect its log output.</p>
+      </div>
+
+      {% if gapfill_saved %}<div class="banner banner--success">Gapfill settings saved.</div>{% endif %}
+      {% if gapfill_errors %}
+        <div class="banner banner--error">
+          The gapfill settings were not saved:
+          <ul>{% for error in gapfill_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
       {% endif %}
-    </article>
+
+      <form method="post" action="/admin/crawlers/{{ overview.crawler_name }}/gapfill#gapfill" class="card">
+        <input type="hidden" name="redirect_to" value="/admin/crawlers/{{ overview.crawler_name }}#gapfill" />
+        <input type="hidden" name="base_hash" value="{{ base_hash }}" />
+        <header class="card__head"><h2>Settings</h2></header>
+
+        <div class="form-grid">
+          <label class="check">
+            <input type="checkbox" name="script_enabled" value="1" {% if gapfill_values.script_enabled == "true" %}checked{% endif %} />
+            <span>Run gapfill after the crawler<small>Adds <code>oeds-post gapfill entsoe-fms</code> to the post-run steps.</small></span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="gapfill_enabled" value="1" {% if gapfill_values.gapfill_enabled == "true" %}checked{% endif %} />
+            <span>Process the selected tables<small>Off: the step runs but writes nothing (<code>gapfill.enable</code>).</small></span>
+          </label>
+          <label class="field">
+            <span>Target schema</span>
+            <input class="input" type="text" name="target_schema" value="{{ gapfill_values.target_schema }}" />
+          </label>
+          <label class="field">
+            <span>Default method</span>
+            <select class="input" name="method">
+              {% for method in gapfill_methods %}<option value="{{ method }}" {% if gapfill_values.method == method %}selected{% endif %}>{{ method }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="field">
+            <span>Max gap periods</span>
+            <input class="input" type="number" name="max_gap_periods" min="1" value="{{ gapfill_values.max_gap_periods }}" />
+            <small class="hint">Longer gaps stay open. One period is one table interval.</small>
+          </label>
+          <label class="field">
+            <span>Lookback</span>
+            <input class="input" type="text" name="lookback" value="{{ gapfill_values.lookback }}" />
+            <small class="hint">History read before changed rows, e.g. 24h, 7d, 28d.</small>
+          </label>
+        </div>
+
+        <details class="fold">
+          <summary>Advanced</summary>
+          <div class="form-grid">
+            <label class="field">
+              <span>Candidate periods</span>
+              <input class="input" type="text" name="candidate_periods" value="{{ gapfill_values.candidate_periods }}" />
+              <small class="hint">Seasonal offsets for donor values, e.g. 24h, 7d.</small>
+            </label>
+            <label class="field">
+              <span>Donor context periods</span>
+              <input class="input" type="number" name="donor_context_periods" min="1" value="{{ gapfill_values.donor_context_periods }}" />
+              <small class="hint">Periods around a gap compared with a donor.</small>
+            </label>
+            <label class="field">
+              <span>Donor search radius</span>
+              <input class="input" type="text" name="donor_search_radius" value="{{ gapfill_values.donor_search_radius }}" />
+            </label>
+            <label class="field">
+              <span>Refinement periods</span>
+              <input class="input" type="number" name="refinement_periods" min="0" value="{{ gapfill_values.refinement_periods }}" />
+            </label>
+            <label class="check">
+              <input type="checkbox" name="fail_on_table_error" value="1" {% if gapfill_values.fail_on_table_error == "true" %}checked{% endif %} />
+              <span>Fail on table error<small>Off: other tables continue and the run is marked partial.</small></span>
+            </label>
+          </div>
+        </details>
+
+        <header class="card__head card__head--sub">
+          <h2>Tables</h2>
+          <a href="/admin/crawlers/{{ overview.crawler_name }}?check_gapfill_db=1#gapfill" class="btn btn--small btn--ghost">Check database</a>
+        </header>
+        <p class="hint">{{ gapfill_view.metadata_source_label }}. {{ gapfill_view.database_status_note }}</p>
+        <table class="table table--plain">
+          <thead><tr><th></th><th>Table</th><th>Values</th><th>Database</th><th>Method</th></tr></thead>
+          <tbody>
+            {% for item in gapfill_view.tables %}
+              {% set table_method = gapfill_values.table_methods.get(item.table_name, gapfill_values.method) %}
+              <tr>
+                <td class="cell-check"><input type="checkbox" name="gapfill_tables" value="{{ item.table_name }}" aria-label="Include {{ item.table_name }}" {% if item.table_name in gapfill_values.selected_tables %}checked{% endif %} /></td>
+                <td title="Groups: {{ item.groupby_columns_label }}">{{ item.table_name }}</td>
+                <td class="muted">{{ item.value_columns_label }}</td>
+                <td class="muted nowrap">{{ item.database_status_label }}</td>
+                <td>
+                  <select class="input input--small" name="gapfill_table_method__{{ item.table_name }}" aria-label="Method for {{ item.table_name }}">
+                    {% for method in gapfill_methods %}<option value="{{ method }}" {% if table_method == method %}selected{% endif %}>{{ method }}</option>{% endfor %}
+                  </select>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <footer class="card__foot">
+          <button type="submit" class="btn btn--primary">Save</button>
+          <a href="/admin/editor" class="btn btn--ghost">Edit YAML instead</a>
+        </footer>
+      </form>
+      {% if extra_actions.gapfill_backfill %}
+        <section class="card">
+          <header class="card__head"><h2>Backfill</h2></header>
+          {{ action_form(extra_actions.gapfill_backfill, action_values, overview.crawler_name, is_locked, submitted_action_id) }}
+        </section>
+      {% endif %}
+    {% else %}
+      <p class="empty">This crawler has no built-in gapfill table list. Use the YAML editor.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ------------------------------------------------------------------ Price forecast #}
+  {% if price_forecast_view %}
+  <section id="forecast" class="tab-panel">
+    <div id="price-forecast"></div>
+    <p class="lead">
+      Forecasts are written to <code>{{ price_forecast_view.schema_name }}</code> and shown in Grafana in <strong>{{ price_forecast_view.dashboard_name }}</strong>.
+      {% if price_forecast_view.script_enabled %}<code>oeds-post forecast day-ahead-price</code> runs after each successful crawler run.
+      {% else %}Add <code>oeds-post forecast day-ahead-price</code> to the post-run steps to run it automatically.{% endif %}
+    </p>
+    {% set fc = price_forecast_view.latest_run %}
+    <div class="facts">
+      <div><span>After crawler</span><strong>{% if price_forecast_view.script_enabled %}on{% else %}off{% endif %}</strong></div>
+      <div><span>Latest target day</span><strong>{{ fc.target_date if fc else "—" }}</strong></div>
+      <div><span>Status</span><strong>{% if fc %}<span class="status status--{{ fc.status }}">{{ fc.status|capitalize }}</span>{% else %}—{% endif %}</strong></div>
+      <div><span>Market, variant</span><strong>{% if fc %}{{ fc.market_area }}, {{ fc.variant }}{% else %}—{% endif %}</strong></div>
+    </div>
+    <section class="card">
+      <header class="card__head"><h2>Recent forecasts</h2></header>
+      {% if price_forecast_view.runs %}
+        <table class="table table--plain">
+          <thead><tr><th>Created</th><th>Target day</th><th>Market</th><th>Variant</th><th>Status</th><th>Model</th><th>Message</th></tr></thead>
+          <tbody>
+            {% for run in price_forecast_view.runs %}
+              <tr>
+                <td class="nowrap">{{ (run.created_at|string)[:16] }}</td>
+                <td>{{ run.target_date }}</td>
+                <td>{{ run.market_area }}</td>
+                <td>{{ run.variant }}</td>
+                <td><span class="status status--{{ run.status }}">{{ run.status|capitalize }}</span></td>
+                <td class="muted">{{ run.model_name }} {{ run.model_version }}</td>
+                <td class="muted">{{ run.message or "—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">{{ price_forecast_view.database_status_note }}</p>
+      {% endif %}
+    </section>
+    {% if extra_actions.price_forecast %}
+      <section class="card">
+        <header class="card__head"><h2>Run a forecast</h2></header>
+        {{ action_form(extra_actions.price_forecast, action_values, overview.crawler_name, is_locked, submitted_action_id) }}
+      </section>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ------------------------------------------------------------------ Configuration #}
+  <section id="configuration" class="tab-panel">
+    {% if overview.issues %}
+      <section class="card">
+        <header class="card__head"><h2>Validation</h2></header>
+        <ul class="issues">
+          {% for issue in overview.issues %}
+            <li class="issue--{{ issue.level }}"><strong>{{ issue.badge_label }}</strong> {{ issue.message }}{% if issue.location %} <span class="muted">{{ issue.location }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+    <div class="grid-2">
+      <section class="card">
+        <header class="card__head"><h2>Crawler section</h2><a href="/admin/editor" class="btn btn--small btn--ghost">Edit YAML</a></header>
+        <pre class="code">{{ raw_config_yaml }}</pre>
+      </section>
+      <section class="card">
+        <header class="card__head"><h2>Effective configuration</h2><span class="muted">defaults merged in</span></header>
+        <pre class="code">{{ effective_config_yaml }}</pre>
+      </section>
+    </div>
   </section>
 
   {% if selected_run %}
@@ -874,20 +452,15 @@
       async function refreshRunLog() {
         const [statusResponse, logResponse] = await Promise.all([
           fetch(`/admin/api/runs/${selectedRunId}`),
-          fetch(`/admin/api/runs/${selectedRunId}/log?lines=240`)
+          fetch(`/admin/api/runs/${selectedRunId}/log?lines=240`),
         ]);
-
         const statusPayload = await statusResponse.json();
         const logPayload = await logResponse.json();
 
-        statusBadge.textContent = statusPayload.status;
-        statusBadge.className = `status-pill status-pill--${statusPayload.status}`;
-        if (summaryNode) {
-          summaryNode.textContent = statusPayload.summary || "";
-        }
-        if (errorNode) {
-          errorNode.textContent = statusPayload.error_message || "";
-        }
+        statusBadge.textContent = statusPayload.status.charAt(0).toUpperCase() + statusPayload.status.slice(1);
+        statusBadge.className = `status status--${statusPayload.status}`;
+        if (summaryNode) summaryNode.textContent = statusPayload.summary || "";
+        if (errorNode) errorNode.textContent = statusPayload.error_message || "";
         if (logOutput) {
           logOutput.textContent = logPayload.text || "";
           logOutput.scrollTop = logOutput.scrollHeight;
