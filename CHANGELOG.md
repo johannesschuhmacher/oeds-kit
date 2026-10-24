@@ -3,6 +3,14 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- Admin UI redesigned: the crawler overview is one table (status, schedule,
+  next and last run as relative times), crawlers without a schedule are
+  folded away; the crawler page has tabs for overview, runs, gapfill, price
+  forecast and configuration; editor and dialogs use the same layout; dark
+  mode follows the system. `ui.css` and `ui.js` replace `admin.css`.
+
 ## 1.2.0 (2026-10-24)
 
 Streamlining without removing features in use; about 7,300 lines less (#17).
