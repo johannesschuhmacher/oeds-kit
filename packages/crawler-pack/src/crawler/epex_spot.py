@@ -383,7 +383,7 @@ class EpexSpotCrawler(KitCrawler):
                 start = pd.Timestamp(year=year, month=month, day=day, tz=BERLIN_TZ).tz_convert("UTC")
             except ValueError:
                 return None
-            return start, start + pd.Timedelta(days=1)
+            return start, start + pd.DateOffset(days=1)
 
         year_match = re.search(r"(20\d{2})", filename)
         if year_match:
@@ -420,7 +420,12 @@ class EpexSpotCrawler(KitCrawler):
             )
             if pd.isna(local_time):
                 return None
-            return local_time.tz_localize(BERLIN_TZ).tz_convert("UTC")
+            # Only stored as metadata; a header time in the repeated or skipped hour
+            # of a clock change is not unique, so it stays empty instead of failing the file.
+            local_time = local_time.tz_localize(BERLIN_TZ, ambiguous="NaT", nonexistent="NaT")
+            if pd.isna(local_time):
+                return None
+            return local_time.tz_convert("UTC")
 
         return None
 
