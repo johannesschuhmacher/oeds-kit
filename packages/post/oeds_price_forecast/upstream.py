@@ -120,7 +120,7 @@ def _build_upstream_xy(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
     daily_index = _target_daily_index(target_date, config.train_days)
     start = daily_index.min().tz_convert("UTC")
-    end = (daily_index.max() + pd.Timedelta(days=1)).tz_convert("UTC")
+    end = (daily_index.max() + pd.DateOffset(days=1)).tz_convert("UTC")
     quarter_index = pd.date_range(start, end, freq=config.frequency, inclusive="left", tz="UTC")
 
     price_frame = _regular_quarter_frame(price, "price_da", quarter_index)
@@ -203,16 +203,31 @@ def forecast_day_upstream(
     if forecast_df.empty:
         raise ValueError("Upstream LEAR did not return forecast rows.")
 
-    index_utc = forecast_df.index.tz_convert("UTC")
+    # LEAR returns 96 values per local wall-clock MTU (4 * hour + minute // 15; the
+    # upstream feature pivots average the repeated hour and interpolate the skipped
+    # one) but labels them local midnight + 15 min * MTU, which is shifted by one hour
+    # after a clock change. Deliver every quarter-hour from local midnight to the next
+    # local midnight instead and look up its wall-clock MTU: on the 25-hour day both
+    # 02:xx instances get the 02:xx value, on the 23-hour day 02:xx does not exist.
+    delivery_local = pd.date_range(
+        forecast_day_index[0],
+        forecast_day_index[0] + pd.DateOffset(days=1),
+        freq=config.frequency,
+        inclusive="left",
+    )
+    mtu = delivery_local.hour * 4 + delivery_local.minute // 15
+    y_pred = forecast_df["y_pred"].to_numpy(dtype=float)[mtu]
+    y_true = forecast_df["y_true"].to_numpy(dtype=float)[mtu]
+    index_utc = delivery_local.tz_convert("UTC")
     point = pd.DataFrame(
         {
             "delivery_start_utc": index_utc,
             "delivery_end_utc": list(index_utc[1:]) + [index_utc[-1] + pd.Timedelta(config.frequency)],
-            "value_eur_mwh": forecast_df["y_pred"].to_numpy(dtype=float),
+            "value_eur_mwh": y_pred,
         }
     )
-    actual = pd.Series(forecast_df["y_true"].to_numpy(dtype=float), index=index_utc)
-    predicted = pd.Series(forecast_df["y_pred"].to_numpy(dtype=float), index=index_utc)
+    actual = pd.Series(y_true, index=index_utc)
+    predicted = pd.Series(y_pred, index=index_utc)
     metrics = _metrics(actual, predicted)
     quantiles = _quantiles_from_residual_proxy(point, price, exaa, config)
     return ForecastResult(
