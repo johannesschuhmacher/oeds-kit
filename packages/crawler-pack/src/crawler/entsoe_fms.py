@@ -11,6 +11,7 @@ defined in one place so that new extracts can be added without touching the
 download loop in multiple spots.
 """
 import csv
+from datetime import timezone
 import os
 import re
 import time
@@ -611,10 +612,12 @@ class EntsoeFMSCrawler(KitCrawler):
                     text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_fms"."{table_name}"')
                 ).scalar()
 
-        if state["last_update_time"]:
-            state["last_update_time"] = state["last_update_time"].replace(tzinfo=None)
-        if state["last_date_time"]:
-            state["last_date_time"] = state["last_date_time"].replace(tzinfo=None)
+        # The file timestamps are naive UTC; timestamptz values come back in the
+        # session time zone, so convert to UTC before dropping the zone.
+        for key in ("last_update_time", "last_date_time"):
+            value = state[key]
+            if value and value.tzinfo is not None:
+                state[key] = value.astimezone(timezone.utc).replace(tzinfo=None)
 
         return state
 
