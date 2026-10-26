@@ -32,6 +32,32 @@ class PriceForecastModelTest(unittest.TestCase):
         self.assertIn("exaa_d0_mtu_00", result.feature_columns)
         self.assertIn("load_d0_mtu_00", result.feature_columns)
 
+    def test_forecast_day_covers_local_day_on_clock_changes(self) -> None:
+        config = PriceForecastConfig(train_days=14)
+        # 25 Oct 2026: 25 hours, 02:00-03:00 twice; 29 Mar 2026: 23 hours, no 02:00.
+        for day, rows, first, last in [
+            ("2026-10-25", 100, "2026-10-24 22:00:00+00:00", "2026-10-25 22:45:00+00:00"),
+            ("2026-03-29", 92, "2026-03-28 23:00:00+00:00", "2026-03-29 21:45:00+00:00"),
+        ]:
+            with self.subTest(day=day):
+                target_date = pd.Timestamp(day).date()
+                price, exaa, covariates = generate_self_test_series(
+                    days=35, end_date=target_date + pd.Timedelta(days=1)
+                )
+
+                point = forecast_day_upstream(price, exaa, covariates, target_date, config).point_forecast
+
+                self.assertEqual(len(point), rows)
+                self.assertEqual(str(point["delivery_start_utc"].iloc[0]), first)
+                self.assertEqual(str(point["delivery_start_utc"].iloc[-1]), last)
+                local_hour = pd.DatetimeIndex(point["delivery_start_utc"]).tz_convert("Europe/Berlin").hour
+                if rows == 100:
+                    repeated = point.loc[local_hour == 2, "value_eur_mwh"].to_numpy()
+                    self.assertEqual(len(repeated), 8)
+                    self.assertEqual(list(repeated[:4]), list(repeated[4:]))
+                else:
+                    self.assertNotIn(2, set(local_hour))
+
     def test_backtest_returns_aggregate_metrics(self) -> None:
         target_date = pd.Timestamp("2026-05-18").date()
         price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
