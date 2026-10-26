@@ -34,6 +34,14 @@ id_fields = [
     "Id",
     "GenMastrNummer",
 ]
+# Tables where the first id field above is not unique. Ertuechtigungen lists
+# several upgrades per plant (EegMastrNummer) and has a unique Id. The operator
+# change log has one row per change and no single-column key (None): it is
+# replaced as a whole on every run.
+key_fields = {
+    "Ertuechtigungen": "Id",
+    "EinheitenAenderungNetzbetreiberzuordnungen": None,
+}
 
 
 class MastrCrawler(KitCrawler):
@@ -139,13 +147,15 @@ class MastrCrawler(KitCrawler):
                     f"ALTER TABLE {quote(table_name)} ALTER COLUMN {quote(col)} TYPE TEXT USING {quote(col)}::text"
                 ))
 
-    def set_index(self, data_):
+    def set_index(self, data_, table_name=None):
         # Mastr should always be lowercase to avoid confusion
         new_cols = list(data_.columns.copy())
         for i in range(len(new_cols)):
             new_cols[i] = new_cols[i].replace("MaStR", "Mastr")
         data_.columns = new_cols
 
+        if table_name in key_fields:
+            return key_fields[table_name]
         for field in id_fields:
             if field in data_.columns:
                 # only one field can be index
@@ -170,16 +180,21 @@ class MastrCrawler(KitCrawler):
                 if remaining is not None and remaining <= 0:
                     continue
                 df = self.read_xml(file, remaining)
-                pk = self.set_index(df)
+                pk = self.set_index(df, table_name)
                 row_counts[table_name] = row_counts.get(table_name, 0) + len(df)
 
                 with self.engine.begin() as conn:
                     self._align_table(conn, table_name, df)
-                    if pk and inspect(conn).has_table(table_name):
+                    if inspect(conn).has_table(table_name):
                         quote = conn.dialect.identifier_preparer.quote
-                        statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
-                        conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
-                                     {"ids": df[pk].dropna().tolist()})
+                        if pk:
+                            statement = text(f'DELETE FROM {quote(table_name)} WHERE {quote(pk)} IN :ids')
+                            conn.execute(statement.bindparams(bindparam("ids", expanding=True)),
+                                         {"ids": df[pk].dropna().tolist()})
+                        elif table_name not in tables:
+                            # Without a key, the first file of this run replaces the rows;
+                            # appending would add the whole export again every day.
+                            conn.execute(text(f"DELETE FROM {quote(table_name)}"))
                     df.to_sql(table_name, conn, if_exists="append", index=False, method=copy_insert)
 
                 if table_name not in tables.keys():
