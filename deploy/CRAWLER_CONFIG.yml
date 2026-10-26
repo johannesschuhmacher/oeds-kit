@@ -134,7 +134,7 @@ entsoe_api:
   enable: false
   schema_name: entsoe_api
   description: Crawls selected ENTSO-E Transparency Platform Web API time series
-  schedule: 35 11 * * *
+  schedule: 35 12 * * *
   post_run_scripts:
   - oeds-post forecast day-ahead-price
   country_code: DE_LU
@@ -148,7 +148,7 @@ entsoe_api:
   jobs:
     forecast_daily:
       enable: false
-      schedule: 35 11 * * *
+      schedule: 35 12 * * *
       lookback_days: 14
       lookahead_days: 2
       run_post_scripts: true
