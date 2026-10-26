@@ -41,6 +41,9 @@ ninja:
 mastr:
   enable: false
   schema_name: mastr
+  # Schedules are in UTC. The daily export is published in the German early
+  # morning; at 04:00 UTC (05:00 CET in winter) it was not yet downloadable.
+  schedule: 0 7 * * *
   base_download_url: https://download.marktstammdatenregister.de/Gesamtdatenexport
 entsoe_fms:
   enable: false
