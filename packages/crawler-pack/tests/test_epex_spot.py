@@ -51,3 +51,13 @@ def test_unchanged_remote_files_are_not_downloaded_again():
     assert rows == 3
     crawler._download_bytes.assert_called_once_with(f"/trades/{new.filename}")
     crawler._mark_imported.assert_called_once_with(f"/trades/{new.filename}", new, 3)
+
+
+def test_publication_time_in_repeated_hour_does_not_fail():
+    # 25 Oct 2026, 02:30 local exists twice (end of summer time).
+    header = "# Published 25/10/2026 02:30:00 AM"
+
+    assert EpexSpotCrawler._publication_time_from_header(header) is None
+    assert EpexSpotCrawler._publication_time_from_header("# Published 25/10/2026 03:30:00 AM") == pd.Timestamp(
+        "2026-10-25 02:30", tz="UTC"
+    )
