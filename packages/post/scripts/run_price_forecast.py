@@ -52,7 +52,7 @@ API_MIN_TRAINING_COVERAGE_RATIO = 0.85
 def _parse_target_date(raw: str | None) -> date:
     if raw:
         return pd.Timestamp(raw).date()
-    return (pd.Timestamp.now(tz=BERLIN_TZ).normalize() + pd.Timedelta(days=1)).date()
+    return (pd.Timestamp.now(tz=BERLIN_TZ).normalize() + pd.DateOffset(days=1)).date()
 
 
 def _short_sqlalchemy_error(exc: SQLAlchemyError) -> str:
@@ -85,7 +85,7 @@ def _env_bool(name: str, fallback: bool) -> bool:
 
 def _delivery_bounds(target_date: date, train_days: int) -> tuple[pd.Timestamp, pd.Timestamp]:
     start = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) - pd.Timedelta(days=train_days + 14)
-    end = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) + pd.Timedelta(days=1)
+    end = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) + pd.DateOffset(days=1)
     return start.tz_convert("UTC"), end.tz_convert("UTC")
 
 
