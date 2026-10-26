@@ -298,3 +298,23 @@ def test_existing_table_update_time_index_is_created_once_per_run():
         "SELECT to_regclass(:name)",
         'CREATE INDEX IF NOT EXISTS "ix_EnergyPrices_updatetime" ON "entsoe_fms"."EnergyPrices" ("UpdateTime(UTC)")',
     ]
+
+
+def test_watermarks_are_naive_utc_whatever_the_session_time_zone():
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import MagicMock
+
+    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler._table_columns = Mock(return_value=["DateTime(UTC)", "UpdateTime(UTC)"])
+    crawler.engine = MagicMock()
+    # timestamptz as returned with the session time zone Europe/Berlin in summer.
+    berlin_summer = timezone(timedelta(hours=2))
+    crawler.engine.connect.return_value.__enter__.return_value.execute.return_value.scalar.side_effect = [
+        datetime(2026, 10, 24, 12, 0, tzinfo=berlin_summer),
+        datetime(2026, 10, 24, 2, 0, tzinfo=berlin_summer),
+    ]
+
+    state = crawler._get_table_state("ActualTotalLoad")
+
+    assert state["last_update_time"] == datetime(2026, 10, 24, 10, 0)
+    assert state["last_date_time"] == datetime(2026, 10, 24, 0, 0)
