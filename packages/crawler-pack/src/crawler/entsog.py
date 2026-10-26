@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import logging
 import time
 
@@ -127,13 +127,13 @@ class EntsogCrawler(KitCrawler):
             f'''
             DELETE FROM "{self.schema_name}"."{table_name}"
             WHERE periodfrom >= :chunk_start
-              AND periodfrom < :chunk_end
+              AND periodfrom <= :chunk_end
             '''
         )
         with self.engine.begin() as conn:
             conn.execute(delete_query, {"chunk_start": chunk_start, "chunk_end": chunk_end})
 
-    def _write_operational_chunk(self, table_name: str, frame: pd.DataFrame, chunk_start: pd.Timestamp, chunk_end: pd.Timestamp) -> None:
+    def _write_operational_chunk(self, table_name: str, frame: pd.DataFrame) -> None:
         if frame.empty:
             return
 
@@ -146,8 +146,10 @@ class EntsogCrawler(KitCrawler):
         if table_name == "firm_technical":
             frame["index"] = pd.to_numeric(frame.get("value"), errors="coerce")
 
+        # The API returns gas days (06:00 to 06:00 local time), not UTC days, so
+        # replace exactly the hours this chunk returned and nothing else.
         try:
-            self._delete_chunk(table_name, chunk_start, chunk_end)
+            self._delete_chunk(table_name, frame["periodfrom"].min(), frame["periodfrom"].max())
         except Exception:
             pass
 
@@ -158,7 +160,7 @@ class EntsogCrawler(KitCrawler):
         chunk_days = self._chunk_days()
         pause_seconds = self._request_pause_seconds()
         start_day = self._existing_start_date(table_name)
-        end_day = pd.Timestamp.utcnow().date() + timedelta(days=1)
+        end_day = pd.Timestamp.now(tz="UTC").date() + timedelta(days=1)
 
         if start_day >= end_day:
             self.logger.info("ENTSOG %s already up to date", table_name)
@@ -181,12 +183,7 @@ class EntsogCrawler(KitCrawler):
                 next_day.isoformat(),
             )
             frame = self._fetch_collection("operationaldatas", "operationaldatas", params)
-            self._write_operational_chunk(
-                table_name,
-                frame,
-                pd.Timestamp(current, tz="UTC"),
-                pd.Timestamp(next_day, tz="UTC"),
-            )
+            self._write_operational_chunk(table_name, frame)
             current = next_day
             if current < end_day and pause_seconds > 0:
                 time.sleep(pause_seconds)
@@ -218,5 +215,5 @@ class EntsogCrawler(KitCrawler):
 
         metadata = dict(metadata_info)
         metadata["temporal_start"] = str(self._initial_start_date())
-        metadata["temporal_end"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        metadata["temporal_end"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         self.set_metadata(metadata)
