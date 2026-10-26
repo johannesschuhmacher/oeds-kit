@@ -203,10 +203,10 @@ class EntsoeApiCrawler(KitCrawler):
                 start = start.tz_convert(BERLIN_TZ)
         else:
             today = pd.Timestamp.now(tz=BERLIN_TZ).normalize()
-            start = today - pd.Timedelta(days=int(self.config.get("lookback_days", DEFAULT_LOOKBACK_DAYS)))
+            start = today - pd.DateOffset(days=int(self.config.get("lookback_days", DEFAULT_LOOKBACK_DAYS)))
 
         today = pd.Timestamp.now(tz=BERLIN_TZ).normalize()
-        end = today + pd.Timedelta(days=int(self.config.get("lookahead_days", DEFAULT_LOOKAHEAD_DAYS)))
+        end = today + pd.DateOffset(days=int(self.config.get("lookahead_days", DEFAULT_LOOKAHEAD_DAYS)))
         return start, end
 
     @staticmethod
