@@ -85,6 +85,14 @@ DEFAULT_ENDPOINTS = [
     },
 ]
 
+# Explicit zone labels fix the offset, also in the repeated hour at the end of summer time.
+FIXED_UTC_OFFSETS = {
+    "MEZ": timezone(timedelta(hours=1)),
+    "CET": timezone(timedelta(hours=1)),
+    "MESZ": timezone(timedelta(hours=2)),
+    "CEST": timezone(timedelta(hours=2)),
+}
+
 METADATA_COLUMN_KEYS = {
     "datum",
     "von",
@@ -303,7 +311,13 @@ class NetztransparenzCrawler(KitCrawler):
             url += f"/{date_from.strftime('%Y-%m-%dT%H:%M:%S')}/{date_to.strftime('%Y-%m-%dT%H:%M:%S')}"
         return url
 
-    def _parse_timestamp(self, row: pd.Series, date_column: str, time_column: str | None) -> pd.Timestamp | None:
+    def _parse_timestamp(
+        self,
+        row: pd.Series,
+        date_column: str,
+        time_column: str | None,
+        timezone_columns: tuple[str, ...] = ("Zeitzone", "Zeitzone von"),
+    ) -> pd.Timestamp | None:
         date_value = row.get(date_column)
         if pd.isna(date_value) or str(date_value).strip() == "":
             return None
@@ -314,15 +328,13 @@ class NetztransparenzCrawler(KitCrawler):
         parsed = pd.to_datetime(value, dayfirst=True, errors="coerce")
         if pd.isna(parsed):
             return None
-        timezone_column = None
-        for candidate in ("Zeitzone", "Zeitzone von"):
-            if candidate in row.index:
-                timezone_column = candidate
-                break
+        timezone_column = next((candidate for candidate in timezone_columns if candidate in row.index), None)
         timezone_value = str(row.get(timezone_column, "UTC")).strip().upper() if timezone_column else "UTC"
         if parsed.tzinfo is None:
             if timezone_value == "UTC":
                 parsed = parsed.tz_localize("UTC")
+            elif timezone_value in FIXED_UTC_OFFSETS:
+                parsed = parsed.tz_localize(FIXED_UTC_OFFSETS[timezone_value]).tz_convert("UTC")
             else:
                 parsed = parsed.tz_localize("Europe/Berlin", ambiguous="NaT", nonexistent="shift_forward").tz_convert("UTC")
         else:
@@ -351,7 +363,14 @@ class NetztransparenzCrawler(KitCrawler):
         ]
         for _, row in frame.iterrows():
             timestamp_from = self._parse_timestamp(row, date_column, from_column) if date_column else None
-            timestamp_to = self._parse_timestamp(row, date_column, to_column) if date_column and to_column else None
+            timestamp_to = (
+                self._parse_timestamp(row, date_column, to_column, ("Zeitzone bis", "Zeitzone", "Zeitzone von"))
+                if date_column and to_column
+                else None
+            )
+            if timestamp_from is not None and timestamp_to is not None and timestamp_to <= timestamp_from:
+                # "Datum" is the day of "von"; a slot ending at 00:00 ends on the next day.
+                timestamp_to += pd.Timedelta(days=1)
             category = row.get("Datenkategorie")
             data_type = row.get("Datentyp")
             unit = row.get("Einheit")
