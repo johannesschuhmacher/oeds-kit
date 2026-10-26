@@ -19,25 +19,29 @@ def test_reference_collection_does_not_use_api_default_page_limit():
     assert frame.iloc[-1]["operatorkey"] == "operator-100"
 
 
-def test_operational_chunk_deletes_only_the_fetched_gas_day(monkeypatch):
-    # Gas day 24 Oct 2026 (end of summer time): 06:00 CEST to 06:00 CET, 25 hours.
+def test_operational_chunk_replaces_returned_records_by_id(monkeypatch):
+    # A gas day across the end of summer time (25 hours) plus a firm technical
+    # capacity valid since 2011, which the API returns in every chunk. Only the
+    # returned ids are replaced, so neither earlier hours nor the old capacity's
+    # other copies elsewhere are deleted; a repeated id is written once.
     crawler = object.__new__(EntsogCrawler)
     crawler.schema_name = "entsog"
     crawler.engine = MagicMock()
-    crawler._delete_chunk = Mock()
-    monkeypatch.setattr(pd.DataFrame, "to_sql", Mock())
-    periodfrom = pd.date_range("2026-10-24 06:00", periods=25, freq="h", tz="Europe/Berlin")
+    crawler._delete_records = Mock()
+    monkeypatch.setattr("crawler.entsog.inspect", lambda engine: Mock(has_table=Mock(return_value=True)))
+    written = []
+    monkeypatch.setattr(pd.DataFrame, "to_sql", lambda frame, *args, **kwargs: written.append(frame.copy()))
+    periodfrom = list(pd.date_range("2026-10-24 06:00", periods=25, freq="h", tz="Europe/Berlin"))
+    periodfrom.append(pd.Timestamp("2011-01-01 06:00", tz="Europe/Berlin"))
     frame = pd.DataFrame(
         {
-            "periodfrom": [ts.isoformat() for ts in periodfrom],
-            "periodto": [(ts + pd.Timedelta(hours=1)).isoformat() for ts in periodfrom],
+            "id": [f"r{i}" for i in range(26)] + ["r25"],
+            "periodfrom": [ts.isoformat() for ts in periodfrom] + [periodfrom[-1].isoformat()],
+            "periodto": [(ts + pd.Timedelta(hours=1)).isoformat() for ts in periodfrom] + ["2027-01-01T06:00:00+01:00"],
         }
     )
 
-    crawler._write_operational_chunk("physical_flow", frame)
+    crawler._write_operational_chunk("firm_technical", frame)
 
-    crawler._delete_chunk.assert_called_once_with(
-        "physical_flow",
-        pd.Timestamp("2026-10-24 04:00", tz="UTC"),
-        pd.Timestamp("2026-10-25 04:00", tz="UTC"),
-    )
+    crawler._delete_records.assert_called_once_with("firm_technical", [f"r{i}" for i in range(26)])
+    assert written[0]["id"].tolist() == [f"r{i}" for i in range(26)]
