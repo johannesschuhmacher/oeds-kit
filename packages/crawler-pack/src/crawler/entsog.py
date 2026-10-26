@@ -10,7 +10,7 @@ import logging
 import time
 
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from crawler.common.crawler_utils import build_session, copy_insert
 from crawler.common.kit_base import KitCrawler
@@ -122,16 +122,10 @@ class EntsogCrawler(KitCrawler):
         latest = pd.Timestamp(max_periodfrom).date() - timedelta(days=1)
         return latest if latest > fallback else fallback
 
-    def _delete_chunk(self, table_name: str, chunk_start: pd.Timestamp, chunk_end: pd.Timestamp) -> None:
-        delete_query = text(
-            f'''
-            DELETE FROM "{self.schema_name}"."{table_name}"
-            WHERE periodfrom >= :chunk_start
-              AND periodfrom <= :chunk_end
-            '''
-        )
+    def _delete_records(self, table_name: str, ids: list[str]) -> None:
+        delete_query = text(f'DELETE FROM "{self.schema_name}"."{table_name}" WHERE id = ANY(:ids)')
         with self.engine.begin() as conn:
-            conn.execute(delete_query, {"chunk_start": chunk_start, "chunk_end": chunk_end})
+            conn.execute(delete_query, {"ids": ids})
 
     def _write_operational_chunk(self, table_name: str, frame: pd.DataFrame) -> None:
         if frame.empty:
@@ -146,12 +140,12 @@ class EntsogCrawler(KitCrawler):
         if table_name == "firm_technical":
             frame["index"] = pd.to_numeric(frame.get("value"), errors="coerce")
 
-        # The API returns gas days (06:00 to 06:00 local time), not UTC days, so
-        # replace exactly the hours this chunk returned and nothing else.
-        try:
-            self._delete_chunk(table_name, frame["periodfrom"].min(), frame["periodfrom"].max())
-        except Exception:
-            pass
+        # Replace the returned records by their id. A time range is wrong here: the
+        # API returns gas days (06:00 to 06:00 local time), and firm technical
+        # capacities valid since e.g. 2011 come back in every chunk.
+        frame = frame.drop_duplicates(subset="id", keep="last")
+        if inspect(self.engine).has_table(table_name, schema=self.schema_name):
+            self._delete_records(table_name, frame["id"].tolist())
 
         with self.engine.begin() as conn:
             frame.to_sql(table_name, conn, schema=self.schema_name, if_exists="append", index=False, method=copy_insert)
@@ -199,6 +193,9 @@ class EntsogCrawler(KitCrawler):
             f'CREATE INDEX IF NOT EXISTS "idx_entsog_firm_technical_periodfrom" ON "{self.schema_name}"."firm_technical" (periodfrom)',
             f'CREATE INDEX IF NOT EXISTS "idx_entsog_firm_technical_operator" ON "{self.schema_name}"."firm_technical" (operatorkey, periodfrom)',
             f'CREATE INDEX IF NOT EXISTS "idx_entsog_opd_operator" ON "{self.schema_name}"."operatorpointdirections" (operatorkey, pointlabel)',
+            f'CREATE INDEX IF NOT EXISTS "idx_entsog_physical_flow_id" ON "{self.schema_name}"."physical_flow" (id)',
+            f'CREATE INDEX IF NOT EXISTS "idx_entsog_allocation_id" ON "{self.schema_name}"."allocation" (id)',
+            f'CREATE INDEX IF NOT EXISTS "idx_entsog_firm_technical_id" ON "{self.schema_name}"."firm_technical" (id)',
         )
         with self.engine.begin() as conn:
             for statement in statements:
