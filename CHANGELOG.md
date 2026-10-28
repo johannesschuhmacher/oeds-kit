@@ -10,6 +10,12 @@ The former module repositories keep their own history in
   folded away; the crawler page has tabs for overview, runs, gapfill, price
   forecast and configuration; editor and dialogs use the same layout; dark
   mode follows the system. `ui.css` and `ui.js` replace `admin.css`.
+- Admin UI in macOS style: a sidebar with navigation and the status filters
+  (with counts), large titles, the crawlers as an inset list with name and
+  schedule in two lines, segmented controls for tabs and schedule modes,
+  switches for on/off settings and settings-style detail rows. CSS and JS
+  are served with `Cache-Control: no-cache`, so browsers load the new
+  stylesheet after an update.
 
 ## 1.2.0 (2026-10-24)
 
