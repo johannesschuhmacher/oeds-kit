@@ -73,8 +73,18 @@ SCHEDULER_DEFAULT_FORM = {
     "advanced_schedule": "",
 }
 
+class RevalidatedStaticFiles(StaticFiles):
+    """Browsers revalidate CSS and JS (ETag) on each load, so after an update
+    they never combine new pages with a cached old stylesheet."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 app = FastAPI(title="OEDS Crawler Control", version="0.5.0")
-app.mount("/admin/static", StaticFiles(directory=str(BASE_DIR / "static")), name="admin_static")
+app.mount("/admin/static", RevalidatedStaticFiles(directory=str(BASE_DIR / "static")), name="admin_static")
 
 
 @app.get("/", include_in_schema=False)
