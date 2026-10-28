@@ -3,7 +3,7 @@
 {% block title %}Dashboard | OEDS Crawler Control{% endblock %}
 
 {% block content %}
-  {% set ns = namespace(enabled=0, running=0, failed=0, next_name=none, next_at=none) %}
+  {% set ns = namespace(enabled=0, running=0, failed=0, issues=0, next_name=none, next_at=none) %}
   {% set scheduled_rows = [] %}
   {% set other_rows = [] %}
   {% for row in crawler_rows %}
@@ -18,6 +18,7 @@
     {% else %}
       {% set _ = other_rows.append(row) %}
     {% endif %}
+    {% if row.card.issues or row.email_state.filter_state == "incomplete" %}{% set ns.issues = ns.issues + 1 %}{% endif %}
     {% if row.active_run or row.running_now %}{% set ns.running = ns.running + 1 %}
     {% elif row.latest_run and row.latest_run.status == "failed" %}{% set ns.failed = ns.failed + 1 %}{% endif %}
   {% endfor %}
@@ -52,15 +53,6 @@
     </div>
   {% endif %}
 
-  <div class="toolbar" aria-label="Crawler filters">
-    <div class="segmented" role="group">
-      <button type="button" class="is-active js-fleet-filter" data-filter="all">All</button>
-      <button type="button" class="js-fleet-filter" data-filter="running">Running</button>
-      <button type="button" class="js-fleet-filter" data-filter="failed">Failed</button>
-      <button type="button" class="js-fleet-filter" data-filter="issues">Config issues</button>
-    </div>
-    <input type="search" class="input js-fleet-search" placeholder="Filter by name or schema" aria-label="Filter crawlers" />
-  </div>
 
   {% macro crawler_row(row, time_label) %}
     {% set card = row.card %}
@@ -84,31 +76,16 @@
     >
       <td class="cell-name">
         <span class="dot dot--{{ st }} js-dot" title="{{ st }}"></span>
-        <a href="/admin/crawlers/{{ card.name }}" class="crawler-link">{{ card.name }}</a>
-        {% if card.schema_name and card.schema_name != card.name %}<span class="muted">{{ card.schema_name }}</span>{% endif %}
-        {% if has_issue %}<span class="tag tag--warn" title="{% if card.issues %}{{ card.issues[0].message }}{% else %}{{ row.email_state.summary }}{% endif %}">config</span>{% endif %}
-      </td>
-      <td class="cell-schedule">
-        {% if card.preview.error %}
-          <span class="text-fail">{{ card.preview.error }}</span>
-        {% elif card.schedule_source == "jobs" and card.job_previews %}
-          {% set enabled_jobs = card.job_previews|selectattr("enabled")|list %}
-          <span title="{% for job in card.job_previews %}{{ job.name }}: {{ job.preview.summary }}{% if not job.enabled %} (off){% endif %}&#10;{% endfor %}">{{ enabled_jobs|map(attribute="preview.summary")|join("; ") or "no enabled job" }}</span>
-        {% elif card.preview.summary and card.schedule %}
-          {{ card.preview.summary }}
-        {% else %}
-          <span class="muted">—</span>
-        {% endif %}
-      </td>
-      <td class="cell-time">
-        {% if card.enabled is sameas true and card.preview.next_runs %}
-          {# Crawlers with jobs list "job: YYYY-MM-DD HH:MM"; the earliest comes first. #}
-          {% set next_run = card.preview.next_runs[0].split(": ") %}
-          <time class="js-rel" data-local="{{ next_run[-1] }}" title="{{ card.preview.next_runs[0] }} {{ time_label }}">{{ next_run[-1] }}</time>
-          {% if next_run|length > 1 %}<span class="muted">{{ next_run[0] }}</span>{% endif %}
-        {% else %}
-          <span class="muted">—</span>
-        {% endif %}
+        <div class="row-title">
+          <span><a href="/admin/crawlers/{{ card.name }}" class="crawler-link">{{ card.name }}</a>{% if has_issue %}<span class="tag tag--warn" title="{% if card.issues %}{{ card.issues[0].message }}{% else %}{{ row.email_state.summary }}{% endif %}">config</span>{% endif %}</span>
+          <span class="row-subtitle">
+            {% if card.preview.error %}<span class="text-fail">{{ card.preview.error }}</span>
+            {% elif card.schedule_source == "jobs" and card.job_previews %}{{ (card.job_previews|selectattr("enabled")|map(attribute="preview.summary")|join("; ")) or "no enabled job" }}
+            {% elif card.preview.summary and card.schedule %}{{ card.preview.summary }}
+            {% else %}no schedule{% endif %}
+            {% if card.schema_name and card.schema_name != card.name %} · {{ card.schema_name }}{% endif %}
+          </span>
+        </div>
       </td>
       <td class="cell-run js-run-state">
         {% if active_run %}
@@ -124,24 +101,28 @@
           <span class="muted">never run</span>
         {% endif %}
       </td>
+      <td class="cell-time">
+        {% if card.enabled is sameas true and card.preview.next_runs %}
+          {% set next_run = card.preview.next_runs[0].split(": ") %}
+          <span class="muted">next</span> <time class="js-rel" data-local="{{ next_run[-1] }}" title="{{ card.preview.next_runs[0] }} {{ time_label }}">{{ next_run[-1] }}</time>
+        {% endif %}
+      </td>
       <td class="cell-actions">
         {% if row.can_start %}
-          <a href="/admin?confirm_run={{ card.name }}#run-confirm-modal" class="btn btn--small"{% if row.is_locked %} aria-disabled="true"{% endif %}>Run</a>
+          <a href="/admin?confirm_run={{ card.name }}#run-confirm-modal" class="capsule"{% if row.is_locked %} aria-disabled="true"{% endif %}>Run</a>
         {% endif %}
-        <a href="/admin/crawlers/{{ card.name }}" class="btn btn--small btn--ghost" aria-label="Open {{ card.name }}">Open</a>
+        <a href="/admin/crawlers/{{ card.name }}" class="chevron" aria-label="Open {{ card.name }}">›</a>
       </td>
     </tr>
   {% endmacro %}
 
+  <div class="list-head">
+    <h2>Scheduled</h2>
+    <input type="search" class="search js-fleet-search" placeholder="Search" aria-label="Filter crawlers" />
+  </div>
   <table class="table crawler-table">
-    <thead>
-      <tr>
-        <th>Crawler</th>
-        <th>Schedule</th>
-        <th>Next run</th>
-        <th>Last run</th>
-        <th class="cell-actions"><span class="sr-only">Actions</span></th>
-      </tr>
+    <thead class="sr-only">
+      <tr><th>Crawler</th><th>Last run</th><th>Next run</th><th>Actions</th></tr>
     </thead>
     <tbody>
       {% for row in scheduled_rows %}{{ crawler_row(row, state.time_label) }}{% endfor %}
@@ -151,7 +132,7 @@
 
   {% if other_rows %}
     <details class="section-fold">
-      <summary>Not scheduled <span class="muted">{{ other_rows|length }} crawlers, mostly from oeds-core</span></summary>
+      <summary>Not scheduled <span class="muted">{{ other_rows|length }}, mostly from oeds-core</span></summary>
       <table class="table crawler-table">
         <tbody>
           {% for row in other_rows %}{{ crawler_row(row, state.time_label) }}{% endfor %}
@@ -659,7 +640,23 @@
       });
     });
 
+    // Sidebar counts over the scheduled crawlers (the sidebar block cannot see the page's variables).
+    const scheduledRows = Array.from(document.querySelectorAll(".crawler-table:not(.section-fold .crawler-table) .crawler-row"));
+    document.querySelectorAll(".js-count").forEach((count) => {
+      count.textContent = scheduledRows.filter((row) => matchesFleetFilter(row, count.dataset.count)).length || "";
+    });
+
     applyFleetFilters();
     pollDashboardRuns();
   </script>
+{% endblock %}
+
+{% block sidebar %}
+  <nav class="sidebar__group" aria-label="Crawler filters">
+    <p class="sidebar__label">Status</p>
+    <button type="button" class="is-active js-fleet-filter" data-filter="all"><span class="dot dot--succeeded"></span>All scheduled<span class="count js-count" data-count="all"></span></button>
+    <button type="button" class="js-fleet-filter" data-filter="running"><span class="dot dot--running"></span>Running<span class="count js-count" data-count="running"></span></button>
+    <button type="button" class="js-fleet-filter" data-filter="failed"><span class="dot dot--failed"></span>Failed<span class="count js-count" data-count="failed"></span></button>
+    <button type="button" class="js-fleet-filter" data-filter="issues"><span class="dot dot--skipped"></span>Config issues<span class="count js-count" data-count="issues"></span></button>
+  </nav>
 {% endblock %}
