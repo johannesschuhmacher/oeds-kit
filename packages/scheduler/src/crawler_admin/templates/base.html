@@ -5,19 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}OEDS Crawler Control{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('admin_static', path='ui.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('admin_static', path='apple.css') }}" />
     <script src="{{ url_for('admin_static', path='ui.js') }}"></script>
   </head>
   <body class="ui">
-    <header class="appbar">
-      <a href="/admin" class="appbar__brand"><strong>OEDS</strong><span>Crawler control</span></a>
-      <nav class="appbar__nav" aria-label="Primary">
-        <a href="/admin" {% if page_name in ('dashboard', 'crawler_detail') %}aria-current="page"{% endif %}>Crawlers</a>
-        <a href="/admin/editor" {% if page_name == 'editor' %}aria-current="page"{% endif %}>Configuration</a>
-      </nav>
-    </header>
+    <div class="shell">
+      <aside class="sidebar">
+        <a href="/admin" class="sidebar__brand">OEDS <span>Crawler control</span></a>
+        <nav class="sidebar__group" aria-label="Primary">
+          <a href="/admin" {% if page_name in ('dashboard', 'crawler_detail') %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h10" /></svg>Crawlers
+          </a>
+          <a href="/admin/editor" {% if page_name == 'editor' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4z M9.5 2.5V5H12" /></svg>Configuration
+          </a>
+        </nav>
+        {% block sidebar %}{% endblock %}
+      </aside>
 
-    <main class="page">
-      {% block content %}{% endblock %}
-    </main>
+      <main class="page">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
   </body>
 </html>
