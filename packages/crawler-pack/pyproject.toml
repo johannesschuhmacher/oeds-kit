@@ -25,7 +25,6 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "requests",
-    "remotezip",
     "sqlalchemy",
     "xarray",
 ]
