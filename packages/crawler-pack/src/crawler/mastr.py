@@ -3,11 +3,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 
+import os
+import time
+import zipfile
+from pathlib import Path
+
 import pandas as pd
 import requests
 from lxml import etree
 from pandas.io.parsers import TextParser
-from remotezip import RemoteZip
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from sqlalchemy import bindparam, inspect, text
@@ -50,10 +54,9 @@ class MastrCrawler(KitCrawler):
 
     @staticmethod
     def _download_session() -> requests.Session:
-        # The export server occasionally resets connections, sometimes for several
-        # minutes (22.10.2026: 2.5 min, which exhausted 5 retries 70 min into a run).
-        # Each ZIP member is fetched with its own range request, so retrying is safe;
-        # these waits (10, 20, 40, 80, then 120 s) cover about 11 minutes.
+        # Retries 429/5xx and refused connections with waits of 10, 20, 40, 80, then
+        # 120 s; a connection that breaks during the download is resumed by
+        # _download_export.
         retry = Retry(total=8, backoff_factor=10, status_forcelist=(429, 500, 502, 503, 504),
                       allowed_methods=("GET", "HEAD"))
         session = requests.Session()
@@ -61,16 +64,57 @@ class MastrCrawler(KitCrawler):
         return session
 
     def get_data_from_mastr(self, data_url):
-        with RemoteZip(data_url, session=self._download_session(), headers={"Accept-Encoding": "identity"},
-                       timeout=int(self.config.get("request_timeout_seconds", 90))) as archive:
-            for info in archive.infolist():
-                table = info.filename.removesuffix(".xml").split("_")[0]
-                if not info.filename.endswith(".xml"):
-                    continue
-                if self.config.get("tables") and table not in self.config["tables"]:
-                    continue
-                with archive.open(info) as file:
-                    yield file, info
+        """Download the export once, then read its XML files from disk.
+
+        Reading the 3 GB ZIP from the server took about 50 minutes of range requests,
+        and a server outage of more than 11 minutes in that time failed the run
+        (22.10. and 29.10.2026). The download alone takes about 6 minutes (10 MB/s)
+        and resumes where a broken connection stopped.
+        """
+        path = Path(os.environ.get("OEDS_CRAWLER_DATA_DIR", "crawler/data")) / "mastr_export.zip"
+        self._download_export(data_url, path)
+        try:
+            with zipfile.ZipFile(path) as archive:
+                for info in archive.infolist():
+                    table = info.filename.removesuffix(".xml").split("_")[0]
+                    if not info.filename.endswith(".xml"):
+                        continue
+                    if self.config.get("tables") and table not in self.config["tables"]:
+                        continue
+                    with archive.open(info) as file:
+                        yield file, info
+        finally:
+            path.unlink(missing_ok=True)
+
+    def _download_export(self, url, path, attempts=6, pause_seconds=120):
+        """Download url to path; after a broken connection continue with a range request."""
+        session = self._download_session()
+        timeout = int(self.config.get("request_timeout_seconds", 90))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        total = int(session.head(url, timeout=timeout).headers["Content-Length"])
+        path.unlink(missing_ok=True)
+        for attempt in range(1, attempts + 1):
+            done = path.stat().st_size if path.exists() else 0
+            headers = {"Accept-Encoding": "identity"}
+            if done:
+                headers["Range"] = f"bytes={done}-"
+            try:
+                with session.get(url, headers=headers, stream=True, timeout=timeout) as response:
+                    response.raise_for_status()
+                    if done and response.status_code != 206:
+                        raise RuntimeError("the export server ignored the range request")
+                    with path.open("ab") as file:
+                        for chunk in response.iter_content(chunk_size=1 << 20):
+                            file.write(chunk)
+            except (requests.ConnectionError, requests.exceptions.ChunkedEncodingError) as exc:
+                self.logger.warning("MaStR download broke at %d of %d bytes (attempt %d): %s",
+                                    path.stat().st_size if path.exists() else 0, total, attempt, exc)
+                time.sleep(pause_seconds)
+                continue
+            if path.stat().st_size == total:
+                return
+        raise RuntimeError(f"MaStR export incomplete after {attempts} attempts: "
+                           f"{path.stat().st_size if path.exists() else 0} of {total} bytes")
 
     @staticmethod
     def read_xml(file, max_rows=None):

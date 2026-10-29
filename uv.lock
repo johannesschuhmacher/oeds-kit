@@ -1979,7 +1979,6 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "remotezip" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "xarray" },
@@ -2001,7 +2000,6 @@ requires-dist = [
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "remotezip" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "xarray" },
@@ -2989,18 +2987,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/15/13/df08504a60f7a7a4109f1fb8104c1517212e6cbd43ecde5e625f999c904e/pyzstd-0.20.0.tar.gz", hash = "sha256:f6647f7e7026970551f97cafa2340f88b42cb25d0fcffcc3cd93dd78e5f27504", size = 71001, upload-time = "2026-10-11T17:29:54.303Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/92/e924ae7de1d3fdbfed9022e78085e5028d8b5c7bc6c98b2fbf8b4def5f98/pyzstd-0.20.0-py3-none-any.whl", hash = "sha256:9c6aff5aa9b12bb14d51f724915f176db9b187214d66d93d990c75ff054483c6", size = 23755, upload-time = "2026-10-11T17:29:52.852Z" },
-]
-
-[[package]]
-name = "remotezip"
-version = "0.12.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2d/59/fce81d37a393329b4604a3095fe8aa2df216f2de8d70fafced6c57ee7b24/remotezip-0.12.6.tar.gz", hash = "sha256:54a9d93bfe015ec79aa3a3869f0666360aa8d02626c16956e65ca7f33274b4fa", size = 8298, upload-time = "2026-08-29T10:10:13.068Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/75/da5d9332dd0e2d1aff6ee1e5eb84527f0bda6054bd16fe7789f0f51e953a/remotezip-0.12.6-py3-none-any.whl", hash = "sha256:ffbfe0d8658fd56b8de540686ae647e50150f6ee7ec25a2cd96fa6fbadb84418", size = 8573, upload-time = "2026-08-29T10:10:12.086Z" },
 ]
 
 [[package]]

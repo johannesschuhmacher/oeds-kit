@@ -75,3 +75,56 @@ def test_full_xml_matches_pandas_read_xml():
     actual = MastrCrawler.read_xml(BytesIO(data))
     expected = pd.read_xml(BytesIO(data), encoding="utf-16")
     pd.testing.assert_frame_equal(actual, expected)
+
+
+def test_export_download_resumes_after_a_broken_connection(tmp_path):
+    """The connection drops after 3 of 10 bytes; the next request asks for the rest."""
+    import logging
+    from types import SimpleNamespace
+
+    import requests
+
+    data = b"0123456789"
+    requests_seen = []
+
+    class Response:
+        def __init__(self, headers):
+            start = int(headers["Range"].split("=")[1].rstrip("-")) if "Range" in headers else 0
+            self.status_code = 206 if start else 200
+            self.body = data[start:]
+            self.broken = not requests_seen
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def raise_for_status(self):
+            pass
+
+        def iter_content(self, chunk_size):
+            if self.broken:
+                yield self.body[:3]
+                raise requests.ConnectionError("Connection reset by peer")
+            yield self.body
+
+    class Session:
+        def head(self, url, timeout):
+            return SimpleNamespace(headers={"Content-Length": str(len(data))})
+
+        def get(self, url, headers, stream, timeout):
+            response = Response(headers)
+            requests_seen.append(headers.get("Range"))
+            return response
+
+    crawler = object.__new__(MastrCrawler)
+    crawler.config = {}
+    crawler.logger = logging.getLogger("test_mastr")
+    crawler._download_session = Session
+    path = tmp_path / "export.zip"
+
+    crawler._download_export("https://example.invalid/export.zip", path, pause_seconds=0)
+
+    assert path.read_bytes() == data
+    assert requests_seen == [None, "bytes=3-"]
