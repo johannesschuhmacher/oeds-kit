@@ -1962,7 +1962,7 @@ crawlers = [
 
 [[package]]
 name = "oeds-crawler-pack"
-version = "1.2.0"
+version = "1.3.0"
 source = { editable = "packages/crawler-pack" }
 dependencies = [
     { name = "cdsapi" },
@@ -2007,7 +2007,7 @@ requires-dist = [
 
 [[package]]
 name = "oeds-kit"
-version = "1.2.0"
+version = "1.3.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -2022,7 +2022,7 @@ dev = [{ name = "pytest" }]
 
 [[package]]
 name = "oeds-post-scripts"
-version = "1.2.0"
+version = "1.3.0"
 source = { editable = "packages/post" }
 dependencies = [
     { name = "numpy" },
@@ -2064,7 +2064,7 @@ provides-extras = ["backfill", "price-forecast"]
 
 [[package]]
 name = "oeds-scheduler-ui"
-version = "1.2.0"
+version = "1.3.0"
 source = { editable = "packages/scheduler" }
 dependencies = [
     { name = "cron-converter" },
