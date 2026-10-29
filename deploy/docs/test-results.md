@@ -1,5 +1,27 @@
 # Test results
 
+## Release 1.3.0, 2026-10-29
+
+Release 1.3.0 fixes time zone, MaStR and ENTSOG errors found in operation and
+redesigns the admin interface (see `CHANGELOG.md`); data sources and tables
+are as in 1.2.0.
+
+**Automated tests.** 156 tests pass: crawler pack 84, scheduler/admin 34,
+post-processing 32, deployment 6.
+
+**Operation on both VMs.** iip-vm-oeds-intern and iip-vm-oeds-intern-test were
+updated with `oeds-deploy.yml` on 29 October.
+
+- MaStR: a full run with the export of 29 October finished on both VMs
+  without errors (56 and 55 min). Ertuechtigungen holds 1,705 rows and the
+  operator change log 236,640 rows on both.
+- ENTSOG: physical flows, allocations and firm technical capacities were
+  reloaded from the source. Each id occurs once, and no day of the hourly
+  series lacks an hour; both VMs hold the same rows (firm technical
+  capacities 22,622).
+- Netztransparenz: 236 stored slots with a wrong end time from the clock
+  change were corrected.
+
 ## Release 1.2.0, 2026-10-24
 
 Release 1.2.0 removes unused code and functions and speeds up writes (see
