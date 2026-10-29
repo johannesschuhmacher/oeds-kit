@@ -3,8 +3,24 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## Unreleased
+## 1.3.0 (2026-10-29)
 
+Fixes found in operation since 1.2.0 and a new admin interface.
+
+- Time zones (#24): ENTSO-E API query windows run from local midnight to
+  local midnight; FMS watermarks are UTC whatever the session time zone;
+  EPEX files with header times in the clock-change hour load; Netztransparenz
+  slots that end on the next day keep the repeated hour; the price forecast
+  delivers the whole local day on clock changes.
+- Schedules are UTC (#23, #24): MaStR runs at 07:00 UTC, when the daily
+  export is available; the ENTSO-E API jobs at 12:35 UTC.
+- MaStR (#25, #28, #29): each table gets its right key (Ertuechtigungen
+  `Id`, the operator change log none; a table without key is replaced per
+  run instead of appended); the download page is retried like the download;
+  the export is downloaded once and resumes after a broken connection, so
+  `remotezip` is no longer needed.
+- ENTSOG (#26): returned records are replaced by id, so long-valid firm
+  technical capacities are neither duplicated nor deleted.
 - Admin UI redesigned: the crawler overview is one table (status, schedule,
   next and last run as relative times), crawlers without a schedule are
   folded away; the crawler page has tabs for overview, runs, gapfill, price
