@@ -109,7 +109,8 @@ class MastrCrawler(KitCrawler):
         # base_url = "https://download.marktstammdatenregister.de/Gesamtdatenexport"
         base_url = self.get("base_download_url")
 
-        response = requests.get(
+        # The page answers 503 now and then (29.10.2026, 07:00 UTC); retry like the download.
+        response = self._download_session().get(
             "https://www.marktstammdatenregister.de/MaStR/Datendownload", timeout=45
         )
         response.raise_for_status()
