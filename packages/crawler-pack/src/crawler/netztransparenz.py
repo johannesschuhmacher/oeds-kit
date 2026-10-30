@@ -113,7 +113,9 @@ class NetztransparenzCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         load_crawler_dotenv()
         super().__init__(crawler_name, config)
-        self.session = build_session(self.config.get("user_agent"))
+        # The API resets connections for seconds at a time: retry at once, then after
+        # 10, 20, 40, 80 and 120 s, instead of failing the hourly run after about 14 s.
+        self.session = build_session(self.config.get("user_agent"), retries=6, backoff_factor=5)
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 60))
         self.request_pause_seconds = float(self.config.get("request_pause_seconds", 0.6))
 
