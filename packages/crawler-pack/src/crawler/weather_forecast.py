@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
-import requests
 from sqlalchemy import (
     Boolean,
     Column,
@@ -23,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
 
 
@@ -284,7 +284,9 @@ class WeatherForecastCrawler(KitCrawler):
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
         self.metadata = MetaData(schema=self.schema_name)
-        self.session = requests.Session()
+        # Open-Meteo answers 503 "The service is overloaded" at times: retry at once,
+        # then after 20, 40, 80 and 120 s instead of failing every location at once.
+        self.session = build_session(self.config.get("user_agent"), retries=5, backoff_factor=10)
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 45))
         self.forecast_hours = int(self.config.get("forecast_hours", 120))
         self.past_hours = int(self.config.get("past_hours", 24))
