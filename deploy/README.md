@@ -99,6 +99,11 @@ These are insecure test defaults. The admin UI has no built-in authentication.
 Keep it behind SSH or authenticated access; rotate passwords before deployment
 on a shared network. See Operations for the password rotation playbook.
 
+To open Grafana to the network (for example the KIT network), add
+`OEDS_GRAFANA_HOST=0.0.0.0` to `/open_energy_data_server/repo/deploy/.env`
+(updates keep this file), run `docker compose up -d grafana` there and allow
+port 3006 in the host firewall. Anonymous viewers can then read the dashboards.
+
 ## Files you edit
 
 The managed installation lives in `/open_energy_data_server`:
