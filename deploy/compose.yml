@@ -149,7 +149,9 @@ services:
     networks:
       - netlocalhost
     ports:
-      - "${OEDS_GRAFANA_PORT:-3006}:3000"
+      # OEDS_GRAFANA_HOST=0.0.0.0 in deploy/.env opens Grafana to the network;
+      # the other services stay on localhost.
+      - "${OEDS_GRAFANA_HOST:-127.0.0.1}:${OEDS_GRAFANA_PORT:-3006}:3000"
 
   scheduler:
     <<: *oeds-python-service
