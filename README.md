@@ -3,6 +3,8 @@
 KIT additions to the [Open Energy Data Server](https://github.com/open-energy-data-server/open-energy-data-server)
 (OEDS): the crawler pack, the scheduler with its admin UI, the post-processing
 commands and the deployment, in one repository and one `uv` workspace.
+Documentation: <https://open-energy-data-server-kit.readthedocs.io>, with a
+page per crawler (source, access keys, tables) in `docs/crawlers/`.
 
 | Path | Package / content | Layer |
 | --- | --- | --- |
@@ -30,6 +32,9 @@ need the pack only for `oeds-post backfill entsoe-unavailability` (extra
   database migration, password rotation, removal and status mail.
 - [deploy/docs/testing.md](deploy/docs/testing.md): testing a fresh
   installation.
+- [docs/configuration.md](docs/configuration.md): `CRAWLER_CONFIG.yml`,
+  schedules and jobs; [docs/crawlers/](docs/crawlers/index.md): one page per
+  crawler.
 
 ## Develop locally
 

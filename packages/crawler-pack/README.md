@@ -80,7 +80,8 @@ archives use the existing `database_batch_size` setting for CSV processing as
 well as database writes. Energy Forecast CSV history follows
 `OEDS_CRAWLER_DATA_DIR` (default: `crawler/data`).
 
-MaStR reads the remote ZIP with HTTP range requests. For a small test, set
+MaStR downloads the export ZIP once per run and resumes it after a broken
+connection. For a small test, set
 `tables: [EinheitenWind, Katalogkategorien, Katalogwerte]` and
 `max_rows_per_table: 100` in that crawler's configuration. Omit both settings
 for the full import. The bounded import is a sample, not a complete register;
