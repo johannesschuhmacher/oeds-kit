@@ -4,6 +4,8 @@
 # as they are and their relative links work:
 #     sphinx-build -c docs -b html . docs/_build/html
 
+from pathlib import Path
+
 project = "oeds-kit"
 author = "Karlsruhe Institute of Technology (KIT)"
 copyright = "2026, KIT and the Open Energy Data Server contributors"
@@ -26,3 +28,14 @@ exclude_patterns = ["docs/_build"]
 
 html_theme = "sphinx_rtd_theme"
 html_title = "oeds-kit"
+
+
+def _write_start_page(app, exception):
+    # The start page is docs/index.html; send the site root there.
+    if exception is None and app.builder.format == "html":
+        start = '<meta http-equiv="refresh" content="0; url=docs/index.html">'
+        (Path(app.outdir) / "index.html").write_text(start, encoding="utf-8")
+
+
+def setup(app):
+    app.connect("build-finished", _write_start_page)
