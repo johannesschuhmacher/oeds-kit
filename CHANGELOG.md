@@ -10,7 +10,8 @@ The former module repositories keep their own history in
   job `entsoe_api.energy_arena` (09:40 and 10:40 UTC, off by default) runs
   the forecast before the 12:00 Europe/Berlin deadline and submits it. The
   forecast additionally writes the quantiles 0.025 and 0.975. See
-  `docs/energy_arena.md`.
+  `docs/energy_arena.md`. The job runs the forecast without backtest, so the
+  submission is about four minutes earlier.
 
 ## 1.3.0 (2026-10-29)
 
