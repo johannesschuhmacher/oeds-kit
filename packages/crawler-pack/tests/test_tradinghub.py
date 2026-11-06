@@ -1,5 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import Mock
+
+import pandas as pd
 
 from crawler.tradinghub import TradingHubCrawler
 
@@ -43,3 +45,11 @@ def test_running_gas_day_report_has_no_date_range_and_accepts_other_record_tag()
     )
     assert get.call_args.kwargs["params"] == {}
     assert records[0]["NegativeDailyImbalancePriceYesterday"] == "87.907"
+
+
+def test_running_gas_day_report_replaces_only_returned_gas_days():
+    window = (datetime(2026, 9, 22, tzinfo=timezone.utc), datetime(2026, 11, 6, tzinfo=timezone.utc))
+    values = pd.DataFrame({"gas_day": [date(2026, 11, 6), date(2026, 11, 6)]})
+    assert TradingHubCrawler._replaced_gas_days("AggregateImbalancePositions", values, *window) == (date(2026, 11, 6), date(2026, 11, 6))
+    assert TradingHubCrawler._replaced_gas_days("PricesEnergyImbalancePreliminary", pd.DataFrame({"gas_day": [None]}), *window) is None
+    assert TradingHubCrawler._replaced_gas_days("MarketAreaMonitor", values, *window) == (date(2026, 9, 22), date(2026, 11, 6))
