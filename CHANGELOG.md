@@ -3,15 +3,29 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## Unreleased
+## 1.4.0 (2026-11-06)
 
+Documentation, Energy Arena submission and fixes found in operation since 1.3.0.
+
+- Documentation on Read the Docs (#34, #35):
+  <https://open-energy-data-server-kit.readthedocs.io> builds the READMEs and
+  new pages: `CRAWLER_CONFIG.yml` and one page per crawler (source, access
+  keys, tables and keys, configuration).
 - Energy Arena: `oeds-post submit energy-arena` submits the OEDS day-ahead
   price forecast (DE_LU, point and quantiles) to energy-arena.org. The new
   job `entsoe_api.energy_arena` (09:40 and 10:40 UTC, off by default) runs
   the forecast before the 12:00 Europe/Berlin deadline and submits it. The
   forecast additionally writes the quantiles 0.025 and 0.975. See
   `docs/energy_arena.md`. The job runs the forecast without backtest, so the
-  submission is about four minutes earlier.
+  submission is about four minutes earlier (#36, #37).
+- Trading Hub (#38): reports that return only the running gas day
+  (`AggregateImbalancePositions`, `PricesFlexibilityChargeIntraday`) keep their
+  history; each run had deleted the whole 45-day window of the report.
+- Retries (#31, #32): Netztransparenz retries reset connections for about
+  four minutes and Open-Meteo (weather forecast) its "overloaded" answers,
+  instead of failing the run.
+- Deployment (#33): Grafana can be opened to the network
+  (see `deploy/README.md`).
 
 ## 1.3.0 (2026-10-29)
 
