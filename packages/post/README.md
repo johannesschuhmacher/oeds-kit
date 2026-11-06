@@ -16,6 +16,7 @@ crawlers have written source tables.
 - price forecasting
 - ENTSO-E availability map refresh
 - derived SQL refresh tools
+- Energy Arena submission of the price forecast
 - stable `oeds-post` CLI
 
 ## CLI
@@ -25,6 +26,7 @@ oeds-post gapfill entsoe-fms
 oeds-post refresh entsoe-availability-map
 oeds-post forecast day-ahead-price
 oeds-post backfill entsoe-unavailability
+oeds-post submit energy-arena
 ```
 
 Each command runs the `main()` of its module under `scripts/` in-process, in

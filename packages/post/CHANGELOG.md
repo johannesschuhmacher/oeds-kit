@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add `oeds-post submit energy-arena`: submits the newest completed day-ahead
+  price forecast for tomorrow to the Energy Arena (challenge 2 point,
+  challenge 8 quantiles), only before the deadline and only when the EXAA
+  prices of the target day were in the forecast. Key `ENERGY_ARENA_API_KEY`.
+- The price forecast also writes the quantiles 0.025 and 0.975.
 - Add `oeds_post_scripts.runtime_env` with own `resolve_database_uri` and
   `load_crawler_dotenv` helpers so post-scripts no longer import
   `crawler_core` from `oeds-crawler-pack`. `python-dotenv` is now a declared

@@ -66,6 +66,15 @@ entsoe_api:
       lookback_days: 120
       lookahead_days: 2
       run_post_scripts: false
+    energy_arena:
+      enable: false
+      schedule: 40 9,10 * * *
+      lookback_days: 14
+      lookahead_days: 2
+      run_post_scripts: true
+      post_run_scripts:
+      - oeds-post forecast day-ahead-price
+      - oeds-post submit energy-arena
 ```
 
 The window runs from midnight (Europe/Berlin) `lookback_days` before today to
@@ -92,6 +101,8 @@ docker exec oeds-scheduler oeds-crawl entsoe_api --job training_bootstrap
 - `forecast_daily` refreshes the last 14 and the next 2 days and then runs
   the price forecast; `training_bootstrap` (Sundays) reloads 120 days without
   running it.
+- `energy_arena` runs the forecast before the Energy Arena deadline and
+  submits it; see [Energy Arena submission](../energy_arena.md).
 - If the API has no data for a dataset, the crawler logs a warning and keeps
   the stored rows.
 - Requests are paused by `request_pause_seconds` (0.5 s).
