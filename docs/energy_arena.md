@@ -39,8 +39,11 @@ the forecast and then submits it, at 09:40 and 10:40 UTC:
 | Winter (CET) | 10:40, EXAA may still be missing | 11:40, submits | 11:00 UTC |
 | Summer (CEST) | 11:40, submits | 12:40, too late, nothing submitted | 10:00 UTC |
 
-EXAA results reach ENTSO-E around 10:10 UTC in winter. A second submission on
-the same day replaces the first. The daily forecast at 12:35 UTC
+EXAA prices appear in the ENTSO-E File Library around 11:10 Europe/Berlin
+(09:10 UTC in summer, 10:10 UTC in winter). A run takes about three minutes to
+the submission; the job skips the forecast's backtest (`--backtest-days 0`),
+which would add four more. A second submission on the same day replaces the
+first. The daily forecast at 12:35 UTC
 (`forecast_daily`) stays as it is and submits nothing.
 
 ```yaml
@@ -53,7 +56,7 @@ entsoe_api:
       lookahead_days: 2
       run_post_scripts: true
       post_run_scripts:
-      - oeds-post forecast day-ahead-price
+      - oeds-post forecast day-ahead-price --backtest-days 0
       - oeds-post submit energy-arena
 ```
 
