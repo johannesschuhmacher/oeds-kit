@@ -1,5 +1,26 @@
 # Test results
 
+## Release 1.4.0, 2026-11-06
+
+Release 1.4.0 adds the documentation on Read the Docs and the Energy Arena
+submission and fixes Trading Hub and two retry cases (see `CHANGELOG.md`).
+
+**Automated tests.** 161 tests pass: crawler pack 85, scheduler/admin 34,
+post-processing 36, deployment 6. The documentation builds without warnings
+(`python -m sphinx -n -c docs -b html . docs/_build/html`).
+
+**Operation on both VMs.** iip-vm-oeds-intern and iip-vm-oeds-intern-test run
+main of 6 November (#38).
+
+- Netztransparenz and weather forecast: after the retry fixes the scheduled
+  runs succeeded on both VMs (Netztransparenz 30 October 09:10 UTC, weather
+  forecast 2 November 18:15 UTC).
+- Trading Hub: before the fix, `AggregateImbalancePositions` held 2 gas days
+  on intern and the dated reports about 60. The fix takes effect with the
+  daily runs from 7 November on; the stored days were not restored.
+- Energy Arena: the job is enabled on intern only; its first submission is
+  due on 7 November. Not yet verified at release time.
+
 ## Release 1.3.0, 2026-10-29
 
 Release 1.3.0 fixes time zone, MaStR and ENTSOG errors found in operation and
