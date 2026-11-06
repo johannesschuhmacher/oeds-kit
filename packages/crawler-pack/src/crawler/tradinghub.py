@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import logging
 import xml.etree.ElementTree as ET
 
@@ -215,7 +215,20 @@ class TradingHubCrawler(KitCrawler):
                 )
         return pd.DataFrame(raw_rows), pd.DataFrame(value_rows)
 
-    def _replace_report_rows(self, report_id: str, raw_rows: pd.DataFrame, value_rows: pd.DataFrame, date_from: datetime, date_to: datetime) -> None:
+    @staticmethod
+    def _replaced_gas_days(report_id: str, value_rows: pd.DataFrame, date_from: datetime, date_to: datetime) -> tuple[date, date] | None:
+        """First and last gas day whose stored values a run replaces; values without gas day are always replaced.
+
+        A report without date range returns only the running gas day, so only the
+        gas days it returned are replaced and the earlier days are kept.
+        """
+        if report_id not in REPORTS_WITHOUT_DATE_RANGE:
+            return date_from.date(), date_to.date()
+        gas_days = value_rows["gas_day"].dropna() if not value_rows.empty else []
+        return (min(gas_days), max(gas_days)) if len(gas_days) else None
+
+    def _replace_report_rows(self, report_id: str, raw_rows: pd.DataFrame, value_rows: pd.DataFrame, gas_days: tuple[date, date] | None) -> None:
+        first, last = gas_days or (None, None)
         with self.engine.begin() as conn:
             conn.execute(text("DELETE FROM report_rows WHERE report_id = :report_id"), {"report_id": report_id})
             conn.execute(
@@ -226,7 +239,7 @@ class TradingHubCrawler(KitCrawler):
                       AND (gas_day IS NULL OR (gas_day >= :date_from AND gas_day <= :date_to))
                     """
                 ),
-                {"report_id": report_id, "date_from": date_from.date(), "date_to": date_to.date()},
+                {"report_id": report_id, "date_from": first, "date_to": last},
             )
             if not raw_rows.empty:
                 raw_rows.to_sql("report_rows", conn, if_exists="append", index=False, method=copy_insert)
@@ -254,7 +267,8 @@ class TradingHubCrawler(KitCrawler):
             try:
                 source_url, records = self._fetch_report(report_id, date_from, date_to)
                 raw_rows, value_rows = self._normalize(report_id, records, utc_now(), source_url)
-                self._replace_report_rows(report_id, raw_rows, value_rows, date_from, date_to)
+                gas_days = self._replaced_gas_days(report_id, value_rows, date_from, date_to)
+                self._replace_report_rows(report_id, raw_rows, value_rows, gas_days)
                 total_rows += len(records)
             except Exception as exc:
                 self.logger.error("Trading Hub Europe report %s failed: %s", report_id, exc)
