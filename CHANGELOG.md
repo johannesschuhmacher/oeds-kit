@@ -3,6 +3,15 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- Energy Arena: `oeds-post submit energy-arena` submits the OEDS day-ahead
+  price forecast (DE_LU, point and quantiles) to energy-arena.org. The new
+  job `entsoe_api.energy_arena` (09:40 and 10:40 UTC, off by default) runs
+  the forecast before the 12:00 Europe/Berlin deadline and submits it. The
+  forecast additionally writes the quantiles 0.025 and 0.975. See
+  `docs/energy_arena.md`.
+
 ## 1.3.0 (2026-10-29)
 
 Fixes found in operation since 1.2.0 and a new admin interface.

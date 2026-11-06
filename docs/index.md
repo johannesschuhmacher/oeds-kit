@@ -11,6 +11,7 @@ SQL, over HTTP through PostgREST and in Grafana dashboards. The code is at
 - Running server: [Operations](/deploy/playbooks/README.md) and
   [Crawler configuration](configuration.md)
 - Data sources, tables and access keys: [Crawlers](crawlers/index.md)
+- Price forecast to the benchmark: [Energy Arena submission](energy_arena.md)
 
 ```{toctree}
 :caption: Install and operate
@@ -20,6 +21,7 @@ Overview </README>
 Installation </deploy/README>
 Operations </deploy/playbooks/README>
 configuration
+energy_arena
 Grafana dashboards </deploy/data/provisioning/grafana/README>
 ```
 
