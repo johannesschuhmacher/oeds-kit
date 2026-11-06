@@ -29,7 +29,8 @@ class PriceForecastConfig:
     market_area: str = "DE_LU"
     train_days: int = 56
     frequency: str = "15min"
-    quantiles: tuple[float, ...] = (0.1, 0.25, 0.5, 0.75, 0.9)
+    # 0.025 and 0.975 are needed for the Energy Arena quantile challenge.
+    quantiles: tuple[float, ...] = (0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975)
     min_training_rows: int = 7 * 96
 
 

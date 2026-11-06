@@ -13,6 +13,7 @@ COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
     "refresh entsoe-availability-map": ("scripts.refresh_entsoe_availability_map", ()),
     "forecast day-ahead-price": ("scripts.run_price_forecast", ()),
     "backfill entsoe-unavailability": ("scripts.backfill_entsoe_unavailability", ()),
+    "submit energy-arena": ("scripts.submit_energy_arena", ()),
 }
 
 
