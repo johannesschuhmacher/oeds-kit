@@ -66,6 +66,9 @@ docker exec oeds-scheduler oeds-crawl tradinghub
   the date window (and those without `gas_day`), then writes the new rows.
 - `PricesEnergyImbalancePreliminary`, `PricesFlexibilityChargeIntraday` and
   `AggregateImbalancePositions` take no date range; the API returns only the
-  running gas day.
+  running gas day. For them a run replaces only the gas days it received, so
+  their history grows by one day per run. The preliminary prices have no
+  `gas_day` (their dates are separate fields) and always hold the latest
+  snapshot only.
 - A failing report is logged and the other reports are still loaded; the run
   then ends as failed.
