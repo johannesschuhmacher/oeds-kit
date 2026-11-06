@@ -73,7 +73,7 @@ entsoe_api:
       lookahead_days: 2
       run_post_scripts: true
       post_run_scripts:
-      - oeds-post forecast day-ahead-price
+      - oeds-post forecast day-ahead-price --backtest-days 0
       - oeds-post submit energy-arena
 ```
 
