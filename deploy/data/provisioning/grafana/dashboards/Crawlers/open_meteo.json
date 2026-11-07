@@ -725,7 +725,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Open-Meteo – Weather forecasts (DWD ICON)",
-  "uid": "weather-dashboard",
+  "uid": "open-meteo-forecasts",
   "version": 1,
   "weekStart": ""
 }

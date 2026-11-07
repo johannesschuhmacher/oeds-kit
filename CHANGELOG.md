@@ -19,7 +19,9 @@ Clearer crawler names and one Open-Meteo crawler with much more data.
   1-degree grid over the ENTSO-E countries (667 land points), 15 hourly
   variables including wind at 120 m, country averages weighted by cell area.
   It keeps the newest run and the first run of each UTC day. Dashboards and
-  the day-ahead price forecast read `open_meteo`.
+  the day-ahead price forecast read `open_meteo`. Its dashboard keeps the uid
+  `open-meteo-forecasts` of the former `open_meteo` dashboard, so Grafana
+  replaces it on update and removes the former weather dashboard.
 - Update of an existing installation: `oeds-deploy.yml` stops the scheduler
   and the admin interface and runs `deploy/oeds_ops/rename_crawlers.py`, which
   renames the schemas, the `public.metadata` rows, the gap-filling records and

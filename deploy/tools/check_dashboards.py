@@ -159,7 +159,7 @@ def main():
         with urlopen(url, timeout=30) as response:
             assert response.status == 200, url
     queried = 0
-    expected = {'d7e44e51-6f7f-4316-b9fb-1bb32c03fa18', 'weather-dashboard'}
+    expected = {'d7e44e51-6f7f-4316-b9fb-1bb32c03fa18', 'open-meteo-forecasts'}
     seen = set()
     for hit in request('/api/search?type=dash-db'):
         if hit['uid'] not in expected:
@@ -174,7 +174,7 @@ def main():
                 query = copy.deepcopy(target)
                 query['datasource'] = panel.get('datasource', {'uid': 'P6EAA63344BCC9F38',
                     'type': 'grafana-postgresql-datasource'})
-                query['rawSql'] = query['rawSql'].replace('$Location', 'berlin').replace('$Country_Code', 'DE')
+                query['rawSql'] = query['rawSql'].replace('$Location', 'de_52_13').replace('$Country_Code', 'DE')
                 query.update(intervalMs=900000, maxDataPoints=1000)
                 print(f'Querying {dashboard["title"]}: {panel.get("title", panel.get("id"))}', flush=True)
                 smard = hit['uid'].startswith('d7e44e51')
