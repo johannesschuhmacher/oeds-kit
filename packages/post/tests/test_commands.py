@@ -60,7 +60,7 @@ def test_oeds_post_runs_command_main_with_default_and_given_args(monkeypatch, tm
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(SystemExit) as exit_info:
-        cli.main(["gapfill", "entsoe-fms", "--self-test"])
+        cli.main(["gapfill", "entsoe-files", "--self-test"])
 
     assert exit_info.value.code == 3
-    assert observed == [(["--job", "entsoe_fms", "--self-test"], tmp_path)]
+    assert observed == [(["--job", "entsoe_files", "--self-test"], tmp_path)]

@@ -197,7 +197,7 @@ def data_item_version(name: str) -> tuple[int, ...]:
 DEFAULT_START_DATE = "2014-01-01"
 
 
-class EntsoeFMSCrawler(KitCrawler):
+class EntsoeFilesCrawler(KitCrawler):
     """Crawler for the selected ENTSO-E FMS extracts."""
 
     DATA_ITEM_TABLE_MAP = dict(FMS_ACTIVE_DATA_ITEMS)
@@ -604,12 +604,12 @@ class EntsoeFMSCrawler(KitCrawler):
         with self.engine.connect() as conn:
             if state["update_time_column"]:
                 state["last_update_time"] = conn.execute(
-                    text(f'SELECT MAX("{state["update_time_column"]}") FROM "entsoe_fms"."{table_name}"')
+                    text(f'SELECT MAX("{state["update_time_column"]}") FROM "entsoe_files"."{table_name}"')
                 ).scalar()
 
             if state["datetime_column_name"]:
                 state["last_date_time"] = conn.execute(
-                    text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_fms"."{table_name}"')
+                    text(f'SELECT MAX("{state["datetime_column_name"]}") FROM "entsoe_files"."{table_name}"')
                 ).scalar()
 
         # The file timestamps are naive UTC; timestamptz values come back in the
@@ -628,7 +628,7 @@ class EntsoeFMSCrawler(KitCrawler):
                 for row in conn.execute(
                     text(
                         "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema = 'entsoe_fms' AND table_name = :table_name "
+                        "WHERE table_schema = 'entsoe_files' AND table_name = :table_name "
                         "ORDER BY ordinal_position"
                     ),
                     {"table_name": table_name},
@@ -644,7 +644,7 @@ class EntsoeFMSCrawler(KitCrawler):
         with self.engine.begin() as conn:
             for old, new in renames.items():
                 if old in columns and new not in columns:
-                    conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" RENAME COLUMN "{old}" TO "{new}"'))
+                    conn.execute(text(f'ALTER TABLE "entsoe_files"."{table_name}" RENAME COLUMN "{old}" TO "{new}"'))
                     self.logger.info("Renamed column %s.%s to %s.", table_name, old, new)
                     self._known_columns.pop(table_name, None)
                     self._reflected_tables.pop(table_name, None)
@@ -669,14 +669,14 @@ class EntsoeFMSCrawler(KitCrawler):
         index_name = self._update_time_index_name(table_name)
         with self.engine.begin() as conn:
             exists = conn.execute(
-                text("SELECT to_regclass(:name)"), {"name": f'"entsoe_fms"."{index_name}"'}
+                text("SELECT to_regclass(:name)"), {"name": f'"entsoe_files"."{index_name}"'}
             ).scalar()
             if exists:
                 return
             self.logger.info("Creating index %s on %s; this takes a while on large tables.", index_name, table_name)
             started = time.monotonic()
             conn.execute(
-                text(f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "entsoe_fms"."{table_name}" ("UpdateTime(UTC)")')
+                text(f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "entsoe_files"."{table_name}" ("UpdateTime(UTC)")')
             )
         self.logger.info("Index %s created in %.0f s.", index_name, time.monotonic() - started)
 
@@ -692,14 +692,14 @@ class EntsoeFMSCrawler(KitCrawler):
                     "JOIN pg_index i ON i.indexrelid = c.conindid "
                     "WHERE c.conrelid = to_regclass(:table) AND c.conname = :constraint"
                 ),
-                {"table": f'"entsoe_fms"."{table_name}"', "constraint": constraint},
+                {"table": f'"entsoe_files"."{table_name}"', "constraint": constraint},
             ).fetchone()
             if row is None or row[0]:
                 return
             columns = ", ".join(f'"{col}"' for col in self.UNIQUE_KEY_COLUMNS[table_name])
             conn.execute(
                 text(
-                    f'ALTER TABLE "entsoe_fms"."{table_name}" DROP CONSTRAINT "{constraint}", '
+                    f'ALTER TABLE "entsoe_files"."{table_name}" DROP CONSTRAINT "{constraint}", '
                     f'ADD CONSTRAINT "{constraint}" UNIQUE NULLS NOT DISTINCT ({columns})'
                 )
             )
@@ -726,7 +726,7 @@ class EntsoeFMSCrawler(KitCrawler):
                     sql_type = "DOUBLE PRECISION"
                 else:
                     sql_type = "TEXT"
-                conn.execute(text(f'ALTER TABLE "entsoe_fms"."{table_name}" ADD COLUMN IF NOT EXISTS "{col}" {sql_type}'))
+                conn.execute(text(f'ALTER TABLE "entsoe_files"."{table_name}" ADD COLUMN IF NOT EXISTS "{col}" {sql_type}'))
                 self.logger.info("Added column %s.%s (%s).", table_name, col, sql_type)
                 existing.add(col)
         self._reflected_tables.pop(table_name, None)
@@ -778,7 +778,7 @@ class EntsoeFMSCrawler(KitCrawler):
         )
         where = None
         if update_time_column:
-            stored = f'"entsoe_fms"."{table_name}"."{update_time_column}"'
+            stored = f'"entsoe_files"."{table_name}"."{update_time_column}"'
             where = f'{stored} IS NULL OR {stored} < EXCLUDED."{update_time_column}"'
         copy_upsert(
             self.engine, table_obj, df, self.UNIQUE_KEY_DICT[table_name], self.UNIQUE_KEY_COLUMNS[table_name], where
@@ -788,7 +788,7 @@ class EntsoeFMSCrawler(KitCrawler):
         """Reflect the table once per run; _add_missing_columns and renames invalidate it."""
         table_obj = self._reflected_tables.get(table_name)
         if table_obj is None:
-            table_obj = Table(table_name, MetaData(), autoload_with=self.engine, schema="entsoe_fms")
+            table_obj = Table(table_name, MetaData(), autoload_with=self.engine, schema="entsoe_files")
             self._reflected_tables[table_name] = table_obj
         return table_obj
 
@@ -1103,7 +1103,7 @@ class EntsoeFMSCrawler(KitCrawler):
     # ------------------------------------------------------------------
     # Public Interface
     # ------------------------------------------------------------------
-    def fetch_from_entsoe_fms_to_database(
+    def fetch_from_entsoe_files_to_database(
         self,
         local_dir: str,
         start_time: pd.Timestamp,
@@ -1698,7 +1698,7 @@ class EntsoeFMSCrawler(KitCrawler):
                 self.logger.error(f"No table definition found for '{table_name}'.")
                 return
 
-        metadata = MetaData(schema="entsoe_fms")
+        metadata = MetaData(schema="entsoe_files")
         table = Table(
             table_name, metadata, *columns,
             UniqueConstraint(
@@ -1747,7 +1747,7 @@ class EntsoeFMSCrawler(KitCrawler):
 
         try:
             self.logger.info("Starting ENTSO-E FMS fetch...")
-            self.fetch_from_entsoe_fms_to_database(local_dir, start_time, end_time)
+            self.fetch_from_entsoe_files_to_database(local_dir, start_time, end_time)
 
             self.logger.info("Crawler run finished successfully.")
 

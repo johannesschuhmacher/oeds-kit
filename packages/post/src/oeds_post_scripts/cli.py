@@ -9,7 +9,7 @@ from typing import Sequence
 
 # "<group> <action>" -> (module with main(), arguments put before the given ones)
 COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "gapfill entsoe-fms": ("scripts.gapfill_timeseries", ("--job", "entsoe_fms")),
+    "gapfill entsoe-files": ("scripts.gapfill_timeseries", ("--job", "entsoe_files")),
     "refresh entsoe-availability-map": ("scripts.refresh_entsoe_availability_map", ()),
     "forecast day-ahead-price": ("scripts.run_price_forecast", ()),
     "backfill entsoe-unavailability": ("scripts.backfill_entsoe_unavailability", ()),

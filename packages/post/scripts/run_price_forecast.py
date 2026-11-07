@@ -110,7 +110,7 @@ def _existing_tables(conn) -> set[tuple[str, str]]:
         text(
             """
             SELECT table_schema, table_name FROM information_schema.tables
-            WHERE table_schema IN ('entsoe_fms', 'entsoe_api', 'weather')
+            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'weather')
             """
         )
     )
@@ -220,7 +220,7 @@ def _load_price_series(
     api_exaa = pd.Series(dtype=float, name="exaa")
     params = _market_area_params(market_area, start=start, end=end)
 
-    if ("entsoe_fms", "EnergyPrices") in tables:
+    if ("entsoe_files", "EnergyPrices") in tables:
         # Sequence 1 (or none) is the SDAC auction, sequence 2 the EXAA auction.
         frame = pd.read_sql_query(
             text(
@@ -229,7 +229,7 @@ def _load_price_series(
                     "DateTime(UTC)" AS ts,
                     "Price[Currency/MWh]" AS price,
                     CASE WHEN TRIM(COALESCE("Sequence", '')) = '2' THEN 'EXAA' ELSE 'SDAC' END AS auction
-                FROM entsoe_fms."EnergyPrices"
+                FROM entsoe_files."EnergyPrices"
                 WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
                   AND "AreaTypeCode" = 'BZN'
                   AND (TRIM(COALESCE("Sequence", '')) IN ('', '2') OR "Sequence" = '1')
@@ -323,12 +323,12 @@ def _load_entsoe_covariate_sources(
     fms_frames = []
     api_frames = []
 
-    if ("entsoe_fms", "DayAheadTotalLoadForecast") in tables:
+    if ("entsoe_files", "DayAheadTotalLoadForecast") in tables:
         load = _read_series(
             conn,
             """
             SELECT "DateTime(UTC)" AS ts, "TotalLoad[MW]" AS load_mw
-            FROM entsoe_fms."DayAheadTotalLoadForecast"
+            FROM entsoe_files."DayAheadTotalLoadForecast"
             WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
               AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
             ORDER BY 1
@@ -356,7 +356,7 @@ def _load_entsoe_covariate_sources(
         if not load.empty:
             api_frames.append(load.to_frame())
 
-    if ("entsoe_fms", "GenerationForecastsForWindAndSolar") in tables:
+    if ("entsoe_files", "GenerationForecastsForWindAndSolar") in tables:
         res_frame = pd.read_sql_query(
             text(
                 """
@@ -364,7 +364,7 @@ def _load_entsoe_covariate_sources(
                     "DateTime(UTC)" AS ts,
                     SUM(CASE WHEN "ProductionType" = 'Solar' THEN COALESCE("DayAheadGenerationForecast[MW]", "CurrentGenerationForecast[MW]") ELSE 0 END) AS solar_forecast_mw,
                     SUM(CASE WHEN "ProductionType" IN ('Wind Onshore', 'Wind Offshore') THEN COALESCE("DayAheadGenerationForecast[MW]", "CurrentGenerationForecast[MW]") ELSE 0 END) AS wind_forecast_mw
-                FROM entsoe_fms."GenerationForecastsForWindAndSolar"
+                FROM entsoe_files."GenerationForecastsForWindAndSolar"
                 WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
                   AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
                 GROUP BY 1

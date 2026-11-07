@@ -4,7 +4,7 @@ Day-ahead prices, the load forecast and the wind and solar forecast for one
 bidding zone from the
 [ENTSO-E Transparency Platform Web API](https://web-api.tp.entsoe.eu/api),
 read with the `entsoe-py` client. The crawler refreshes a short window around
-today for the day-ahead price forecast; `entsoe_fms` loads the long history
+today for the day-ahead price forecast; `entsoe_files` loads the long history
 from the File Library.
 
 | | |

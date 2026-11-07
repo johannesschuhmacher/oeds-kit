@@ -58,7 +58,7 @@ into the installed test database. Never run them on production.
 
 ```bash
 cd /open_energy_data_server/repo/deploy
-sudo bash tools/load_sample_data.sh --include-entsoe-fms
+sudo bash tools/load_sample_data.sh --include-entsoe-files
 sudo bash tools/test_installation.sh
 ```
 

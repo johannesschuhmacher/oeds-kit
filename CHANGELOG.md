@@ -3,6 +3,30 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+Clearer crawler names and one Open-Meteo crawler with much more data.
+
+- Renamed crawlers (configuration section, schema, module, dashboard and
+  documentation): `entsoe_fms` -> `entsoe_files` (gap filling
+  `entsoe_files_gapfilled`, command `oeds-post gapfill entsoe-files`), `ninja`
+  -> `renewables_ninja` (replaces the core crawler `ninja`),
+  `power_system_data` -> `powerplantmatching` (table `powerplants`),
+  `energy_forecast_crawler` -> `energyforecast`, `eurostat_crawler` ->
+  `eurostat`.
+- `open_meteo` replaces the former `open_meteo` (five German locations) and
+  `weather_forecast` (15 cities, schema `weather`): DWD ICON forecasts on a
+  1-degree grid over the ENTSO-E countries (667 land points), 15 hourly
+  variables including wind at 120 m, country averages weighted by cell area.
+  It keeps the newest run and the first run of each UTC day. Dashboards and
+  the day-ahead price forecast read `open_meteo`.
+- Update of an existing installation: `oeds-deploy.yml` stops the scheduler
+  and the admin interface and runs `deploy/oeds_ops/rename_crawlers.py`, which
+  renames the schemas, the `public.metadata` rows, the gap-filling records and
+  the sections of the runtime `CRAWLER_CONFIG.yml`. An enabled
+  `weather_forecast` enables `open_meteo`. The schema `weather` is left
+  unchanged and can be dropped.
+
 ## 1.4.0 (2026-11-06)
 
 Documentation, Energy Arena submission and fixes found in operation since 1.3.0.

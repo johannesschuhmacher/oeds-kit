@@ -59,9 +59,9 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                         "default:",
                         "  enable: false",
                         '  schedule: "0 4 * * *"',
-                        "entsoe_fms:",
+                        "entsoe_files:",
                         "  enable: true",
-                        '  schema_name: "entsoe_fms"',
+                        '  schema_name: "entsoe_files"',
                         "  jobs:",
                         "    latest_hourly:",
                         "      enable: true",
@@ -76,7 +76,7 @@ class SchedulerAdminConfigTest(unittest.TestCase):
             )
 
             updated_text, created_section = update_crawler_schedule_config_text(
-                "entsoe_fms",
+                "entsoe_files",
                 enabled=True,
                 schedule="15 3 * * *",
                 job_name="revision_sweep_daily",
@@ -85,10 +85,10 @@ class SchedulerAdminConfigTest(unittest.TestCase):
 
         self.assertFalse(created_section)
         updated = yaml.safe_load(updated_text)
-        self.assertIs(updated["entsoe_fms"]["enable"], True)
-        self.assertEqual(updated["entsoe_fms"]["jobs"]["latest_hourly"]["schedule"], "0 * * * *")
-        self.assertIs(updated["entsoe_fms"]["jobs"]["revision_sweep_daily"]["enable"], True)
-        self.assertEqual(updated["entsoe_fms"]["jobs"]["revision_sweep_daily"]["schedule"], "15 3 * * *")
+        self.assertIs(updated["entsoe_files"]["enable"], True)
+        self.assertEqual(updated["entsoe_files"]["jobs"]["latest_hourly"]["schedule"], "0 * * * *")
+        self.assertIs(updated["entsoe_files"]["jobs"]["revision_sweep_daily"]["enable"], True)
+        self.assertEqual(updated["entsoe_files"]["jobs"]["revision_sweep_daily"]["schedule"], "15 3 * * *")
 
     def test_requires_job_selection_for_multi_job_crawler(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -98,7 +98,7 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                     [
                         "default:",
                         '  schedule: "0 4 * * *"',
-                        "entsoe_fms:",
+                        "entsoe_files:",
                         "  jobs:",
                         "    latest_hourly:",
                         '      schedule: "0 * * * *"',
@@ -110,7 +110,7 @@ class SchedulerAdminConfigTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "Choose a scheduler job"):
                 update_crawler_schedule_config_text(
-                    "entsoe_fms",
+                    "entsoe_files",
                     enabled=True,
                     schedule="15 3 * * *",
                     repo_root=Path(temp_dir),
@@ -121,7 +121,7 @@ class SchedulerAdminConfigTest(unittest.TestCase):
         settings = {
             "enabled": True,
             "selected_tables": [],
-            "target_schema": "entsoe_fms_gapfilled",
+            "target_schema": "entsoe_files_gapfilled",
             "method": "linear",
             "candidate_periods": ["24h"],
             "donor_context_periods": 6,
@@ -134,28 +134,28 @@ class SchedulerAdminConfigTest(unittest.TestCase):
         # (existing post_run_scripts, script_enabled, expected post_run_scripts)
         cases = [
             ([refresh], True, [GAPFILL_POSTRUN_SCRIPT, refresh]),
-            ([refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"], True,
-             [refresh, "oeds-post gapfill entsoe-fms --tables EnergyPrices"]),
+            ([refresh, "oeds-post gapfill entsoe-files --tables EnergyPrices"], True,
+             [refresh, "oeds-post gapfill entsoe-files --tables EnergyPrices"]),
             ([refresh, "scripts/gapfill_timeseries.py"], True, [refresh, GAPFILL_POSTRUN_SCRIPT]),
             (["scripts/gapfill_timeseries.py", refresh, GAPFILL_POSTRUN_SCRIPT], True,
              [GAPFILL_POSTRUN_SCRIPT, refresh]),
             ([GAPFILL_POSTRUN_SCRIPT, refresh, "scripts/gapfill_timeseries.py"], False, [refresh]),
         ]
-        legacy = {"schema_name": "entsoe_fms", "post_run_scripts": ["scripts/gapfill_timeseries.py"]}
-        self.assertTrue(build_gapfill_runtime_view("entsoe_fms", legacy, legacy).script_enabled)
+        legacy = {"schema_name": "entsoe_files", "post_run_scripts": ["scripts/gapfill_timeseries.py"]}
+        self.assertTrue(build_gapfill_runtime_view("entsoe_files", legacy, legacy).script_enabled)
 
         for scripts, script_enabled, expected in cases:
             with self.subTest(scripts=scripts, script_enabled=script_enabled):
-                config = {"schema_name": "entsoe_fms", "post_run_scripts": scripts}
+                config = {"schema_name": "entsoe_files", "post_run_scripts": scripts}
                 with tempfile.TemporaryDirectory() as temp_dir:
                     config_path = Path(temp_dir) / "CRAWLER_CONFIG.yml"
                     config_path.write_text(
-                        yaml.safe_dump({"default": {}, "entsoe_fms": config}), encoding="utf-8"
+                        yaml.safe_dump({"default": {}, "entsoe_files": config}), encoding="utf-8"
                     )
                     for _ in range(2):  # saving again changes nothing
                         config_path.write_text(
                             update_gapfill_config_text(
-                                "entsoe_fms",
+                                "entsoe_files",
                                 script_enabled=script_enabled,
                                 repo_root=Path(temp_dir),
                                 **settings,
@@ -163,13 +163,13 @@ class SchedulerAdminConfigTest(unittest.TestCase):
                             encoding="utf-8",
                         )
                         saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-                        self.assertEqual(saved["entsoe_fms"]["post_run_scripts"], expected)
+                        self.assertEqual(saved["entsoe_files"]["post_run_scripts"], expected)
 
     def test_gapfill_form_rejects_values_the_gapfill_config_cannot_load(self) -> None:
-        config = {"schema_name": "entsoe_fms"}
-        overview = SimpleNamespace(crawler_name="entsoe_fms", raw_config=config, effective_config=config)
+        config = {"schema_name": "entsoe_files"}
+        overview = SimpleNamespace(crawler_name="entsoe_files", raw_config=config, effective_config=config)
         values = _build_gapfill_form_defaults_from_view(
-            build_gapfill_runtime_view("entsoe_fms", config, config)
+            build_gapfill_runtime_view("entsoe_files", config, config)
         )
         self.assertEqual(_validate_gapfill_form_values(values, overview), [])
 
@@ -197,12 +197,12 @@ class SchedulerAdminConfigTest(unittest.TestCase):
 
     def test_scheduler_form_uses_selected_job_values(self) -> None:
         card = CrawlerCard(
-            name="entsoe_fms",
+            name="entsoe_files",
             description="",
             configured=True,
             module_present=True,
             enabled=True,
-            schema_name="entsoe_fms",
+            schema_name="entsoe_files",
             schedule=None,
             schedule_source="jobs",
             preview=CronPreview(schedule=None, summary="2 enabled scheduler job(s)"),
@@ -271,7 +271,7 @@ def _environment(**values: str):
 class CrawlerRunServiceTest(unittest.TestCase):
     def _execute(self, service: CrawlerRunService, executor) -> object:
         prepared = PreparedAction(
-            crawler_name="entsoe_fms",
+            crawler_name="entsoe_files",
             action_id="run_now",
             action_label="Run once",
             description="Run once.",
@@ -310,7 +310,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
                     OEDS_TEST_EXIT_CODE=str(exit_code),
                 ):
                     service = CrawlerRunService(repo_root=Path(temp_dir))
-                    plan = service._crawler_plan("entsoe_fms", config)
+                    plan = service._crawler_plan("entsoe_files", config)
                     record = self._execute(
                         service,
                         lambda log: service._run_oeds_crawl(plan, log),
@@ -318,7 +318,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
                     log_text = Path(record.log_path).read_text(encoding="utf-8")
 
                     self.assertEqual(record.status, expected_status)
-                    self.assertIn("stub run entsoe_fms config=CRAWLER_CONFIG.yml", log_text)
+                    self.assertIn("stub run entsoe_files config=CRAWLER_CONFIG.yml", log_text)
                     self.assertNotIn("post-run", log_text)
                     if expected_status == "failed":
                         self.assertIn("RuntimeError: boom (exit code 1)", record.error_message)
@@ -335,7 +335,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
             stub.write_text(CRAWL_STUB, encoding="utf-8")
             with _environment(OEDS_ADMIN_STATE_DIR=temp_dir, OEDS_TEST_EXIT_CODE="1"):
                 service = CrawlerRunService(repo_root=root)
-                plan = service._crawler_plan("entsoe_fms", {})
+                plan = service._crawler_plan("entsoe_files", {})
                 result = CrawlerJobRunner(
                     root / "CRAWLER_CONFIG.yml",
                     command=[sys.executable, str(stub)],
@@ -344,7 +344,7 @@ class CrawlerRunServiceTest(unittest.TestCase):
             # Another crawler's newer log is not picked up.
             (root / "logs" / "runs" / "entsoe-default-29990101-000000.log").write_text("# entsoe:default started\n")
 
-            run = service.get_latest_scheduler_run("entsoe_fms")
+            run = service.get_latest_scheduler_run("entsoe_files")
             self.assertEqual(result.status, "failed")
             self.assertEqual(run.log_path, str(result.log_path))
             self.assertEqual(run.job_name, "default")
@@ -355,9 +355,9 @@ class CrawlerRunServiceTest(unittest.TestCase):
             )
 
             # Without the footer the run is still going, or died if nobody holds its lock.
-            unfinished = root / "logs" / "runs" / "entsoe_fms-latest_hourly-29990101-000000.log"
-            unfinished.write_text("# entsoe_fms:latest_hourly started 2999-01-01 00:00:00\n")
-            run = service.get_latest_scheduler_run("entsoe_fms")
+            unfinished = root / "logs" / "runs" / "entsoe_files-latest_hourly-29990101-000000.log"
+            unfinished.write_text("# entsoe_files:latest_hourly started 2999-01-01 00:00:00\n")
+            run = service.get_latest_scheduler_run("entsoe_files")
             self.assertEqual((run.job_name, run.status), ("latest_hourly", "running"))
             self.assertEqual(_with_lock_status(run, running_now=False).status, "interrupted")
 

@@ -114,7 +114,7 @@ class EurostatCrawler(KitCrawler):
     def _download_data_df(self):
         if eurostat is None:
             raise RuntimeError(
-                "The 'eurostat' package is required to run eurostat_crawler."
+                "The 'eurostat' package is required to run eurostat."
             )
 
         start_year = self.get("start_year")

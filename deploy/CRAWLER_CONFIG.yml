@@ -12,7 +12,7 @@ default:
   database_uri: postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=
   # Upper bound on concurrently running scheduled jobs (the scheduler's default).
   max_parallel_runs: 3
-eurostat_crawler:
+eurostat:
   enable: false
   schema_name: eurostat
   description: Crawls Eurostat data
@@ -26,8 +26,8 @@ smard:
   schema_name: smard
   schedule: 0 4 * * *
   post_run_scripts: null
-ninja:
-  schema_name: ninja
+renewables_ninja:
+  schema_name: renewables_ninja
   enable: false
   datafiles:
     wind:
@@ -45,13 +45,13 @@ mastr:
   # morning; at 04:00 UTC (05:00 CET in winter) it was not yet downloadable.
   schedule: 0 7 * * *
   base_download_url: https://download.marktstammdatenregister.de/Gesamtdatenexport
-entsoe_fms:
+entsoe_files:
   enable: false
-  schema_name: entsoe_fms
-  description: Crawls ENTSO-E FMS data (Transparency Platform File Library)
+  schema_name: entsoe_files
+  description: Crawls ENTSO-E File Library data (Transparency Platform File Library)
   default_start_date: '2014-01-01'
   post_run_scripts:
-  - oeds-post gapfill entsoe-fms
+  - oeds-post gapfill entsoe-files
   - oeds-post refresh entsoe-availability-map
   jobs:
     latest_hourly:
@@ -92,7 +92,7 @@ entsoe_fms:
       - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
       - InstalledGenerationCapacityPerProductionUnit_14.1.B
       - ActualGenerationOutputPerGenerationUnit_16.1.A
-    # Run once by hand (oeds-crawl entsoe_fms --job initial_unit_data) before
+    # Run once by hand (oeds-crawl entsoe_files --job initial_unit_data) before
     # enabling the jobs above: it loads the history from default_start_date.
     # Once a table exists, runs only load recent files. The availability map
     # and its dashboard need these unit data (generation: about 42 GB of files).
@@ -105,7 +105,7 @@ entsoe_fms:
       - ActualGenerationOutputPerGenerationUnit_16.1.A
   gapfill:
     enable: false
-    target_schema: entsoe_fms_gapfilled
+    target_schema: entsoe_files_gapfilled
     method: donor_refined
     candidate_periods:
     - 24h
@@ -177,14 +177,14 @@ entsog:
   default_start_date: '2024-01-01'
   chunk_days: 1
   request_pause_seconds: 1.0
-energy_forecast_crawler:
+energyforecast:
   enable: false
-  schema_name: energy_forecast
+  schema_name: energyforecast
   description: Crawls Energy Price Forecasts (Next 48h)
   schedule: 0 4,16 * * *
-power_system_data:
+powerplantmatching:
   enable: false
-  schema_name: power_system_data
+  schema_name: powerplantmatching
   database_uri: postgresql://opendata:opendata@localhost:6432/opendata?options=--search_path=
   description: Crawls power system and power plant data from PyPSA
   schedule: 0 4 * * 0

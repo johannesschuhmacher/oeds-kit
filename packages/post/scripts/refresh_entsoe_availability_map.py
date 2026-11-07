@@ -16,9 +16,9 @@ CONFIG_FILE = Path(
     os.getenv("OEDS_CRAWLER_CONFIG", ROOT / "CRAWLER_CONFIG.yml")
 ).expanduser()
 REQUIRED_SOURCE_TABLES = (
-    ("power_system_data", "powersystemdata"),
-    ("entsoe_fms", "UnavailabilityOfProductionAndGenerationUnits"),
-    ("entsoe_fms", "InstalledGenerationCapacityPerProductionUnit"),
+    ("powerplantmatching", "powerplants"),
+    ("entsoe_files", "UnavailabilityOfProductionAndGenerationUnits"),
+    ("entsoe_files", "InstalledGenerationCapacityPerProductionUnit"),
 )
 # Refresh order matters: the country aggregate reads mv_availability_next_24h.
 MATERIALIZED_VIEWS = (
@@ -37,8 +37,8 @@ def load_database_uri() -> str:
         config = yaml.safe_load(handle)
 
     default_uri = config["default"]["database_uri"]
-    crawler_uri = config.get("entsoe_fms", {}).get("database_uri", default_uri)
-    return f"{resolve_database_uri(crawler_uri)}entsoe_fms"
+    crawler_uri = config.get("entsoe_files", {}).get("database_uri", default_uri)
+    return f"{resolve_database_uri(crawler_uri)}entsoe_files"
 
 
 def find_missing_source_tables(engine) -> list[str]:

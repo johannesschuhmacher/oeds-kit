@@ -3,13 +3,13 @@ set -euo pipefail
 
 TIMEOUT_SECONDS=1800
 START_DATE=""
-INCLUDE_ENTSOE_FMS=false
+INCLUDE_ENTSOE_FILES=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --timeout-seconds) TIMEOUT_SECONDS=$2; shift 2 ;;
     --start-date) START_DATE=$2; shift 2 ;;
-    --include-entsoe-fms) INCLUDE_ENTSOE_FMS=true; shift ;;
+    --include-entsoe-files) INCLUDE_ENTSOE_FILES=true; shift ;;
     -h|--help)
       cat <<'USAGE'
 Usage: sudo bash tools/load_sample_data.sh [options]
@@ -18,7 +18,7 @@ Loads a bounded real-data sample into the installed OEDS database and verifies
 that the expected tables contain rows.
 
 Options:
-  --include-entsoe-fms       Load one FMS price package and the plant-capacity reference.
+  --include-entsoe-files       Load one FMS price package and the plant-capacity reference.
   --start-date VALUE         SMARD start date, default seven days ago (one chart week).
   --timeout-seconds VALUE    Service wait timeout, default 1800.
 USAGE
@@ -117,12 +117,12 @@ if [[ -f "$RUNTIME_ROOT/crawler/.env" ]]; then
 fi
 
 FMS_BLOCK=""
-EXPECTED='["smard","entsoe_api","power_system_data","open_meteo"]'
-if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
-  EXPECTED='["smard","entsoe_api","power_system_data","open_meteo","entsoe_fms"]'
-  FMS_BLOCK='entsoe_fms:
+EXPECTED='["smard","entsoe_api","powerplantmatching","open_meteo"]'
+if [[ "$INCLUDE_ENTSOE_FILES" == "true" ]]; then
+  EXPECTED='["smard","entsoe_api","powerplantmatching","open_meteo","entsoe_files"]'
+  FMS_BLOCK='entsoe_files:
   enable: true
-  schema_name: "entsoe_fms"
+  schema_name: "entsoe_files"
   schedule: "* * * * *"
   fms_package_window_months: 1
   fms_package_write_mode: "full_upsert"
@@ -162,9 +162,9 @@ entsoe_api:
   lookahead_days: 1
   request_pause_seconds: 0.1
   run_post_scripts: false
-power_system_data:
+powerplantmatching:
   enable: true
-  schema_name: "power_system_data"
+  schema_name: "powerplantmatching"
   schedule: "* * * * *"
   run_post_scripts: false
 open_meteo:
@@ -233,19 +233,19 @@ BEGIN
   IF to_regclass('smard.smard') IS NULL THEN RAISE EXCEPTION 'missing smard.smard table'; END IF;
   IF to_regclass('smard.prices') IS NULL THEN RAISE EXCEPTION 'missing smard.prices table'; END IF;
   IF to_regclass('entsoe_api.day_ahead_prices') IS NULL THEN RAISE EXCEPTION 'missing entsoe_api.day_ahead_prices table'; END IF;
-  IF to_regclass('power_system_data.powersystemdata') IS NULL THEN RAISE EXCEPTION 'missing power_system_data.powersystemdata table'; END IF;
+  IF to_regclass('powerplantmatching.powerplants') IS NULL THEN RAISE EXCEPTION 'missing powerplantmatching.powerplants table'; END IF;
   IF to_regclass('open_meteo.hourly_forecast') IS NULL THEN RAISE EXCEPTION 'missing open_meteo.hourly_forecast table'; END IF;
 
   SELECT COUNT(*) INTO smard_rows FROM smard.smard;
   SELECT COUNT(*) INTO price_rows FROM smard.prices;
   SELECT COUNT(*) INTO entsoe_price_rows FROM entsoe_api.day_ahead_prices;
-  SELECT COUNT(*) INTO power_rows FROM power_system_data.powersystemdata;
+  SELECT COUNT(*) INTO power_rows FROM powerplantmatching.powerplants;
   SELECT COUNT(*) INTO weather_rows FROM open_meteo.hourly_forecast;
 
   IF smard_rows <= 0 THEN RAISE EXCEPTION 'smard.smard has no rows'; END IF;
   IF price_rows <= 0 THEN RAISE EXCEPTION 'smard.prices has no rows'; END IF;
   IF entsoe_price_rows <= 0 THEN RAISE EXCEPTION 'entsoe_api.day_ahead_prices has no rows'; END IF;
-  IF power_rows <= 0 THEN RAISE EXCEPTION 'power_system_data.powersystemdata has no rows'; END IF;
+  IF power_rows <= 0 THEN RAISE EXCEPTION 'powerplantmatching.powerplants has no rows'; END IF;
   IF weather_rows <= 0 THEN RAISE EXCEPTION 'open_meteo.hourly_forecast has no rows'; END IF;
 END
 $$;
@@ -253,22 +253,22 @@ SELECT
   (SELECT COUNT(*) FROM smard.smard) AS smard_rows,
   (SELECT COUNT(*) FROM smard.prices) AS smard_price_rows,
   (SELECT COUNT(*) FROM entsoe_api.day_ahead_prices) AS entsoe_api_day_ahead_price_rows,
-  (SELECT COUNT(*) FROM power_system_data.powersystemdata) AS power_system_data_rows,
+  (SELECT COUNT(*) FROM powerplantmatching.powerplants) AS powerplantmatching_rows,
   (SELECT COUNT(*) FROM open_meteo.hourly_forecast) AS open_meteo_hourly_forecast_rows;
 SQL
 
-if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
+if [[ "$INCLUDE_ENTSOE_FILES" == "true" ]]; then
   cat <<'SQL' | "${COMPOSE[@]}" exec -T open-data psql -U opendata -d opendata -v ON_ERROR_STOP=1
 DO $$
 DECLARE
   fms_price_rows integer;
 BEGIN
-  IF to_regclass('entsoe_fms."EnergyPrices"') IS NULL THEN RAISE EXCEPTION 'missing entsoe_fms."EnergyPrices" table'; END IF;
-  SELECT COUNT(*) INTO fms_price_rows FROM entsoe_fms."EnergyPrices";
-  IF fms_price_rows <= 0 THEN RAISE EXCEPTION 'entsoe_fms."EnergyPrices" has no rows'; END IF;
+  IF to_regclass('entsoe_files."EnergyPrices"') IS NULL THEN RAISE EXCEPTION 'missing entsoe_files."EnergyPrices" table'; END IF;
+  SELECT COUNT(*) INTO fms_price_rows FROM entsoe_files."EnergyPrices";
+  IF fms_price_rows <= 0 THEN RAISE EXCEPTION 'entsoe_files."EnergyPrices" has no rows'; END IF;
 END
 $$;
-SELECT COUNT(*) AS entsoe_fms_energy_prices_rows FROM entsoe_fms."EnergyPrices";
+SELECT COUNT(*) AS entsoe_files_energy_prices_rows FROM entsoe_files."EnergyPrices";
 SQL
 fi
 
