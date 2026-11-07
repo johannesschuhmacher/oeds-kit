@@ -117,9 +117,9 @@ if [[ -f "$RUNTIME_ROOT/crawler/.env" ]]; then
 fi
 
 FMS_BLOCK=""
-EXPECTED='["smard","entsoe_api","power_system_data","weather_forecast"]'
+EXPECTED='["smard","entsoe_api","power_system_data","open_meteo"]'
 if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then
-  EXPECTED='["smard","entsoe_api","power_system_data","weather_forecast","entsoe_fms"]'
+  EXPECTED='["smard","entsoe_api","power_system_data","open_meteo","entsoe_fms"]'
   FMS_BLOCK='entsoe_fms:
   enable: true
   schema_name: "entsoe_fms"
@@ -167,24 +167,20 @@ power_system_data:
   schema_name: "power_system_data"
   schedule: "* * * * *"
   run_post_scripts: false
-weather_forecast:
+open_meteo:
   enable: true
-  schema_name: "weather"
+  schema_name: "open_meteo"
   schedule: "* * * * *"
   forecast_hours: 24
   past_hours: 0
   run_post_scripts: false
   locations:
-    - location_id: "berlin"
-      name: "Berlin"
+    - location_id: "de_52_13"
+      name: "52°N 13°E"
       country_code: "DE"
       country_name: "Germany"
-      region: "Berlin"
-      location_type: "load_center"
-      latitude: 52.52
-      longitude: 13.405
-      aggregation_weight: 1.0
-      enabled: true
+      latitude: 52.0
+      longitude: 13.0
 $FMS_BLOCK
 YAML
 
@@ -238,19 +234,19 @@ BEGIN
   IF to_regclass('smard.prices') IS NULL THEN RAISE EXCEPTION 'missing smard.prices table'; END IF;
   IF to_regclass('entsoe_api.day_ahead_prices') IS NULL THEN RAISE EXCEPTION 'missing entsoe_api.day_ahead_prices table'; END IF;
   IF to_regclass('power_system_data.powersystemdata') IS NULL THEN RAISE EXCEPTION 'missing power_system_data.powersystemdata table'; END IF;
-  IF to_regclass('weather.hourly_forecast') IS NULL THEN RAISE EXCEPTION 'missing weather.hourly_forecast table'; END IF;
+  IF to_regclass('open_meteo.hourly_forecast') IS NULL THEN RAISE EXCEPTION 'missing open_meteo.hourly_forecast table'; END IF;
 
   SELECT COUNT(*) INTO smard_rows FROM smard.smard;
   SELECT COUNT(*) INTO price_rows FROM smard.prices;
   SELECT COUNT(*) INTO entsoe_price_rows FROM entsoe_api.day_ahead_prices;
   SELECT COUNT(*) INTO power_rows FROM power_system_data.powersystemdata;
-  SELECT COUNT(*) INTO weather_rows FROM weather.hourly_forecast;
+  SELECT COUNT(*) INTO weather_rows FROM open_meteo.hourly_forecast;
 
   IF smard_rows <= 0 THEN RAISE EXCEPTION 'smard.smard has no rows'; END IF;
   IF price_rows <= 0 THEN RAISE EXCEPTION 'smard.prices has no rows'; END IF;
   IF entsoe_price_rows <= 0 THEN RAISE EXCEPTION 'entsoe_api.day_ahead_prices has no rows'; END IF;
   IF power_rows <= 0 THEN RAISE EXCEPTION 'power_system_data.powersystemdata has no rows'; END IF;
-  IF weather_rows <= 0 THEN RAISE EXCEPTION 'weather.hourly_forecast has no rows'; END IF;
+  IF weather_rows <= 0 THEN RAISE EXCEPTION 'open_meteo.hourly_forecast has no rows'; END IF;
 END
 $$;
 SELECT
@@ -258,7 +254,7 @@ SELECT
   (SELECT COUNT(*) FROM smard.prices) AS smard_price_rows,
   (SELECT COUNT(*) FROM entsoe_api.day_ahead_prices) AS entsoe_api_day_ahead_price_rows,
   (SELECT COUNT(*) FROM power_system_data.powersystemdata) AS power_system_data_rows,
-  (SELECT COUNT(*) FROM weather.hourly_forecast) AS weather_hourly_forecast_rows;
+  (SELECT COUNT(*) FROM open_meteo.hourly_forecast) AS open_meteo_hourly_forecast_rows;
 SQL
 
 if [[ "$INCLUDE_ENTSOE_FMS" == "true" ]]; then

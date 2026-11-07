@@ -8,7 +8,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1] / 'data/provisioning/grafana/dashboards'
 DASHBOARDS = {
     'd7e44e51-6f7f-4316-b9fb-1bb32c03fa18': 'Crawlers/smard.json',
-    'weather-dashboard': 'Crawlers/weather_forecast.json',
+    'weather-dashboard': 'Crawlers/open_meteo.json',
 }
 
 

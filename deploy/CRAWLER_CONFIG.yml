@@ -201,15 +201,6 @@ epex_spot:
   include_continuous_indices: true
   include_intraday_auctions: true
   include_continuous_trades: true
-weather_forecast:
-  enable: false
-  schema_name: weather
-  database_uri: postgresql://opendata:opendata@127.0.0.1:6432/opendata?options=--search_path=
-  description: Crawls hourly DWD ICON weather forecasts for weather and energy-weather
-    dashboards
-  schedule: 15 */3 * * *
-  forecast_hours: 120
-  past_hours: 24
 netztransparenz:
   enable: false
   schema_name: netztransparenz
@@ -258,10 +249,11 @@ copernicus_cds:
 open_meteo:
   enable: false
   schema_name: open_meteo
-  description: Crawls Open-Meteo DWD ICON weather forecasts for energy-relevant locations
+  description: Crawls hourly DWD ICON weather forecasts from Open-Meteo on a 1-degree grid
+    over Europe
   schedule: 45 */3 * * *
-  forecast_days: 5
-  past_days: 1
+  forecast_hours: 120
+  past_hours: 24
 eia:
   enable: false
   schema_name: eia

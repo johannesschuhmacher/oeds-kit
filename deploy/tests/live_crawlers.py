@@ -38,7 +38,7 @@ REQUIRED_TABLES = {
     "kit:epex_spot": ("continuous_statistics", "continuous_indices", "continuous_trades", "intraday_auction_prices_volumes"),
     "kit:regelleistung": ("file_rows", "numeric_values"),
     "kit:smard": ("prices", "smard"),
-    "kit:weather_forecast": ("hourly_forecast",),
+    "kit:open_meteo": ("hourly_forecast", "runs"),
     "kit:mastr": ("EinheitenWind", "Katalogkategorien", "Katalogwerte"),
     "kit:power_system_data": ("powersystemdata", "eic_geo_location"),
     "core:entsoe_crawler": ("query_day_ahead_prices", "query_load", "query_load_forecast",
@@ -142,9 +142,8 @@ def execute_case(case):
         module = importlib.import_module("oeds.crawler." + name)
         cls = getattr(module, core_crawler_classes(core_dir() / (name + ".py"))[0])
     if name == "open_meteo":
-        config["locations"] = module.DEFAULT_LOCATIONS[:1]
-    elif name == "weather_forecast":
-        config["locations"] = cls.DEFAULT_LOCATIONS[:1]
+        config["locations"] = [{"location_id": "de_52_13", "name": "52°N 13°E", "country_code": "DE",
+                                "country_name": "Germany", "latitude": 52.0, "longitude": 13.0}]
     if source == "core" and name == "eon_grid_fees":
         from oeds.crawler.nuts_mapper import NutsCrawler
         NutsCrawler("public", config).crawl_structural()
