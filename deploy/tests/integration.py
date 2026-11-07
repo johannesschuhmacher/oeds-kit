@@ -45,8 +45,8 @@ def fixture_crawler(stage):
                 crawler = ninja.NinjaCrawler(schema, {'db_uri': URI})
                 crawler.crawl_structural(recreate=True)
             else:
-                from crawler.ninja import NinjaCrawler
-                crawler = NinjaCrawler('ninja', {
+                from crawler.renewables_ninja import RenewablesNinjaCrawler
+                crawler = RenewablesNinjaCrawler('renewables_ninja', {
                     'schema_name': schema, 'database_uri': URI + '?options=--search_path=',
                     'datafiles': {kind: {'download_url': f'{url}/{kind}.zip',
                                         'extract_filename': name} for kind, name in names.items()}})
@@ -84,10 +84,10 @@ def schedule_test():
         data = {'default': {'enable': False, 'database_uri': URI + '?options=--search_path=',
                             'email': {'mailhost': '', 'fromaddr': '', 'toaddrs': [],
                                       'subject': '', 'username': '', 'password': ''}},
-                'ninja': {'enable': True, 'schema_name': 'oeds_test_schedule',
+                'renewables_ninja': {'enable': True, 'schema_name': 'oeds_test_schedule',
                           'smoke_mode': True, 'smoke_rows': 4, 'schedule': '* * * * *',
                           'run_post_scripts': True,
-                          'post_run_scripts': ['oeds-post gapfill entsoe-fms --self-test']}}
+                          'post_run_scripts': ['oeds-post gapfill entsoe-files --self-test']}}
         config.write_text(yaml.safe_dump(data))
         app = SchedulerApplication(config, post_run_executor=post)
         assert app.snapshot.ready and app.snapshot.planned_job_count == 1, app.snapshot
@@ -100,7 +100,7 @@ def schedule_test():
             timer.cancel()
         assert len(results) == 2 and all(r.success for r in results), results
         assert time.monotonic() - started >= 50, 'Expected real minute-separated runs'
-        data['ninja']['enable'] = False
+        data['renewables_ninja']['enable'] = False
         config.write_text(yaml.safe_dump(data))
         assert app.reload_if_changed()
         assert app.snapshot.planned_job_count == 0
@@ -116,7 +116,7 @@ def main():
     if stage in ('core', 'crawlers'):
         fixture_crawler(stage)
     elif stage == 'post':
-        subprocess.run(['oeds-post', 'gapfill', 'entsoe-fms', '--self-test'], check=True)
+        subprocess.run(['oeds-post', 'gapfill', 'entsoe-files', '--self-test'], check=True)
         subprocess.run(['oeds-post', 'forecast', 'day-ahead-price', '--self-test'], check=True)
         print('PASS post-processing numerical self-tests', flush=True)
     else:

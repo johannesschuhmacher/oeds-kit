@@ -86,7 +86,7 @@ FROM mapping;
 
 -- Approximate country display points based on existing mapped plant coordinates.
 -- This is operationally simple and avoids an extra geographic source dependency.
--- power_system_data stores varchar; ::text keeps the view column types of the
+-- powerplantmatching stores varchar; ::text keeps the view column types of the
 -- former entsoe_fms.powersystemdata (text), which CREATE OR REPLACE VIEW requires.
 CREATE OR REPLACE VIEW entsoe_availability_map.v_country_display_point AS
 SELECT
@@ -94,7 +94,7 @@ SELECT
     country::text AS country_name,
     AVG(lon)::double precision AS lon,
     AVG(lat)::double precision AS lat
-FROM power_system_data.powersystemdata
+FROM powerplantmatching.powerplants
 WHERE country IS NOT NULL
   AND lon IS NOT NULL
   AND lat IS NOT NULL
@@ -114,7 +114,7 @@ WITH ranked AS (
                 o."Version" DESC,
                 o."UpdateTime(UTC)" DESC
         ) AS version_rank
-    FROM entsoe_fms."UnavailabilityOfProductionAndGenerationUnits" o
+    FROM entsoe_files."UnavailabilityOfProductionAndGenerationUnits" o
     -- "EndTimeSeries(UTC)" is part of the PARTITION BY (NULLs form one partition),
     -- so this predicate is constant within every partition and only drops whole
     -- partitions that the COALESCE(...) > now() filter in "latest" would drop
@@ -166,7 +166,7 @@ prod_unit_latest AS (
         "ProductionType" AS production_type,
         "InstalledCapacity[MW]"::double precision AS installed_capacity_mw,
         "UpdateTime(UTC)" AS update_time_utc
-    FROM entsoe_fms."InstalledGenerationCapacityPerProductionUnit"
+    FROM entsoe_files."InstalledGenerationCapacityPerProductionUnit"
     ORDER BY
         "ProductionUnitCode",
         COALESCE("ValidityPeriodEnd(UTC)", "ValidityPeriodStart(UTC)") DESC,
@@ -191,7 +191,7 @@ SELECT
 FROM outage_assets a
 LEFT JOIN entsoe_availability_map.asset_mapping_override m
     ON m.asset_code = a.asset_code
-LEFT JOIN power_system_data.powersystemdata p
+LEFT JOIN powerplantmatching.powerplants p
     ON p.eic_code = a.asset_code
 LEFT JOIN prod_unit_latest pu
     ON pu.production_unit_code = a.asset_code

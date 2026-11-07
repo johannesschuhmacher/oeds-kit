@@ -5,12 +5,12 @@ by default `nrg_inf_epcrw`, loaded with the Python package `eurostat`.
 
 | | |
 | --- | --- |
-| Module | `packages/crawler-pack/src/crawler/eurostat_crawler.py` |
+| Module | `packages/crawler-pack/src/crawler/eurostat.py` |
 | Schema | `eurostat` |
 | Access | none |
 | Licence | not stated |
 | Resolution | 1 year |
-| Dashboard | `Crawlers/eurostat_crawler.json` |
+| Dashboard | `Crawlers/eurostat.json` |
 
 ## Data
 
@@ -30,7 +30,7 @@ the dataset; values are not converted. Each run also updates the row of
 ## Configuration
 
 ```yaml
-eurostat_crawler:
+eurostat:
   enable: false
   schema_name: eurostat
   description: Crawls Eurostat data
@@ -48,7 +48,7 @@ characters replaced by `_`); `table_name` sets the table name explicitly.
 ## Run by hand
 
 ```bash
-docker exec oeds-scheduler oeds-crawl eurostat_crawler
+docker exec oeds-scheduler oeds-crawl eurostat
 ```
 
 ## Notes

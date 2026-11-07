@@ -22,7 +22,7 @@ CONFIG_FILENAME = "CRAWLER_CONFIG.yml"
 # The post-run command the gapfill panel adds; any "oeds-post gapfill ..."
 # command (for example with extra arguments) and the legacy script it replaced
 # count as the gapfill step.
-GAPFILL_POSTRUN_SCRIPT = "oeds-post gapfill entsoe-fms"
+GAPFILL_POSTRUN_SCRIPT = "oeds-post gapfill entsoe-files"
 LEGACY_GAPFILL_SCRIPT_NAME = "gapfill_timeseries.py"
 WINDOWS_TIMEZONE_ABBREVIATIONS = {
     "W. Europe Standard Time": "CET",
@@ -454,7 +454,7 @@ def _validate_crawler_jobs(
                 )
             )
 
-        if crawler_name == "entsoe_fms":
+        if crawler_name == "entsoe_files":
             window_months = effective_job_config.get("fms_package_window_months")
             if window_months is not None:
                 try:

@@ -13,7 +13,7 @@ RAW = {
         "email": {"mailhost": ""},
     },
     "smard": {"enable": True, "schema_name": "smard", "post_run_scripts": ["oeds-post gapfill smard"]},
-    "entsoe_fms": {
+    "entsoe_files": {
         "enable": True,
         "default_start_date": "2014-01-01",
         "jobs": {
@@ -29,14 +29,14 @@ RAW = {
 
 
 def test_effective_config_merges_default_section_and_job():
-    config = effective_crawler_config(RAW, "entsoe_fms", "latest_hourly")
+    config = effective_crawler_config(RAW, "entsoe_files", "latest_hourly")
 
     assert config["fms_package_window_months"] == 1
     assert config["default_start_date"] == "2014-01-01"
     assert config["email"] == {"mailhost": ""}
     assert config["db_uri"] == config["database_uri"] == RAW["default"]["database_uri"]
-    assert config["_scheduler_job_id"] == "entsoe_fms:latest_hourly"
-    assert config["schema_name"] == "entsoe_fms"
+    assert config["_scheduler_job_id"] == "entsoe_files:latest_hourly"
+    assert config["schema_name"] == "entsoe_files"
     assert not {"enable", "schedule", "jobs", "run_post_scripts"} & set(config)
 
 
@@ -51,12 +51,12 @@ def test_unknown_crawler_or_job_is_an_error():
     with pytest.raises(KeyError):
         effective_crawler_config(RAW, "nope")
     with pytest.raises(KeyError):
-        effective_crawler_config(RAW, "entsoe_fms", "nope")
+        effective_crawler_config(RAW, "entsoe_files", "nope")
 
 
 def test_entry_points_register_the_pack_crawlers():
     entries = cli.crawler_entry_points()
-    assert {"smard", "entsoe_fms", "mastr"} <= set(entries)
+    assert {"smard", "entsoe_files", "mastr"} <= set(entries)
     assert cli.load_crawler_class("smard").__name__ == "SmardCrawler"
 
 

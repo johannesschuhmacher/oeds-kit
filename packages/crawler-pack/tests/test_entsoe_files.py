@@ -3,37 +3,37 @@ import pytest
 from unittest.mock import Mock
 from sqlalchemy import MetaData, UniqueConstraint
 
-from crawler.entsoe_fms import EntsoeFMSCrawler
+from crawler.entsoe_files import EntsoeFilesCrawler
 
 
 def test_monthly_file_filter_uses_requested_window():
     start = pd.Timestamp("2026-09-03", tz="Europe/Berlin")
     end = pd.Timestamp("2026-09-04", tz="Europe/Berlin")
 
-    assert EntsoeFMSCrawler._file_period_overlaps(
+    assert EntsoeFilesCrawler._file_period_overlaps(
         "2026_09_EnergyPrices.csv", start, end
     )
-    assert not EntsoeFMSCrawler._file_period_overlaps(
+    assert not EntsoeFilesCrawler._file_period_overlaps(
         "2026_08_EnergyPrices.csv", start, end
     )
-    assert not EntsoeFMSCrawler._file_period_overlaps(
+    assert not EntsoeFilesCrawler._file_period_overlaps(
         "2026_10_EnergyPrices.csv", start, end
     )
 
 
 def test_run_uses_runtime_directory_and_reports_failure(monkeypatch):
-    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler = object.__new__(EntsoeFilesCrawler)
     crawler.config = {'fms_package_window_months': 1}
     crawler.logger = Mock()
-    crawler.fetch_from_entsoe_fms_to_database = Mock(side_effect=RuntimeError('download failed'))
+    crawler.fetch_from_entsoe_files_to_database = Mock(side_effect=RuntimeError('download failed'))
     monkeypatch.setenv('OEDS_CRAWLER_DATA_DIR', '/tmp/crawler-downloads')
     with pytest.raises(RuntimeError, match='download failed'):
         crawler.run()
-    assert crawler.fetch_from_entsoe_fms_to_database.call_args.args[0] == '/tmp/crawler-downloads'
+    assert crawler.fetch_from_entsoe_files_to_database.call_args.args[0] == '/tmp/crawler-downloads'
 
 
 def test_newest_file_library_version_is_used():
-    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler = object.__new__(EntsoeFilesCrawler)
     crawler.logger = Mock()
     crawler._available_folders = [
         "EnergyPrices_12.1.D_r3",
@@ -61,7 +61,7 @@ def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
     row = "\t".join(["2026-09-15 00:00:00", "PT60M", "10Y", "DE-LU", "BZN", "DE_LU", "DA", "1", "10.0", "EUR",
                      "2026-09-16 00:00:00"])
 
-    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler = object.__new__(EntsoeFilesCrawler)
     crawler.logger = Mock()
     crawler.config = {"target_data_items": ["EnergyPrices_12.1.D"]}
     crawler._authenticate = Mock()
@@ -93,7 +93,7 @@ def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
 
 
 def _fake_crawler(**attrs):
-    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler = object.__new__(EntsoeFilesCrawler)
     crawler.logger = Mock()
     crawler._reflected_tables = {}
     crawler._known_columns = {}
@@ -140,13 +140,13 @@ def test_c_parser_and_iso_timestamps_match_previous_parsing(tmp_path):
 
     for col in ("DateTime(UTC)", "UpdateTime(UTC)"):
         old[col] = pd.to_datetime(old[col], format="mixed").dt.tz_localize("UTC")
-    new = EntsoeFMSCrawler._normalize_timestamp_columns(new)
+    new = EntsoeFilesCrawler._normalize_timestamp_columns(new)
     pd.testing.assert_frame_equal(old, new)
 
 
 def test_iso_parser_falls_back_to_mixed_for_non_iso_values():
     df = pd.DataFrame({"UpdateTime(UTC)": ["15/09/2026 10:00", "16/09/2026 11:30"]})
-    out = EntsoeFMSCrawler._normalize_timestamp_columns(df)
+    out = EntsoeFilesCrawler._normalize_timestamp_columns(df)
     assert out["UpdateTime(UTC)"].tolist() == [
         pd.Timestamp("2026-09-15 10:00", tz="UTC"),
         pd.Timestamp("2026-09-16 11:30", tz="UTC"),
@@ -155,7 +155,7 @@ def test_iso_parser_falls_back_to_mixed_for_non_iso_values():
 
 def _upsert_capture(monkeypatch, crawler, table, df):
     copy_upsert = Mock()
-    monkeypatch.setattr("crawler.entsoe_fms.copy_upsert", copy_upsert)
+    monkeypatch.setattr("crawler.entsoe_files.copy_upsert", copy_upsert)
     crawler.engine = Mock()
     crawler._reflected_tables[table.name] = table
     crawler._upsert_dataframe(table.name, df)
@@ -166,7 +166,7 @@ def test_upsert_only_rewrites_rows_with_newer_update_time(monkeypatch):
     from sqlalchemy import Column, DateTime, Float, String, Table
 
     table = Table(
-        "EnergyPrices", MetaData(schema="entsoe_fms"),
+        "EnergyPrices", MetaData(schema="entsoe_files"),
         Column("DateTime(UTC)", DateTime(timezone=True)), Column("AreaCode", String),
         Column("Price[Currency/MWh]", Float), Column("UpdateTime(UTC)", DateTime(timezone=True)),
         UniqueConstraint("DateTime(UTC)", "AreaCode", name="unique_energy_prices"),
@@ -185,8 +185,8 @@ def test_upsert_only_rewrites_rows_with_newer_update_time(monkeypatch):
     assert target is table
     assert (constraint, keys) == ("unique_energy_prices", ["DateTime(UTC)", "AreaCode"])
     assert where == (
-        '"entsoe_fms"."EnergyPrices"."UpdateTime(UTC)" IS NULL '
-        'OR "entsoe_fms"."EnergyPrices"."UpdateTime(UTC)" < EXCLUDED."UpdateTime(UTC)"'
+        '"entsoe_files"."EnergyPrices"."UpdateTime(UTC)" IS NULL '
+        'OR "entsoe_files"."EnergyPrices"."UpdateTime(UTC)" < EXCLUDED."UpdateTime(UTC)"'
     )
     # Of duplicate keys the row with the newest UpdateTime is kept.
     assert frame["Price[Currency/MWh]"].tolist() == [11.0]
@@ -196,7 +196,7 @@ def test_upsert_without_update_time_column_updates_unconditionally(monkeypatch):
     from sqlalchemy import Column, Float, String, Table
 
     table = Table(
-        "TransmissionAssets", MetaData(schema="entsoe_fms"),
+        "TransmissionAssets", MetaData(schema="entsoe_files"),
         Column("AssetCode", String), Column("Capacity", Float),
         UniqueConstraint("AssetCode", name="unique_transmission_assets"),
     )
@@ -271,9 +271,9 @@ def test_new_tables_index_update_time(monkeypatch):
     monkeypatch.setattr(MetaData, "create_all", lambda metadata, engine, tables: created.append(metadata))
     crawler = _fake_crawler(engine=Mock())
 
-    for table_name in EntsoeFMSCrawler.DATA_ITEM_TABLE_MAP.values():
+    for table_name in EntsoeFilesCrawler.DATA_ITEM_TABLE_MAP.values():
         crawler._create_table_with_unique_constraint(table_name)
-        table = created[-1].tables[f"entsoe_fms.{table_name}"]
+        table = created[-1].tables[f"entsoe_files.{table_name}"]
         indexes = list(table.indexes)
         if "UpdateTime(UTC)" in table.c:
             assert [index.name for index in indexes] == [f"ix_{table_name}_updatetime"[:63]], table_name
@@ -296,7 +296,7 @@ def test_existing_table_update_time_index_is_created_once_per_run():
     statements = [str(call.args[0]) for call in conn.execute.call_args_list]
     assert statements == [
         "SELECT to_regclass(:name)",
-        'CREATE INDEX IF NOT EXISTS "ix_EnergyPrices_updatetime" ON "entsoe_fms"."EnergyPrices" ("UpdateTime(UTC)")',
+        'CREATE INDEX IF NOT EXISTS "ix_EnergyPrices_updatetime" ON "entsoe_files"."EnergyPrices" ("UpdateTime(UTC)")',
     ]
 
 
@@ -304,7 +304,7 @@ def test_watermarks_are_naive_utc_whatever_the_session_time_zone():
     from datetime import datetime, timedelta, timezone
     from unittest.mock import MagicMock
 
-    crawler = object.__new__(EntsoeFMSCrawler)
+    crawler = object.__new__(EntsoeFilesCrawler)
     crawler._table_columns = Mock(return_value=["DateTime(UTC)", "UpdateTime(UTC)"])
     crawler.engine = MagicMock()
     # timestamptz as returned with the session time zone Europe/Berlin in summer.

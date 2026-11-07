@@ -63,7 +63,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_fms.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND((100.0 * SUM(u.\"AllocatedCapacity[MW]\") / NULLIF(SUM(u.\"RequestedCapacity[MW]\"), 0))::numeric, 1) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
+          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_files.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND((100.0 * SUM(u.\"AllocatedCapacity[MW]\") / NULLIF(SUM(u.\"RequestedCapacity[MW]\"), 0))::numeric, 1) AS value\nFROM entsoe_files.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
           "refId": "A"
         }
       ],
@@ -128,7 +128,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_fms.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND(AVG(u.\"CapacityPrice[Currency/MWh]\")::numeric, 2) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
+          "rawSql": "\nWITH latest AS (\n  SELECT MAX(\"DateTime(UTC)\") AS ts\n  FROM entsoe_files.\"UseOfTransferCapacity\"\n  WHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n    AND \"ContractType\" = '$Contract_Type'\n)\nSELECT ROUND(AVG(u.\"CapacityPrice[Currency/MWh]\")::numeric, 2) AS value\nFROM entsoe_files.\"UseOfTransferCapacity\" u\nJOIN latest l ON u.\"DateTime(UTC)\" = l.ts\nWHERE (u.\"OutAreaDisplayName\" || ' -> ' || u.\"InAreaDisplayName\") = '$Border'\n  AND u.\"ContractType\" = '$Contract_Type';\n",
           "refId": "A"
         }
       ],
@@ -193,7 +193,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT ROUND(\"ForecastMargin[MW]\"::numeric, 1) AS value\nFROM entsoe_fms.\"YearAheadForecastMargin\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"Year\"::int = $Margin_Year\nORDER BY \"UpdateTime(UTC)\" DESC\nLIMIT 1;\n",
+          "rawSql": "\nSELECT ROUND(\"ForecastMargin[MW]\"::numeric, 1) AS value\nFROM entsoe_files.\"YearAheadForecastMargin\"\nWHERE \"AreaDisplayName\" = '$Country'\n  AND \"Year\"::int = $Margin_Year\nORDER BY \"UpdateTime(UTC)\" DESC\nLIMIT 1;\n",
           "refId": "A"
         }
       ],
@@ -258,7 +258,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT COUNT(DISTINCT \"AssetCode\") AS value\nFROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\nWHERE \"Status\" = 'Active';\n",
+          "rawSql": "\nSELECT COUNT(DISTINCT \"AssetCode\") AS value\nFROM entsoe_files.\"ExpansionAndDismantlingProjects\"\nWHERE \"Status\" = 'Active';\n",
           "refId": "A"
         }
       ],
@@ -322,7 +322,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Allocated' AS metric,\n  SUM(\"AllocatedCapacity[MW]\") AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nUNION ALL\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Requested' AS metric,\n  SUM(\"RequestedCapacity[MW]\") AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Allocated' AS metric,\n  SUM(\"AllocatedCapacity[MW]\") AS value\nFROM entsoe_files.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nUNION ALL\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  'Requested' AS metric,\n  SUM(\"RequestedCapacity[MW]\") AS value\nFROM entsoe_files.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
           "refId": "A"
         }
       ],
@@ -415,7 +415,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  ROUND((100.0 * SUM(\"AllocatedCapacity[MW]\") / NULLIF(SUM(\"RequestedCapacity[MW]\"), 0))::numeric, 2) AS value\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\" AS \"time\",\n  ROUND((100.0 * SUM(\"AllocatedCapacity[MW]\") / NULLIF(SUM(\"RequestedCapacity[MW]\"), 0))::numeric, 2) AS value\nFROM entsoe_files.\"UseOfTransferCapacity\"\nWHERE $__timeFilter(\"DateTime(UTC)\")\n  AND (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nGROUP BY 1\nORDER BY 1;\n",
           "refId": "A"
         }
       ],
@@ -508,7 +508,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"Category\",\n  \"Sequence\",\n  \"AllocatedCapacity[MW]\",\n  \"RequestedCapacity[MW]\",\n  ROUND((100.0 * \"AllocatedCapacity[MW]\" / NULLIF(\"RequestedCapacity[MW]\", 0))::numeric, 1) AS \"Utilisation[%]\",\n  \"CapacityPrice[Currency/MWh]\",\n  \"Currency\"\nFROM entsoe_fms.\"UseOfTransferCapacity\"\nWHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nORDER BY \"DateTime(UTC)\" DESC, \"Category\", \"Sequence\"\nLIMIT 100;\n",
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"Category\",\n  \"Sequence\",\n  \"AllocatedCapacity[MW]\",\n  \"RequestedCapacity[MW]\",\n  ROUND((100.0 * \"AllocatedCapacity[MW]\" / NULLIF(\"RequestedCapacity[MW]\", 0))::numeric, 1) AS \"Utilisation[%]\",\n  \"CapacityPrice[Currency/MWh]\",\n  \"Currency\"\nFROM entsoe_files.\"UseOfTransferCapacity\"\nWHERE (\"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\") = '$Border'\n  AND \"ContractType\" = '$Contract_Type'\nORDER BY \"DateTime(UTC)\" DESC, \"Category\", \"Sequence\"\nLIMIT 100;\n",
           "refId": "A"
         }
       ],
@@ -573,7 +573,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"AreaDisplayName\",\n  \"ForecastMargin[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"AreaDisplayName\", \"AreaTypeCode\")\n    \"AreaDisplayName\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_fms.\"YearAheadForecastMargin\"\n  WHERE \"Year\"::int = $Margin_Year\n  ORDER BY \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"ForecastMargin[MW]\" DESC NULLS LAST;\n",
+          "rawSql": "\nSELECT\n  \"AreaDisplayName\",\n  \"ForecastMargin[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"AreaDisplayName\", \"AreaTypeCode\")\n    \"AreaDisplayName\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_files.\"YearAheadForecastMargin\"\n  WHERE \"Year\"::int = $Margin_Year\n  ORDER BY \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"ForecastMargin[MW]\" DESC NULLS LAST;\n",
           "refId": "A"
         }
       ],
@@ -637,7 +637,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  make_date(\"Year\"::int, 1, 1) AS \"time\",\n  \"ForecastMargin[MW]\" AS value\nFROM (\n  SELECT DISTINCT ON (\"Year\", \"AreaDisplayName\", \"AreaTypeCode\")\n    \"Year\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_fms.\"YearAheadForecastMargin\"\n  WHERE \"AreaDisplayName\" = '$Country'\n  ORDER BY \"Year\", \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY 1;\n",
+          "rawSql": "\nSELECT\n  make_date(\"Year\"::int, 1, 1) AS \"time\",\n  \"ForecastMargin[MW]\" AS value\nFROM (\n  SELECT DISTINCT ON (\"Year\", \"AreaDisplayName\", \"AreaTypeCode\")\n    \"Year\",\n    \"ForecastMargin[MW]\"\n  FROM entsoe_files.\"YearAheadForecastMargin\"\n  WHERE \"AreaDisplayName\" = '$Country'\n  ORDER BY \"Year\", \"AreaDisplayName\", \"AreaTypeCode\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY 1;\n",
           "refId": "A"
         }
       ],
@@ -730,7 +730,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  COALESCE(\"OutAreaDisplayName\", '?') || ' -> ' || COALESCE(\"InAreaDisplayName\", '?') AS \"Border\",\n  SUM(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
+          "rawSql": "\nSELECT\n  COALESCE(\"OutAreaDisplayName\", '?') || ' -> ' || COALESCE(\"InAreaDisplayName\", '?') AS \"Border\",\n  SUM(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_files.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
           "refId": "A"
         }
       ],
@@ -794,7 +794,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"OutAreaDisplayName\",\n  \"InAreaDisplayName\",\n  \"ProjectType\",\n  \"AssetName\",\n  \"AssetType\",\n  \"NewNTC[MW]\",\n  \"EstimatedCompletionDate\",\n  \"Status\",\n  \"Comment\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    *\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"EstimatedCompletionDate\" NULLS LAST, \"DateTime(UTC)\" DESC\nLIMIT 150;\n",
+          "rawSql": "\nSELECT\n  \"DateTime(UTC)\",\n  \"OutAreaDisplayName\",\n  \"InAreaDisplayName\",\n  \"ProjectType\",\n  \"AssetName\",\n  \"AssetType\",\n  \"NewNTC[MW]\",\n  \"EstimatedCompletionDate\",\n  \"Status\",\n  \"Comment\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    *\n  FROM entsoe_files.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nORDER BY \"EstimatedCompletionDate\" NULLS LAST, \"DateTime(UTC)\" DESC\nLIMIT 150;\n",
           "refId": "A"
         }
       ],
@@ -859,7 +859,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  \"Status\",\n  COUNT(DISTINCT \"AssetCode\") AS \"Projects\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nGROUP BY 1\nORDER BY 2 DESC;\n",
+          "rawSql": "\nSELECT\n  \"Status\",\n  COUNT(DISTINCT \"AssetCode\") AS \"Projects\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"EstimatedCompletionDate\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_files.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nGROUP BY 1\nORDER BY 2 DESC;\n",
           "refId": "A"
         }
       ],
@@ -923,7 +923,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT\n  COALESCE(\"AssetName\", \"AssetCode\") AS \"Project\",\n  MAX(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"AssetName\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_fms.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
+          "rawSql": "\nSELECT\n  COALESCE(\"AssetName\", \"AssetCode\") AS \"Project\",\n  MAX(\"NewNTC[MW]\") AS \"NewNTC[MW]\"\nFROM (\n  SELECT DISTINCT ON (\"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\")\n    \"DateTime(UTC)\",\n    \"OutAreaDisplayName\",\n    \"InAreaDisplayName\",\n    \"ProjectType\",\n    \"AssetCode\",\n    \"AssetName\",\n    \"EstimatedCompletionDate\",\n    \"NewNTC[MW]\",\n    \"Status\",\n    \"UpdateTime(UTC)\"\n  FROM entsoe_files.\"ExpansionAndDismantlingProjects\"\n  ORDER BY \"DateTime(UTC)\", \"OutAreaDisplayName\", \"InAreaDisplayName\", \"ProjectType\", \"AssetCode\", \"EstimatedCompletionDate\", \"UpdateTime(UTC)\" DESC\n) latest\nWHERE \"Status\" = 'Active'\nGROUP BY 1\nORDER BY 2 DESC NULLS LAST\nLIMIT 15;\n",
           "refId": "A"
         }
       ],
@@ -984,8 +984,8 @@
         "name": "Border",
         "label": "Border",
         "type": "query",
-        "query": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
-        "definition": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "query": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_files.\"UseOfTransferCapacity\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"OutAreaDisplayName\" || ' -> ' || \"InAreaDisplayName\" AS border FROM entsoe_files.\"UseOfTransferCapacity\" ORDER BY 1",
         "refresh": 1,
         "sort": 1,
         "current": {
@@ -998,8 +998,8 @@
         "name": "Contract_Type",
         "label": "Contract Type",
         "type": "query",
-        "query": "SELECT DISTINCT \"ContractType\" FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
-        "definition": "SELECT DISTINCT \"ContractType\" FROM entsoe_fms.\"UseOfTransferCapacity\" ORDER BY 1",
+        "query": "SELECT DISTINCT \"ContractType\" FROM entsoe_files.\"UseOfTransferCapacity\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"ContractType\" FROM entsoe_files.\"UseOfTransferCapacity\" ORDER BY 1",
         "refresh": 1,
         "sort": 1,
         "current": {
@@ -1012,8 +1012,8 @@
         "name": "Country",
         "label": "Country / Zone",
         "type": "query",
-        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1",
-        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1",
+        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_files.\"YearAheadForecastMargin\" ORDER BY 1",
+        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_files.\"YearAheadForecastMargin\" ORDER BY 1",
         "refresh": 1,
         "sort": 1,
         "current": {
@@ -1026,8 +1026,8 @@
         "name": "Margin_Year",
         "label": "Margin Year",
         "type": "query",
-        "query": "SELECT DISTINCT \"Year\"::int FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
-        "definition": "SELECT DISTINCT \"Year\"::int FROM entsoe_fms.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
+        "query": "SELECT DISTINCT \"Year\"::int FROM entsoe_files.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT \"Year\"::int FROM entsoe_files.\"YearAheadForecastMargin\" ORDER BY 1 DESC",
         "refresh": 1,
         "sort": 3,
         "current": {

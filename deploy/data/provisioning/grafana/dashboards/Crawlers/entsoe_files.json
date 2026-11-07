@@ -21,7 +21,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"TotalLoad[MW]\" AS value FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' ORDER BY 1 DESC LIMIT 1"
+          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"TotalLoad[MW]\" AS value FROM entsoe_files.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' ORDER BY 1 DESC LIMIT 1"
         }
       ],
       "fieldConfig": {
@@ -84,7 +84,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"Price[Currency/MWh]\" AS value FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" <= now() ORDER BY 1 DESC LIMIT 1"
+          "rawSql": "SELECT \"DateTime(UTC)\" AS time, \"Price[Currency/MWh]\" AS value FROM entsoe_files.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" <= now() ORDER BY 1 DESC LIMIT 1"
         }
       ],
       "fieldConfig": {
@@ -147,7 +147,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT now() AS time, sum(\"ActualGenerationOutput[MW]\") FILTER (WHERE \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) / nullif(sum(\"ActualGenerationOutput[MW]\"), 0) AS value FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '24 hours'"
+          "rawSql": "SELECT now() AS time, sum(\"ActualGenerationOutput[MW]\") FILTER (WHERE \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) / nullif(sum(\"ActualGenerationOutput[MW]\"), 0) AS value FROM entsoe_files.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '24 hours'"
         }
       ],
       "fieldConfig": {
@@ -210,7 +210,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT ts AS time, sum(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END AS mw FROM entsoe_fms.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" >= now() - interval '2 days') f GROUP BY ts ORDER BY ts DESC LIMIT 1"
+          "rawSql": "SELECT ts AS time, sum(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END AS mw FROM entsoe_files.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" >= now() - interval '2 days') f GROUP BY ts ORDER BY ts DESC LIMIT 1"
         }
       ],
       "fieldConfig": {
@@ -273,7 +273,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Actual load\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_fms.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Actual load\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_files.\"ActualTotalLoad\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
         },
         {
           "refId": "B",
@@ -284,7 +284,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Day-ahead forecast\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_fms.\"DayAheadTotalLoadForecast\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(mw) AS \"Day-ahead forecast\" FROM (SELECT \"DateTime(UTC)\" AS ts, \"TotalLoad[MW]\" AS mw FROM entsoe_files.\"DayAheadTotalLoadForecast\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -346,7 +346,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(price) AS \"Day-ahead price\" FROM ( SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS price FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), avg(price) AS \"Day-ahead price\" FROM ( SELECT \"DateTime(UTC)\" AS ts, \"Price[Currency/MWh]\" AS price FROM entsoe_files.\"EnergyPrices\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Sequence\" = '1' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1 ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -408,7 +408,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_files.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -470,7 +470,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' forecast' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"DayAheadGenerationForecast[MW]\" AS mw FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' forecast' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"DayAheadGenerationForecast[MW]\" AS mw FROM entsoe_files.\"GenerationForecastsForWindAndSolar\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()) x GROUP BY 1, 2 ORDER BY 1, 2"
         },
         {
           "refId": "B",
@@ -481,7 +481,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' actual' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_fms.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() AND \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) x GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), type || ' actual' AS metric, avg(mw) AS value FROM ( SELECT \"DateTime(UTC)\" AS ts, \"ProductionType\" AS type, \"ActualGenerationOutput[MW]\" AS mw FROM entsoe_files.\"AggregatedGenerationPerType\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() AND \"ProductionType\" IN ('Solar', 'Wind Onshore', 'Wind Offshore')) x GROUP BY 1, 2 ORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -543,7 +543,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), neighbour AS metric, avg(mw) AS value FROM (SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"OutAreaDisplayName\" ELSE \"InAreaDisplayName\" END AS neighbour, sum(CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END) AS mw FROM entsoe_fms.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() GROUP BY 1, 2) x GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT $__timeGroupAlias(ts, $__interval), neighbour AS metric, avg(mw) AS value FROM (SELECT \"DateTime(UTC)\" AS ts, CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"OutAreaDisplayName\" ELSE \"InAreaDisplayName\" END AS neighbour, sum(CASE WHEN \"InAreaDisplayName\" = '$country' THEN \"Flow[MW]\" ELSE -\"Flow[MW]\" END) AS mw FROM entsoe_files.\"PhysicalFlows\" WHERE (\"InAreaDisplayName\" = '$country' OR \"OutAreaDisplayName\" = '$country') AND \"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo() GROUP BY 1, 2) x GROUP BY 1, 2 ORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -605,7 +605,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \"ProductionType\" AS type, sum(\"AggregatedInstalledCapacity[MW]\") AS \"Installed capacity\" FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Year\" = (SELECT max(\"Year\") FROM entsoe_fms.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%') GROUP BY 1 ORDER BY 2 DESC"
+          "rawSql": "SELECT \"ProductionType\" AS type, sum(\"AggregatedInstalledCapacity[MW]\") AS \"Installed capacity\" FROM entsoe_files.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%' AND \"Year\" = (SELECT max(\"Year\") FROM entsoe_files.\"InstalledGenerationCapacityAggregated\" WHERE \"AreaDisplayName\" = '$country' AND \"AreaTypeCode\" LIKE '%BZN%') GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
@@ -664,7 +664,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT 'Actual total load' AS dataset, max(\"DateTime(UTC)\") AS last_value, max(\"UpdateTime(UTC)\") AS last_update FROM entsoe_fms.\"ActualTotalLoad\" UNION ALL SELECT 'Day-ahead load forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"DayAheadTotalLoadForecast\" UNION ALL SELECT 'Generation per type', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"AggregatedGenerationPerType\" UNION ALL SELECT 'Wind and solar forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"GenerationForecastsForWindAndSolar\" UNION ALL SELECT 'Day-ahead prices', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"EnergyPrices\" UNION ALL SELECT 'Physical flows', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"PhysicalFlows\" UNION ALL SELECT 'Transfer capacities', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_fms.\"ForecastedTransferCapacities\""
+          "rawSql": "SELECT 'Actual total load' AS dataset, max(\"DateTime(UTC)\") AS last_value, max(\"UpdateTime(UTC)\") AS last_update FROM entsoe_files.\"ActualTotalLoad\" UNION ALL SELECT 'Day-ahead load forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"DayAheadTotalLoadForecast\" UNION ALL SELECT 'Generation per type', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"AggregatedGenerationPerType\" UNION ALL SELECT 'Wind and solar forecast', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"GenerationForecastsForWindAndSolar\" UNION ALL SELECT 'Day-ahead prices', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"EnergyPrices\" UNION ALL SELECT 'Physical flows', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"PhysicalFlows\" UNION ALL SELECT 'Transfer capacities', max(\"DateTime(UTC)\"), max(\"UpdateTime(UTC)\") FROM entsoe_files.\"ForecastedTransferCapacities\""
         }
       ],
       "fieldConfig": {
@@ -717,8 +717,8 @@
           "type": "grafana-postgresql-datasource",
           "uid": "P6EAA63344BCC9F38"
         },
-        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
-        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_fms.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
+        "query": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_files.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT \"AreaDisplayName\" FROM entsoe_files.\"EnergyPrices\" WHERE \"AreaTypeCode\" LIKE '%BZN%' AND \"DateTime(UTC)\" >= now() - interval '30 days' ORDER BY 1",
         "refresh": 1,
         "sort": 0,
         "multi": false,

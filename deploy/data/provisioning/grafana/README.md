@@ -9,8 +9,8 @@ a Grafana folder:
 - `Analyses/` has dashboards that combine sources: day-ahead price forecast,
   energy weather, and the ENTSO-E cross-border, country, stress, forecast
   accuracy and negative price views, and ENTSO-E power plants and
-  availability. Its plant maps need the `power_system_data` crawler, its
-  availability map the `entsoe_fms` crawler, whose post-run script
+  availability. Its plant maps need the `powerplantmatching` crawler, its
+  availability map the `entsoe_files` crawler, whose post-run script
   `oeds-post refresh entsoe-availability-map` fills it.
 
 The SMARD and Open-Meteo weather dashboards were exported read-only from

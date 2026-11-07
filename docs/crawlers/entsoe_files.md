@@ -1,4 +1,4 @@
-# ENTSO-E FMS
+# ENTSO-E File Library
 
 Load, generation, capacity, price, cross-border, balancing and outage data from
 the File Library (FMS) of the
@@ -8,12 +8,12 @@ downloads the tab-separated extracts in `TP_export` from
 
 | | |
 | --- | --- |
-| Module | `packages/crawler-pack/src/crawler/entsoe_fms.py` |
-| Schema | `entsoe_fms` |
+| Module | `packages/crawler-pack/src/crawler/entsoe_files.py` |
+| Schema | `entsoe_files` |
 | Access | Transparency Platform account: `ENTSOE_USERNAME`, `ENTSOE_PASSWORD` (OAuth2 password grant) |
 | Licence | not stated |
 | Resolution | per data item (`ResolutionCode` column) |
-| Dashboard | `Crawlers/entsoe_fms.json` |
+| Dashboard | `Crawlers/entsoe_files.json` |
 
 ## Data
 
@@ -68,13 +68,13 @@ row in `public.metadata`.
 ## Configuration
 
 ```yaml
-entsoe_fms:
+entsoe_files:
   enable: false
-  schema_name: entsoe_fms
-  description: Crawls ENTSO-E FMS data (Transparency Platform File Library)
+  schema_name: entsoe_files
+  description: Crawls ENTSO-E File Library data (Transparency Platform File Library)
   default_start_date: '2014-01-01'
   post_run_scripts:
-  - oeds-post gapfill entsoe-fms
+  - oeds-post gapfill entsoe-files
   - oeds-post refresh entsoe-availability-map
   jobs:
     latest_hourly:
@@ -115,7 +115,7 @@ entsoe_fms:
       - UnavailabilityOfProductionAndGenerationUnits_15.1.A_B_C_D
       - InstalledGenerationCapacityPerProductionUnit_14.1.B
       - ActualGenerationOutputPerGenerationUnit_16.1.A
-    # Run once by hand (oeds-crawl entsoe_fms --job initial_unit_data) before
+    # Run once by hand (oeds-crawl entsoe_files --job initial_unit_data) before
     # enabling the jobs above: it loads the history from default_start_date.
     # Once a table exists, runs only load recent files. The availability map
     # and its dashboard need these unit data (generation: about 42 GB of files).
@@ -128,7 +128,7 @@ entsoe_fms:
       - ActualGenerationOutputPerGenerationUnit_16.1.A
   gapfill:
     enable: false
-    target_schema: entsoe_fms_gapfilled
+    target_schema: entsoe_files_gapfilled
     method: donor_refined
     candidate_periods:
     - 24h
@@ -182,14 +182,14 @@ Jobs (only the named jobs are scheduled):
   `schedule` and would inherit `0 4 * * *` if enabled.
 
 After a successful scheduled run of these jobs, `post_run_scripts` fill gaps
-into `entsoe_fms_gapfilled` and refresh the availability map (`packages/post`).
+into `entsoe_files_gapfilled` and refresh the availability map (`packages/post`).
 
 ## Run by hand
 
 ```bash
-docker exec oeds-scheduler oeds-crawl entsoe_fms --job latest_hourly
-docker exec oeds-scheduler oeds-crawl entsoe_fms --job revision_sweep_daily
-docker exec oeds-scheduler oeds-crawl entsoe_fms --job initial_unit_data
+docker exec oeds-scheduler oeds-crawl entsoe_files --job latest_hourly
+docker exec oeds-scheduler oeds-crawl entsoe_files --job revision_sweep_daily
+docker exec oeds-scheduler oeds-crawl entsoe_files --job initial_unit_data
 ```
 
 Without `--job` the crawler loads all 33 data items from `default_start_date`.

@@ -51,11 +51,15 @@ def crawler_entry_points() -> dict[str, EntryPoint]:
     return {entry.name: entry for entry in entry_points(group=ENTRY_POINT_GROUP)}
 
 
+# Core crawlers that a pack crawler of another name replaces (ninja -> renewables_ninja).
+REPLACED_CORE_CRAWLERS = {"ninja"}
+
+
 def core_crawlers() -> dict[str, type]:
     """Built-in crawlers of the OEDS core; importing them imports every core crawler module."""
     from oeds.crawler import crawlers
 
-    return dict(crawlers)
+    return {name: cls for name, cls in crawlers.items() if name not in REPLACED_CORE_CRAWLERS}
 
 
 def known_crawler_names() -> list[str]:

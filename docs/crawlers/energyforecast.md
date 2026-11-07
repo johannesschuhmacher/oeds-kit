@@ -6,12 +6,12 @@ Price forecasts for the next 48 hours for the market zone DE-LU from
 
 | | |
 | --- | --- |
-| Module | `packages/crawler-pack/src/crawler/energy_forecast_crawler.py` |
-| Schema | `energy_forecast` |
+| Module | `packages/crawler-pack/src/crawler/energyforecast.py` |
+| Schema | `energyforecast` |
 | Access | API token (`ENERGY_FORECAST_TOKEN`) |
 | Licence | Proprietary |
 | Resolution | 15 minutes |
-| Dashboard | `Crawlers/energy_forecast_crawler.json` |
+| Dashboard | `Crawlers/energyforecast.json` |
 
 ## Data
 
@@ -26,15 +26,15 @@ The crawler requests quarter-hourly prices with `fixed_cost_cent=0` and
 `prediction_start` is the start of the first future slot in UTC (`timestamp
 with time zone`). The price unit is not stated in the crawler; the dashboard
 multiplies `p_h_*` by 1000 and labels the result EUR/MWh. Missing slots at the
-end are left empty. Each run updates the row of `energy_forecast` in
+end are left empty. Each run updates the row of `energyforecast` in
 `public.metadata`.
 
 ## Configuration
 
 ```yaml
-energy_forecast_crawler:
+energyforecast:
   enable: false
-  schema_name: energy_forecast
+  schema_name: energyforecast
   description: Crawls Energy Price Forecasts (Next 48h)
   schedule: 0 4,16 * * *
 ```
@@ -46,7 +46,7 @@ or from the `.env` file in the module's folder
 ## Run by hand
 
 ```bash
-docker exec oeds-scheduler oeds-crawl energy_forecast_crawler
+docker exec oeds-scheduler oeds-crawl energyforecast
 ```
 
 ## Notes

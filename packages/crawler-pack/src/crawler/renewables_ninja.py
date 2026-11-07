@@ -13,7 +13,7 @@ from io import BytesIO
 
 
 metadata_info = {
-    "schema_name": "ninja",
+    "schema_name": "renewables_ninja",
     "data_date": "2016-12-31",
     "data_source": "https://www.renewables.ninja/downloads",
     "license": "CC-BY-4.0",
@@ -32,7 +32,7 @@ def _as_bool(value) -> bool:
     return bool(value)
 
 
-class NinjaCrawler(KitCrawler):
+class RenewablesNinjaCrawler(KitCrawler):
     def __init__(self, crawler_name, config):
         super().__init__(crawler_name, config)
 

@@ -20,9 +20,9 @@ default:
   enable: false
   schedule: "0 4 * * *"
   database_uri: "postgresql://user:pass@localhost:5432/opendata"
-entsoe_fms:
-  schema_name: "entsoe_fms"
-  post_run_scripts: ["oeds-post gapfill entsoe-fms"]
+entsoe_files:
+  schema_name: "entsoe_files"
+  post_run_scripts: ["oeds-post gapfill entsoe-files"]
 entsoe_api:
   schema_name: "entsoe_api"
 """
@@ -75,10 +75,10 @@ def _request(app, method, path):
 def test_admin_serves_dashboard_and_crawler_page_without_post(admin_app):
     status, body = _request(admin_app, "GET", "/admin")
     assert status == 200
-    assert "entsoe_fms" in body
+    assert "entsoe_files" in body
 
-    # entsoe_fms has the gapfill panel and action, entsoe_api the price forecast.
-    status, body = _request(admin_app, "GET", "/admin/crawlers/entsoe_fms")
+    # entsoe_files has the gapfill panel and action, entsoe_api the price forecast.
+    status, body = _request(admin_app, "GET", "/admin/crawlers/entsoe_files")
     assert status == 200
     assert "gapfill-operations" not in body
     assert "Gapfill backfill" not in body
@@ -90,7 +90,7 @@ def test_admin_serves_dashboard_and_crawler_page_without_post(admin_app):
 
 
 def test_admin_gapfill_route_is_absent_without_post(admin_app):
-    assert _request(admin_app, "POST", "/admin/crawlers/entsoe_fms/gapfill")[0] == 404
+    assert _request(admin_app, "POST", "/admin/crawlers/entsoe_files/gapfill")[0] == 404
 
 
 def test_admin_server_launcher_imports_without_crawler_core(admin_app):
