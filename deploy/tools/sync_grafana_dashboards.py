@@ -1,4 +1,8 @@
-"""Read-only export of the two starter dashboards from the public OEDS Grafana."""
+"""Read-only export of the SMARD starter dashboard from the public OEDS Grafana.
+
+The Open-Meteo dashboard is maintained here; the public one reads the former
+`weather` schema.
+"""
 
 import copy
 import json
@@ -8,7 +12,6 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1] / 'data/provisioning/grafana/dashboards'
 DASHBOARDS = {
     'd7e44e51-6f7f-4316-b9fb-1bb32c03fa18': 'Crawlers/smard.json',
-    'weather-dashboard': 'Crawlers/open_meteo.json',
 }
 
 
@@ -49,11 +52,6 @@ def main():
                 # Production exports may contain a temporary "show only this series" selection.
                 panel['fieldConfig']['overrides'] = []
                 panel['fieldConfig']['defaults']['custom']['stacking']['mode'] = 'none'
-        else:
-            dashboard['title'] = 'Weather – City forecasts (DWD ICON)'
-            for panel in dashboard['panels']:
-                if panel.get('type') == 'geomap':
-                    panel['options']['basemap'] = {'name': 'OpenStreetMap', 'type': 'osm-standard'}
         target = ROOT / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(dashboard, ensure_ascii=True, indent=2) + '\n')

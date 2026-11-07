@@ -13,9 +13,9 @@ a Grafana folder:
   availability map the `entsoe_files` crawler, whose post-run script
   `oeds-post refresh entsoe-availability-map` fills it.
 
-The SMARD and Open-Meteo weather dashboards were exported read-only from
+The SMARD dashboard was exported read-only from
 <https://oeds.iip.kit.edu>; `python3 tools/sync_grafana_dashboards.py` refreshes
-them. Review and retest the diff before committing it. Exports do not contain
+it. Review and retest the diff before committing it. Exports do not contain
 datasource passwords. Credentials belong in environment files, never JSON.
 
 Maps use OpenStreetMap tiles and need browser access to the tile service; for
