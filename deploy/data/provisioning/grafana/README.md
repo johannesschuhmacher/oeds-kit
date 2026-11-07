@@ -13,7 +13,7 @@ a Grafana folder:
   availability map the `entsoe_fms` crawler, whose post-run script
   `oeds-post refresh entsoe-availability-map` fills it.
 
-The SMARD and Weather dashboards were exported read-only from
+The SMARD and Open-Meteo weather dashboards were exported read-only from
 <https://oeds.iip.kit.edu>; `python3 tools/sync_grafana_dashboards.py` refreshes
 them. Review and retest the diff before committing it. Exports do not contain
 datasource passwords. Credentials belong in environment files, never JSON.
@@ -32,7 +32,7 @@ subdirectory of `dashboards/` and check for duplicate UIDs.
 ## Check
 
 `python3 tools/check_dashboards.py` (part of the installation test) checks the
-HTTP endpoints and requires the SMARD and Weather panels to return data.
+HTTP endpoints and requires the SMARD and Open-Meteo weather panels to return data.
 
 `python3 tools/check_dashboards.py --all` runs every SQL query of every
 provisioned dashboard through Grafana, with each variable at its default value.

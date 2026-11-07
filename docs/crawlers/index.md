@@ -23,13 +23,12 @@ OEDS. The licence column shows what the crawler records in `public.metadata`;
 | [mastr](mastr.md) | Marktstammdatenregister | `mastr` | none | DL-DE/BY-2-0 |
 | [netztransparenz](netztransparenz.md) | Netztransparenz.de WebAPI | `netztransparenz` | OAuth2 client | not stated |
 | [ninja](ninja.md) | Renewables.ninja | `ninja` | none | CC BY 4.0 |
-| [open_meteo](open_meteo.md) | Open-Meteo forecasts | `open_meteo` | none | not stated |
+| [open_meteo](open_meteo.md) | DWD ICON via Open-Meteo, 1-degree grid | `open_meteo` | none | CC BY 4.0 |
 | [power_system_data](power_system_data.md) | powerplantmatching power plant list | `power_system_data` | none | MIT |
 | [prisma_capacity](prisma_capacity.md) | PRISMA capacity platform | `prisma_capacity` | paid API package | subscription terms |
 | [regelleistung](regelleistung.md) | regelleistung.net | `regelleistung` | none | not stated |
 | [smard](smard.md) | SMARD (Bundesnetzagentur) | `smard` | none | CC BY 4.0 |
 | [tradinghub](tradinghub.md) | Trading Hub Europe | `tradinghub` | none | not stated |
-| [weather_forecast](weather_forecast.md) | DWD ICON via Open-Meteo | `weather` | none | not stated |
 
 `oeds-crawl --list` also shows the crawlers of the OEDS core
 ([oeds-core](https://github.com/johannesschuhmacher/oeds-core)). They run the

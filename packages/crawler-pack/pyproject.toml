@@ -52,7 +52,6 @@ power_system_data = "crawler.power_system_data:PowerSystemDataCrawler"
 prisma_capacity = "crawler.prisma_capacity:PrismaCapacityCrawler"
 regelleistung = "crawler.regelleistung:RegelleistungCrawler"
 tradinghub = "crawler.tradinghub:TradingHubCrawler"
-weather_forecast = "crawler.weather_forecast:WeatherForecastCrawler"
 
 [tool.setuptools.packages.find]
 where = ["src"]

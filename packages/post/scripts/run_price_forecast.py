@@ -435,12 +435,12 @@ def _load_weather_covariates(
     start: pd.Timestamp,
     end: pd.Timestamp,
 ) -> pd.DataFrame:
-    if ("weather", "price_forecast_weather_features") in tables:
+    if ("open_meteo", "price_forecast_weather_features") in tables:
         frame = pd.read_sql_query(
             text(
                 """
                 SELECT *
-                FROM weather.price_forecast_weather_features
+                FROM open_meteo.price_forecast_weather_features
                 WHERE market_area = :market_area
                   AND delivery_start_utc >= :start AND delivery_start_utc < :end
                 ORDER BY delivery_start_utc
@@ -449,7 +449,7 @@ def _load_weather_covariates(
             conn,
             params={"market_area": market_area, "start": start, "end": end},
         )
-    elif ("weather", "latest_country_hourly_forecast") in tables:
+    elif ("open_meteo", "latest_country_hourly_forecast") in tables:
         country_code = "DE" if market_area in {"DE_LU", "DE-LU"} else market_area[:2]
         frame = pd.read_sql_query(
             text(
@@ -463,7 +463,7 @@ def _load_weather_covariates(
                     wind_generation_index,
                     renewables_weather_index,
                     load_weather_index
-                FROM weather.latest_country_hourly_forecast
+                FROM open_meteo.latest_country_hourly_forecast
                 WHERE country_code = :country_code
                   AND forecast_time >= :start AND forecast_time < :end
                 ORDER BY forecast_time
