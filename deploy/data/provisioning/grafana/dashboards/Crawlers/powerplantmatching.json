@@ -1,7 +1,7 @@
 {
-  "uid": "ninja-capacity-factors",
-  "title": "Renewables.ninja – Wind and solar capacity factors",
-  "description": "Simulated hourly capacity factors per country from Renewables.ninja (MERRA-2 reanalysis): wind 1980-2016 for the fleet of that time, solar PV 1985-2016. A capacity factor of 30 % means the fleet produced 30 % of its rated output.",
+  "uid": "power-plants-ppm",
+  "title": "Power plants – powerplantmatching (PyPSA)",
+  "description": "European power plant database from PyPSA powerplantmatching (matched from ENTSO-E, OPSD, GEM, MaStR and other sources). Capacity is electrical output in MW; storage plants have set type 'Store'.",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
@@ -9,7 +9,7 @@
   "panels": [
     {
       "type": "stat",
-      "title": "Wind onshore, mean",
+      "title": "Plants in operation",
       "description": "",
       "targets": [
         {
@@ -21,12 +21,12 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT now() AS time, avg(\"$Country\") AS value FROM ninja.capacity_wind_on WHERE $__timeFilter(time)"
+          "rawSql": "SELECT now() AS time, count(*)::float AS value FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now()))"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "short",
           "color": {
             "mode": "thresholds"
           },
@@ -38,8 +38,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 1
+          }
         },
         "overrides": []
       },
@@ -72,7 +71,7 @@
     },
     {
       "type": "stat",
-      "title": "Solar PV, mean",
+      "title": "Capacity in operation",
       "description": "",
       "targets": [
         {
@@ -84,12 +83,12 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT now() AS time, avg(\"$Country\") AS value FROM ninja.capacity_solar_merra2 WHERE $__timeFilter(time)"
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now()))"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "watt",
           "color": {
             "mode": "thresholds"
           },
@@ -135,8 +134,8 @@
     },
     {
       "type": "stat",
-      "title": "Wind onshore, hours above 50 %",
-      "description": "",
+      "title": "Renewable capacity in operation",
+      "description": "Wind, solar, hydro (including pumped storage), solid biomass, biogas and geothermal.",
       "targets": [
         {
           "refId": "A",
@@ -147,12 +146,12 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT now() AS time, count(*) FILTER (WHERE \"$Country\" > 0.5)::float AS value FROM ninja.capacity_wind_on WHERE $__timeFilter(time)"
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND fuel_type IN ('Wind', 'Solar', 'Hydro', 'Solid Biomass', 'Biogas', 'Geothermal')"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "watt",
           "color": {
             "mode": "thresholds"
           },
@@ -164,7 +163,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "decimals": 1
         },
         "overrides": []
       },
@@ -197,8 +197,8 @@
     },
     {
       "type": "stat",
-      "title": "Solar PV, best hour",
-      "description": "",
+      "title": "Retired plants in the data",
+      "description": "Capacity of plants with a closure year up to this year; left out of all other panels.",
       "targets": [
         {
           "refId": "A",
@@ -209,12 +209,12 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT now() AS time, max(\"$Country\") AS value FROM ninja.capacity_solar_merra2 WHERE $__timeFilter(time)"
+          "rawSql": "SELECT now() AS time, sum(capacity) * 1e6 AS value FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND date_out <> 'NaN' AND date_out <= extract(year FROM now())"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "watt",
           "color": {
             "mode": "thresholds"
           },
@@ -259,9 +259,9 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Daily mean capacity factor",
-      "description": "Daily average of the hourly capacity factors for the selected country.",
+      "type": "barchart",
+      "title": "Capacity in operation by fuel",
+      "description": "Small rooftop PV is largely missing from powerplantmatching; see the MaStR dashboard for Germany.",
       "targets": [
         {
           "refId": "A",
@@ -270,45 +270,31 @@
             "uid": "P6EAA63344BCC9F38"
           },
           "editorMode": "code",
-          "format": "time_series",
+          "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(time, '1d'), avg(\"$Country\") AS \"Wind onshore\" FROM ninja.capacity_wind_on WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "P6EAA63344BCC9F38"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(time, '1d'), avg(\"$Country\") AS \"Solar PV\" FROM ninja.capacity_solar_merra2 WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT fuel_type AS fuel, sum(capacity) * 1e6 AS capacity FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "watt",
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto"
+            "fillOpacity": 85,
+            "lineWidth": 0
           }
         },
         "overrides": []
       },
       "options": {
+        "orientation": "horizontal",
+        "stacking": "none",
+        "showValue": "never",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
@@ -322,8 +308,8 @@
       "gridPos": {
         "x": 0,
         "y": 4,
-        "w": 24,
-        "h": 9
+        "w": 12,
+        "h": 14
       },
       "id": 5,
       "datasource": {
@@ -332,9 +318,9 @@
       }
     },
     {
-      "type": "barchart",
-      "title": "Seasonal profile, all years",
-      "description": "Monthly mean over the whole data period, independent of the selected time range.",
+      "type": "geomap",
+      "title": "Plants on the map",
+      "description": "Plants in operation; marker size by capacity, colour by fuel; at most the 5000 largest plants.",
       "targets": [
         {
           "refId": "A",
@@ -345,12 +331,102 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT to_char(make_date(2000, m, 1), 'Mon') AS month, wind AS \"Wind onshore\", solar AS \"Solar PV\" FROM (SELECT extract(month FROM time)::int AS m, avg(\"$Country\") AS wind FROM ninja.capacity_wind_on GROUP BY 1) w JOIN (SELECT extract(month FROM time)::int AS m, avg(\"$Country\") AS solar FROM ninja.capacity_solar_merra2 GROUP BY 1) s USING (m) ORDER BY m"
+          "rawSql": "SELECT 0 AS time, lat, lon, name, fuel_type AS fuel, nullif(technology, 'NaN') AS technology, capacity AS capacity_mw, nullif(date_in, 'NaN')::int AS commissioned FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND capacity >= $MinCapacity AND lat <> 'NaN' AND lon <> 'NaN' ORDER BY capacity DESC LIMIT 5000"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "basemap": {
+          "name": "OpenStreetMap",
+          "type": "osm-standard"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showZoom": true,
+          "showScale": false,
+          "showMeasure": false
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Plants",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "lat",
+              "longitude": "lon"
+            },
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "fuel"
+                },
+                "opacity": 0.75,
+                "size": {
+                  "field": "capacity_mw",
+                  "fixed": 5,
+                  "min": 3,
+                  "max": 18
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                }
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "id": "coords",
+          "lat": 51.0,
+          "lon": 10.0,
+          "zoom": 5
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 14
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Capacity in operation by commissioning decade and fuel",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P6EAA63344BCC9F38"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT decade, fuel_type, capacity FROM ( SELECT (floor(date_in / 10) * 10)::int AS d, (floor(date_in / 10) * 10)::int::text || 's' AS decade, fuel_type, sum(capacity) * 1e6 AS capacity FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) AND date_in <> 'NaN' GROUP BY 1, 2, 3) x ORDER BY d"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
           "color": {
             "mode": "palette-classic"
           },
@@ -363,7 +439,7 @@
       },
       "options": {
         "orientation": "auto",
-        "stacking": "none",
+        "stacking": "normal",
         "showValue": "never",
         "groupWidth": 0.7,
         "barWidth": 0.9,
@@ -380,19 +456,30 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 13,
-        "w": 12,
+        "y": 18,
+        "w": 24,
         "h": 10
       },
-      "id": 6,
+      "id": 7,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "P6EAA63344BCC9F38"
-      }
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "fuel_type",
+            "rowField": "decade",
+            "valueField": "capacity",
+            "emptyValue": "null"
+          }
+        }
+      ]
     },
     {
-      "type": "barchart",
-      "title": "Mean capacity factor by country (selected period)",
+      "type": "table",
+      "title": "Largest plants in operation",
       "description": "",
       "targets": [
         {
@@ -404,58 +491,47 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH won AS (SELECT key AS country, avg(value::float) AS v FROM ninja.capacity_wind_on t, jsonb_each_text(to_jsonb(t) - 'time' - 'index') WHERE $__timeFilter(time) GROUP BY 1), woff AS (SELECT key AS country, avg(value::float) AS v FROM ninja.capacity_wind_off t, jsonb_each_text(to_jsonb(t) - 'time' - 'index') WHERE $__timeFilter(time) GROUP BY 1), pv AS (SELECT key AS country, avg(value::float) AS v FROM ninja.capacity_solar_merra2 t, jsonb_each_text(to_jsonb(t) - 'time' - 'index') WHERE $__timeFilter(time) GROUP BY 1) SELECT upper(country) AS country, won.v AS \"Wind onshore\", woff.v AS \"Wind offshore\", pv.v AS \"Solar PV\" FROM won FULL JOIN woff USING (country) FULL JOIN pv USING (country) ORDER BY 1"
+          "rawSql": "SELECT name, fuel_type AS fuel, nullif(technology, 'NaN') AS technology, nullif(set_type, 'NaN') AS \"set type\", round(capacity::numeric) AS \"capacity (MW)\", nullif(date_in, 'NaN')::int AS commissioned, nullif(date_retrofit, 'NaN')::int AS retrofit, nullif(date_out, 'NaN')::int AS \"planned closure\" FROM powerplantmatching.powerplants WHERE country = '$Country' AND capacity <> 'NaN' AND (date_out = 'NaN' OR date_out > extract(year FROM now())) AND (date_in = 'NaN' OR date_in <= extract(year FROM now())) ORDER BY capacity DESC LIMIT 50"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "color": {
-            "mode": "palette-classic"
-          },
           "custom": {
-            "fillOpacity": 85,
-            "lineWidth": 0
+            "align": "auto",
+            "filterable": true
           }
         },
         "overrides": []
       },
       "options": {
-        "orientation": "auto",
-        "stacking": "none",
-        "showValue": "never",
-        "groupWidth": 0.7,
-        "barWidth": 0.9,
-        "xTickLabelRotation": 0,
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
         }
       },
       "gridPos": {
-        "x": 12,
-        "y": 13,
-        "w": 12,
+        "x": 0,
+        "y": 28,
+        "w": 24,
         "h": 10
       },
-      "id": 7,
+      "id": 8,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "P6EAA63344BCC9F38"
       }
     }
   ],
-  "refresh": "",
+  "refresh": "1d",
   "schemaVersion": 39,
   "tags": [
-    "ninja",
-    "wind",
-    "solar"
+    "power plants",
+    "capacity",
+    "pypsa"
   ],
   "templating": {
     "list": [
@@ -467,8 +543,8 @@
           "type": "grafana-postgresql-datasource",
           "uid": "P6EAA63344BCC9F38"
         },
-        "query": "SELECT upper(column_name) AS __text, column_name AS __value FROM information_schema.columns WHERE table_schema = 'ninja' AND table_name = 'capacity_wind_on' AND column_name NOT IN ('time', 'index') ORDER BY 1",
-        "definition": "SELECT upper(column_name) AS __text, column_name AS __value FROM information_schema.columns WHERE table_schema = 'ninja' AND table_name = 'capacity_wind_on' AND column_name NOT IN ('time', 'index') ORDER BY 1",
+        "query": "SELECT DISTINCT country FROM powerplantmatching.powerplants ORDER BY 1",
+        "definition": "SELECT DISTINCT country FROM powerplantmatching.powerplants ORDER BY 1",
         "refresh": 1,
         "sort": 0,
         "multi": false,
@@ -477,15 +553,56 @@
         "options": [],
         "current": {
           "selected": true,
-          "text": "de",
-          "value": "de"
+          "text": "Germany",
+          "value": "Germany"
         }
+      },
+      {
+        "name": "MinCapacity",
+        "label": "Map: plants from (MW)",
+        "type": "custom",
+        "query": "1,10,50,100,500",
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": "50",
+          "value": "50"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "1",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "10",
+            "value": "10"
+          },
+          {
+            "selected": true,
+            "text": "50",
+            "value": "50"
+          },
+          {
+            "selected": false,
+            "text": "100",
+            "value": "100"
+          },
+          {
+            "selected": false,
+            "text": "500",
+            "value": "500"
+          }
+        ]
       }
     ]
   },
   "time": {
-    "from": "2016-01-01T00:00:00Z",
-    "to": "2016-12-31T23:59:59Z"
+    "from": "now-30d",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",

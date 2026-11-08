@@ -9,13 +9,13 @@ a Grafana folder:
 - `Analyses/` has dashboards that combine sources: day-ahead price forecast,
   energy weather, and the ENTSO-E cross-border, country, stress, forecast
   accuracy and negative price views, and ENTSO-E power plants and
-  availability. Its plant maps need the `power_system_data` crawler, its
-  availability map the `entsoe_fms` crawler, whose post-run script
+  availability. Its plant maps need the `powerplantmatching` crawler, its
+  availability map the `entsoe_files` crawler, whose post-run script
   `oeds-post refresh entsoe-availability-map` fills it.
 
-The SMARD and Weather dashboards were exported read-only from
+The SMARD dashboard was exported read-only from
 <https://oeds.iip.kit.edu>; `python3 tools/sync_grafana_dashboards.py` refreshes
-them. Review and retest the diff before committing it. Exports do not contain
+it. Review and retest the diff before committing it. Exports do not contain
 datasource passwords. Credentials belong in environment files, never JSON.
 
 Maps use OpenStreetMap tiles and need browser access to the tile service; for
@@ -32,7 +32,7 @@ subdirectory of `dashboards/` and check for duplicate UIDs.
 ## Check
 
 `python3 tools/check_dashboards.py` (part of the installation test) checks the
-HTTP endpoints and requires the SMARD and Weather panels to return data.
+HTTP endpoints and requires the SMARD and Open-Meteo weather panels to return data.
 
 `python3 tools/check_dashboards.py --all` runs every SQL query of every
 provisioned dashboard through Grafana, with each variable at its default value.

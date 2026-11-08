@@ -155,13 +155,13 @@ DEFAULT_POSTRUN_TABLES = (
 )
 
 BUILTIN_GAPFILL_TABLES_BY_JOB: dict[str, tuple[TimeSeriesTableConfig, ...]] = {
-    "entsoe_fms": ENTSOE_FMS_TABLES,
+    "entsoe_files": ENTSOE_FMS_TABLES,
 }
 
 
 def load_job_from_crawler_config(
     config_path: Path,
-    job_name: str = "entsoe_fms",
+    job_name: str = "entsoe_files",
     table_names: list[str] | None = None,
 ) -> GapfillJobConfig:
     with config_path.open(encoding="utf-8") as handle:

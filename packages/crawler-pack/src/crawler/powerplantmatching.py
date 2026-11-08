@@ -14,14 +14,14 @@ from crawler.common.kit_base import KitCrawler
 from crawler.data.mapping_eic_to_location import etl_run
 
 
-class PowerSystemDataCrawler(KitCrawler):
+class PowerplantmatchingCrawler(KitCrawler):
     """
     Crawler to fetch power plant data from PyPSA and save it to the database.
     """
 
     def __init__(self, crawler_name: str, config: dict):
         super().__init__(crawler_name, config)
-        self.table_name = "powersystemdata"
+        self.table_name = "powerplants"
         self._init_table_object()
 
     def _init_table_object(self):
@@ -118,8 +118,8 @@ class PowerSystemDataCrawler(KitCrawler):
             # 4. Write to DB using Upsert pattern
             self._write_to_db(df)
 
-            self.logger.info(f"Finish updating 'powersystemdata', {len(df)} records")
-            print(f"Finish updating 'powersystemdata', {len(df)} records")
+            self.logger.info(f"Finish updating 'powerplants', {len(df)} records")
+            print(f"Finish updating 'powerplants', {len(df)} records")
 
             # 5. Update geographic mapping (eic_geo_location)
             print("Updating EIC geo location mapping...")

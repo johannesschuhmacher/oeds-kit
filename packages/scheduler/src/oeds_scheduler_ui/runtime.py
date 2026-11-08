@@ -353,7 +353,7 @@ def execute_post_command(
 
     ``*.py`` paths run with the current interpreter and the working directory
     on ``PYTHONPATH`` (legacy scripts import workspace modules). Anything else,
-    such as ``oeds-post gapfill entsoe-fms``, is executed as given; if its
+    such as ``oeds-post gapfill entsoe-files``, is executed as given; if its
     executable is not installed the command is skipped with a warning.
     """
 

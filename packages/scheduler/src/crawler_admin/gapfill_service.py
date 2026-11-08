@@ -112,7 +112,7 @@ def build_gapfill_runtime_view(
         selected_names = {str(name) for name in (effective_gapfill.get("tables") or [])}
     else:
         selected_names = set(
-            DEFAULT_POSTRUN_TABLES if crawler_name == "entsoe_fms" else []
+            DEFAULT_POSTRUN_TABLES if crawler_name == "entsoe_files" else []
         )
 
     tables = [
@@ -153,7 +153,7 @@ def build_gapfill_runtime_view(
         fail_on_table_error=bool(effective_gapfill.get("fail_on_table_error", True)),
         metadata_source_label=(
             "Built-in ENTSO-E FMS table metadata"
-            if crawler_name == "entsoe_fms"
+            if crawler_name == "entsoe_files"
             else "Built-in table metadata"
         ),
         database_status_note=database_status_note,

@@ -25,21 +25,21 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 def load_crawler_config() -> dict:
-    from crawler.entsoe_fms import EntsoeFMSCrawler
+    from crawler.entsoe_files import EntsoeFilesCrawler
 
     with CONFIG_FILE.open(encoding="utf-8") as handle:
         raw_config = yaml.safe_load(handle)
 
     config = dict(raw_config["default"])
-    config.update(raw_config.get("entsoe_fms", {}))
-    config["schema_name"] = config.get("schema_name", "entsoe_fms")
-    config["target_data_items"] = sorted(EntsoeFMSCrawler.OUTAGE_DATA_ITEMS)
+    config.update(raw_config.get("entsoe_files", {}))
+    config["schema_name"] = config.get("schema_name", "entsoe_files")
+    config["target_data_items"] = sorted(EntsoeFilesCrawler.OUTAGE_DATA_ITEMS)
     return config
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Backfill ENTSO-E unavailability extracts into entsoe_fms.",
+        description="Backfill ENTSO-E unavailability extracts into entsoe_files.",
     )
     parser.add_argument(
         "--start",
@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    from crawler.entsoe_fms import EntsoeFMSCrawler
+    from crawler.entsoe_files import EntsoeFilesCrawler
 
     logging.basicConfig(
         level=logging.INFO,
@@ -76,14 +76,14 @@ def main() -> None:
         else pd.Timestamp(args.end, tz="Europe/Berlin")
     )
 
-    crawler = EntsoeFMSCrawler("entsoe_fms", load_crawler_config())
+    crawler = EntsoeFilesCrawler("entsoe_files", load_crawler_config())
     local_dir = CRAWLER_DATA_DIR
 
     logging.info(
         "Backfilling ENTSO-E unavailability data items: %s",
         ", ".join(crawler.config["target_data_items"]),
     )
-    crawler.fetch_from_entsoe_fms_to_database(
+    crawler.fetch_from_entsoe_files_to_database(
         str(local_dir),
         start_time,
         end_time,

@@ -24,8 +24,8 @@ smard:              # one section per crawler, named as in `oeds-crawl --list`
   enable: true
   schema_name: smard
   schedule: 0 4 * * *
-entsoe_fms:
-  schema_name: entsoe_fms
+entsoe_files:
+  schema_name: entsoe_files
   jobs:             # optional named jobs, each scheduled on its own
     latest_hourly:
       enable: true
@@ -47,7 +47,7 @@ These keys are read by the scheduler and are not passed to the crawler.
 | `enable` | `true` schedules the crawler or job; anything else leaves it off. A job inherits the value of its section unless it sets its own. |
 | `schedule` | Cron expression with five fields. It is evaluated in the container's local time, which is UTC. |
 | `jobs` | Named variants of a crawler, each with its own schedule and settings. Run one by hand with `oeds-crawl <crawler> --job <job>`. |
-| `post_run_scripts` | Commands run after a successful run, for example `oeds-post gapfill entsoe-fms`. |
+| `post_run_scripts` | Commands run after a successful run, for example `oeds-post gapfill entsoe-files`. |
 | `run_post_scripts` | `false` skips the `post_run_scripts` for this crawler or job (default `true`). |
 | `run_timeout_seconds` | Kill the run after this many seconds and mark it failed (default: no limit). |
 
