@@ -7,7 +7,7 @@ abstract: >-
   builds on oeds-core, a modified copy of the OEDS core, pinned in uv.lock.
 type: software
 version: 1.5.0
-date-released: "2026-11-09"
+date-released: "2026-11-08"
 license: AGPL-3.0-or-later
 repository-code: "https://github.com/johannesschuhmacher/oeds-kit"
 keywords:

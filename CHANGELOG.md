@@ -3,7 +3,7 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## 1.5.0 (2026-11-09)
+## 1.5.0 (2026-11-08)
 
 Clearer crawler names and one Open-Meteo crawler with much more data.
 
