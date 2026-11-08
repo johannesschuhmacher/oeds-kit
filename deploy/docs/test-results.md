@@ -1,5 +1,34 @@
 # Test results
 
+## Release 1.5.0, 2026-11-08
+
+Release 1.5.0 renames five crawlers, merges the two Open-Meteo crawlers into
+one on a 1-degree grid over Europe and downloads an empty ENTSO-E file again
+before failing (see `CHANGELOG.md`).
+
+**Automated tests.** 161 tests pass.
+
+**Update of existing installations.** iip-vm-oeds-intern-test (7 November)
+and iip-vm-oeds-intern (8 November) were updated from 1.4.0 with
+`oeds_clean_install_from_git.sh`.
+
+- `rename_crawlers.py` renamed the schemas `entsoe_fms`,
+  `entsoe_fms_gapfilled`, `ninja`, `power_system_data` (table
+  `powersystemdata` -> `powerplants`) and `energy_forecast`, the
+  `public.metadata` rows, the gap-filling records and the runtime
+  configuration. A second run changed nothing. On intern the 253 GB schema
+  `entsoe_fms` was renamed in place.
+- `open_meteo`, run by hand: 667 points in 34 countries, 96,048 rows in about
+  2 minutes, `hourly_forecast` a TimescaleDB hypertable.
+- `check_dashboards.py --all`: all 26 dashboards return data without errors;
+  in "ENTSO-E – Power plants and availability" two of the three "Energy
+  Prices" queries return no rows in the test window, as before the renaming.
+- intern-test first ran a branch state in which the new Open-Meteo dashboard
+  had a different uid than the former dashboard of the same file. Grafana 13
+  then gave both the same internal id and could show neither. The release
+  keeps the former uid (intern was updated cleanly); on intern-test the stray
+  entry was removed from the Grafana database by hand.
+
 ## Release 1.4.0, 2026-11-06
 
 Release 1.4.0 adds the documentation on Read the Docs and the Energy Arena
