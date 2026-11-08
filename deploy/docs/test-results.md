@@ -1,6 +1,6 @@
 # Test results
 
-## Release 1.5.0, 2026-11-09
+## Release 1.5.0, 2026-11-08
 
 Release 1.5.0 renames five crawlers, merges the two Open-Meteo crawlers into
 one on a 1-degree grid over Europe and downloads an empty ENTSO-E file again
