@@ -92,6 +92,47 @@ def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
     assert crawler._flush_to_database.call_count == len(files)
 
 
+def test_empty_download_is_fetched_again(tmp_path):
+    """An empty download (EmptyDataError) failed the run although the file was fine a moment later."""
+    header = "\t".join([
+        "DateTime(UTC)", "ResolutionCode", "AreaCode", "AreaDisplayName", "AreaTypeCode", "AreaMapCode",
+        "ContractType", "Sequence", "Price[Currency/MWh]", "Currency", "UpdateTime(UTC)",
+    ])
+    row = "\t".join(["2026-09-15 00:00:00", "PT60M", "10Y", "DE-LU", "BZN", "DE_LU", "DA", "1", "10.0", "EUR",
+                     "2026-09-16 00:00:00"])
+    contents = iter(["", header + "\n" + row + "\n"])
+
+    crawler = object.__new__(EntsoeFilesCrawler)
+    crawler.logger = Mock()
+    crawler.config = {"target_data_items": ["EnergyPrices_12.1.D"]}
+    crawler.EMPTY_DOWNLOAD_RETRY_SECONDS = 0
+    crawler._authenticate = Mock()
+    crawler._migrate_renamed_columns = Mock()
+    crawler._ensure_nulls_not_distinct = Mock()
+    crawler._ensure_update_time_index = Mock()
+    crawler._known_columns = {}
+    crawler._list_metadata = Mock(return_value=[{"name": "2026_09_EnergyPrices_12.1.D_r3.csv", "fileId": "f"}])
+    crawler._get_table_state = Mock(return_value={
+        "table_exists": True,
+        "update_time_column": "UpdateTime(UTC)",
+        "datetime_column_name": "DateTime(UTC)",
+        "last_update_time": pd.Timestamp("2026-09-01"),
+        "last_date_time": pd.Timestamp("2026-09-01"),
+    })
+    crawler._download_file = Mock(side_effect=lambda file_id, target: open(target, "w").write(next(contents)))
+    crawler._add_missing_columns = Mock()
+    crawler._flush_to_database = Mock()
+
+    crawler._download_files_and_write_into_database(
+        str(tmp_path),
+        pd.Timestamp("2026-09-01", tz="Europe/Berlin"),
+        pd.Timestamp("2026-10-20", tz="Europe/Berlin"),
+    )
+
+    assert crawler._download_file.call_count == 2
+    assert crawler._flush_to_database.call_count == 1
+
+
 def _fake_crawler(**attrs):
     crawler = object.__new__(EntsoeFilesCrawler)
     crawler.logger = Mock()
