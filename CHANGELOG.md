@@ -28,6 +28,8 @@ Clearer crawler names and one Open-Meteo crawler with much more data.
   the sections of the runtime `CRAWLER_CONFIG.yml`. An enabled
   `weather_forecast` enables `open_meteo`. The schema `weather` is left
   unchanged and can be dropped.
+- `entsoe_files` downloads a file again after 60 s when the File Library
+  returns it empty, instead of failing the run (seen once on 2026-11-07).
 
 ## 1.4.0 (2026-11-06)
 
