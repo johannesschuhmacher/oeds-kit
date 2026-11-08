@@ -41,8 +41,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--job",
-        default="entsoe_fms",
-        help="Crawler job name in CRAWLER_CONFIG.yml. Defaults to entsoe_fms.",
+        default="entsoe_files",
+        help="Crawler job name in CRAWLER_CONFIG.yml. Defaults to entsoe_files.",
     )
     parser.add_argument(
         "--config",

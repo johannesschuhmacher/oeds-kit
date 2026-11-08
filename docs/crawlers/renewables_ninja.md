@@ -6,12 +6,12 @@ Country-level wind and solar capacity factors for Europe from the
 
 | | |
 | --- | --- |
-| Module | `packages/crawler-pack/src/crawler/ninja.py` |
-| Schema | `ninja` |
+| Module | `packages/crawler-pack/src/crawler/renewables_ninja.py` |
+| Schema | `renewables_ninja` |
 | Access | none |
 | Licence | CC BY 4.0 |
 | Resolution | not stated |
-| Dashboard | `Crawlers/ninja.json` |
+| Dashboard | `Crawlers/renewables_ninja.json` |
 
 ## Data
 
@@ -28,14 +28,14 @@ are the lower-case country codes from the CSV header (`DE_ON` becomes `de`).
 The time column is the first column of the CSV file, parsed as a timestamp and
 written under its name in the file (`time` in the smoke data and in the
 dashboard queries). The code does not state its time zone. Each run also
-updates the row of `ninja` in `public.metadata` (source, licence, covered
+updates the row of `renewables_ninja` in `public.metadata` (source, licence, covered
 period 1980-01-01 00:00 to 2016-12-31 23:00).
 
 ## Configuration
 
 ```yaml
-ninja:
-  schema_name: ninja
+renewables_ninja:
+  schema_name: renewables_ninja
   enable: false
   datafiles:
     wind:
@@ -57,7 +57,7 @@ starting at `smoke_start`, default `2016-01-01 00:00:00`). The section sets no
 ## Run by hand
 
 ```bash
-docker exec oeds-scheduler oeds-crawl ninja
+docker exec oeds-scheduler oeds-crawl renewables_ninja
 ```
 
 ## Notes

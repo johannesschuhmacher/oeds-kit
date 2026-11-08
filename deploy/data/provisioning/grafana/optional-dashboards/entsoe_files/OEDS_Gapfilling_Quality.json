@@ -106,7 +106,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE status\n  WHEN 'success' THEN 1\n  WHEN 'failed' THEN -1\n  ELSE 0\nEND AS value\nFROM entsoe_fms_gapfilled.gapfill_runs\nORDER BY started_at DESC\nLIMIT 1;",
+          "rawSql": "SELECT CASE status\n  WHEN 'success' THEN 1\n  WHEN 'failed' THEN -1\n  ELSE 0\nEND AS value\nFROM entsoe_files_gapfilled.gapfill_runs\nORDER BY started_at DESC\nLIMIT 1;",
           "refId": "A"
         }
       ],
@@ -167,7 +167,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(values_filled, 0) AS value\nFROM entsoe_fms_gapfilled.gapfill_runs\nORDER BY started_at DESC\nLIMIT 1;",
+          "rawSql": "SELECT COALESCE(values_filled, 0) AS value\nFROM entsoe_files_gapfilled.gapfill_runs\nORDER BY started_at DESC\nLIMIT 1;",
           "refId": "A"
         }
       ],
@@ -259,7 +259,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  r.finished_at AS time,\n  m.table_name || ' / ' || m.value_column AS metric,\n  SUM(m.filled_values)::double precision AS value\nFROM entsoe_fms_gapfilled.gapfill_metrics m\nJOIN entsoe_fms_gapfilled.gapfill_runs r ON r.run_id = m.run_id\nWHERE $__timeFilter(r.finished_at)\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "rawSql": "SELECT\n  r.finished_at AS time,\n  m.table_name || ' / ' || m.value_column AS metric,\n  SUM(m.filled_values)::double precision AS value\nFROM entsoe_files_gapfilled.gapfill_metrics m\nJOIN entsoe_files_gapfilled.gapfill_runs r ON r.run_id = m.run_id\nWHERE $__timeFilter(r.finished_at)\nGROUP BY 1, 2\nORDER BY 1, 2;",
           "refId": "A"
         }
       ],
@@ -325,7 +325,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_fms_gapfilled.gapfill_runs\n  ORDER BY started_at DESC\n  LIMIT 1\n)\nSELECT\n  table_name,\n  value_column,\n  method,\n  group_key,\n  status,\n  source_rows,\n  output_rows,\n  created_gap_rows,\n  missing_before,\n  filled_values,\n  missing_after\nFROM entsoe_fms_gapfilled.gapfill_metrics\nWHERE run_id = (SELECT run_id FROM latest)\nORDER BY table_name, value_column, method, group_key\nLIMIT 500;",
+          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_files_gapfilled.gapfill_runs\n  ORDER BY started_at DESC\n  LIMIT 1\n)\nSELECT\n  table_name,\n  value_column,\n  method,\n  group_key,\n  status,\n  source_rows,\n  output_rows,\n  created_gap_rows,\n  missing_before,\n  filled_values,\n  missing_after\nFROM entsoe_files_gapfilled.gapfill_metrics\nWHERE run_id = (SELECT run_id FROM latest)\nORDER BY table_name, value_column, method, group_key\nLIMIT 500;",
           "refId": "A"
         }
       ],
@@ -388,7 +388,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  test_name,\n  status,\n  expected_filled,\n  actual_filled,\n  missing_after,\n  message,\n  checked_at\nFROM entsoe_fms_gapfilled.gapfill_test_results\nORDER BY test_name;",
+          "rawSql": "SELECT\n  test_name,\n  status,\n  expected_filled,\n  actual_filled,\n  missing_after,\n  message,\n  checked_at\nFROM entsoe_files_gapfilled.gapfill_test_results\nORDER BY test_name;",
           "refId": "A"
         }
       ],
@@ -477,7 +477,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  test_name || ' / ' || series_name AS metric,\n  value\nFROM entsoe_fms_gapfilled.gapfill_test_series\nWHERE $__timeFilter(time)\nORDER BY time, metric;",
+          "rawSql": "SELECT\n  time,\n  test_name || ' / ' || series_name AS metric,\n  value\nFROM entsoe_files_gapfilled.gapfill_test_series\nWHERE $__timeFilter(time)\nORDER BY time, metric;",
           "refId": "A"
         }
       ],
@@ -542,7 +542,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  checked_at,\n  status,\n  table_name,\n  value_column,\n  group_key,\n  method,\n  fault_type,\n  gap_start_time,\n  gap_end_time,\n  gap_length_periods,\n  compared_points,\n  actual_filled,\n  missing_after,\n  ROUND(mean_absolute_error::numeric, 4) AS mae,\n  ROUND(root_mean_squared_error::numeric, 4) AS rmse,\n  ROUND(max_absolute_error::numeric, 4) AS max_abs_error,\n  ROUND(mean_absolute_percentage_error::numeric, 4) AS mape_percent,\n  message\nFROM entsoe_fms_gapfilled.gapfill_holdout_results\nORDER BY checked_at DESC\nLIMIT 50;",
+          "rawSql": "SELECT\n  checked_at,\n  status,\n  table_name,\n  value_column,\n  group_key,\n  method,\n  fault_type,\n  gap_start_time,\n  gap_end_time,\n  gap_length_periods,\n  compared_points,\n  actual_filled,\n  missing_after,\n  ROUND(mean_absolute_error::numeric, 4) AS mae,\n  ROUND(root_mean_squared_error::numeric, 4) AS rmse,\n  ROUND(max_absolute_error::numeric, 4) AS max_abs_error,\n  ROUND(mean_absolute_percentage_error::numeric, 4) AS mape_percent,\n  message\nFROM entsoe_files_gapfilled.gapfill_holdout_results\nORDER BY checked_at DESC\nLIMIT 50;",
           "refId": "A"
         }
       ]
@@ -603,7 +603,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT mean_absolute_error AS value\nFROM entsoe_fms_gapfilled.gapfill_holdout_results\nORDER BY checked_at DESC\nLIMIT 1;",
+          "rawSql": "SELECT mean_absolute_error AS value\nFROM entsoe_files_gapfilled.gapfill_holdout_results\nORDER BY checked_at DESC\nLIMIT 1;",
           "refId": "A"
         }
       ]
@@ -735,7 +735,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_fms_gapfilled.gapfill_holdout_results\n  ORDER BY checked_at DESC\n  LIMIT 1\n)\nSELECT\n  time,\n  series_name AS metric,\n  value\nFROM entsoe_fms_gapfilled.gapfill_holdout_series\nWHERE run_id = (SELECT run_id FROM latest)\n  AND series_name IN ('truth', 'source', 'gapfilled')\nORDER BY time, metric;",
+          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_files_gapfilled.gapfill_holdout_results\n  ORDER BY checked_at DESC\n  LIMIT 1\n)\nSELECT\n  time,\n  series_name AS metric,\n  value\nFROM entsoe_files_gapfilled.gapfill_holdout_series\nWHERE run_id = (SELECT run_id FROM latest)\n  AND series_name IN ('truth', 'source', 'gapfilled')\nORDER BY time, metric;",
           "refId": "A"
         },
         {
@@ -746,7 +746,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_fms_gapfilled.gapfill_holdout_results\n  ORDER BY checked_at DESC\n  LIMIT 1\n)\nSELECT\n  time,\n  'imputed' AS metric,\n  value\nFROM entsoe_fms_gapfilled.gapfill_holdout_series\nWHERE run_id = (SELECT run_id FROM latest)\n  AND series_name = 'gapfilled'\n  AND was_filled\nORDER BY time;",
+          "rawSql": "WITH latest AS (\n  SELECT run_id\n  FROM entsoe_files_gapfilled.gapfill_holdout_results\n  ORDER BY checked_at DESC\n  LIMIT 1\n)\nSELECT\n  time,\n  'imputed' AS metric,\n  value\nFROM entsoe_files_gapfilled.gapfill_holdout_series\nWHERE run_id = (SELECT run_id FROM latest)\n  AND series_name = 'gapfilled'\n  AND was_filled\nORDER BY time;",
           "refId": "B"
         }
       ]

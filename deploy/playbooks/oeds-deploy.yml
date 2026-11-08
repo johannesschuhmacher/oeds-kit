@@ -368,6 +368,25 @@
       owner: "1000"
       group: docker
       mode: "u+rwX,g+rwX"
+  # Release 1.5.0 renamed crawlers (entsoe_fms -> entsoe_files and others) and
+  # merged weather_forecast into open_meteo. The new image renames schemas and
+  # configuration sections of an existing installation; a second run changes
+  # nothing. The old scheduler is stopped first so that it starts no crawl.
+  - name: Stop the scheduler and admin interface before renaming crawlers
+    ansible.builtin.shell: "{{ oeds_compose }} --profile crawlers stop scheduler crawler-admin"
+    args:
+      chdir: "{{ oeds_compose_dir }}"
+    when: (oeds_db_running.stdout | trim) != ""
+  - name: Rename the crawlers of release 1.5.0 in the database and the configuration
+    ansible.builtin.shell: >-
+      {{ oeds_compose }} --profile crawlers run --rm --no-deps -T
+      -v {{ (oeds_compose_dir ~ '/oeds_ops:/oeds_ops:ro') | quote }}
+      scheduler python /oeds_ops/rename_crawlers.py /app/CRAWLER_CONFIG.yml
+    args:
+      chdir: "{{ oeds_compose_dir }}"
+    register: oeds_rename_crawlers
+    changed_when: "'->' in oeds_rename_crawlers.stdout or 'configuration changed' in oeds_rename_crawlers.stdout"
+    when: (oeds_db_running.stdout | trim) != ""
   # Recreates only the containers whose image or settings changed; the images
   # were built above, so up does not build.
   - name: Run docker compose up

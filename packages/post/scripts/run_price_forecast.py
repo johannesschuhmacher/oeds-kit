@@ -110,7 +110,7 @@ def _existing_tables(conn) -> set[tuple[str, str]]:
         text(
             """
             SELECT table_schema, table_name FROM information_schema.tables
-            WHERE table_schema IN ('entsoe_fms', 'entsoe_api', 'weather')
+            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'weather')
             """
         )
     )
@@ -220,7 +220,7 @@ def _load_price_series(
     api_exaa = pd.Series(dtype=float, name="exaa")
     params = _market_area_params(market_area, start=start, end=end)
 
-    if ("entsoe_fms", "EnergyPrices") in tables:
+    if ("entsoe_files", "EnergyPrices") in tables:
         # Sequence 1 (or none) is the SDAC auction, sequence 2 the EXAA auction.
         frame = pd.read_sql_query(
             text(
@@ -229,7 +229,7 @@ def _load_price_series(
                     "DateTime(UTC)" AS ts,
                     "Price[Currency/MWh]" AS price,
                     CASE WHEN TRIM(COALESCE("Sequence", '')) = '2' THEN 'EXAA' ELSE 'SDAC' END AS auction
-                FROM entsoe_fms."EnergyPrices"
+                FROM entsoe_files."EnergyPrices"
                 WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
                   AND "AreaTypeCode" = 'BZN'
                   AND (TRIM(COALESCE("Sequence", '')) IN ('', '2') OR "Sequence" = '1')
@@ -323,12 +323,12 @@ def _load_entsoe_covariate_sources(
     fms_frames = []
     api_frames = []
 
-    if ("entsoe_fms", "DayAheadTotalLoadForecast") in tables:
+    if ("entsoe_files", "DayAheadTotalLoadForecast") in tables:
         load = _read_series(
             conn,
             """
             SELECT "DateTime(UTC)" AS ts, "TotalLoad[MW]" AS load_mw
-            FROM entsoe_fms."DayAheadTotalLoadForecast"
+            FROM entsoe_files."DayAheadTotalLoadForecast"
             WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
               AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
             ORDER BY 1
@@ -356,7 +356,7 @@ def _load_entsoe_covariate_sources(
         if not load.empty:
             api_frames.append(load.to_frame())
 
-    if ("entsoe_fms", "GenerationForecastsForWindAndSolar") in tables:
+    if ("entsoe_files", "GenerationForecastsForWindAndSolar") in tables:
         res_frame = pd.read_sql_query(
             text(
                 """
@@ -364,7 +364,7 @@ def _load_entsoe_covariate_sources(
                     "DateTime(UTC)" AS ts,
                     SUM(CASE WHEN "ProductionType" = 'Solar' THEN COALESCE("DayAheadGenerationForecast[MW]", "CurrentGenerationForecast[MW]") ELSE 0 END) AS solar_forecast_mw,
                     SUM(CASE WHEN "ProductionType" IN ('Wind Onshore', 'Wind Offshore') THEN COALESCE("DayAheadGenerationForecast[MW]", "CurrentGenerationForecast[MW]") ELSE 0 END) AS wind_forecast_mw
-                FROM entsoe_fms."GenerationForecastsForWindAndSolar"
+                FROM entsoe_files."GenerationForecastsForWindAndSolar"
                 WHERE "AreaDisplayName" IN (:market_area, :market_area_alt)
                   AND "DateTime(UTC)" >= :start AND "DateTime(UTC)" < :end
                 GROUP BY 1
@@ -435,12 +435,12 @@ def _load_weather_covariates(
     start: pd.Timestamp,
     end: pd.Timestamp,
 ) -> pd.DataFrame:
-    if ("weather", "price_forecast_weather_features") in tables:
+    if ("open_meteo", "price_forecast_weather_features") in tables:
         frame = pd.read_sql_query(
             text(
                 """
                 SELECT *
-                FROM weather.price_forecast_weather_features
+                FROM open_meteo.price_forecast_weather_features
                 WHERE market_area = :market_area
                   AND delivery_start_utc >= :start AND delivery_start_utc < :end
                 ORDER BY delivery_start_utc
@@ -449,7 +449,7 @@ def _load_weather_covariates(
             conn,
             params={"market_area": market_area, "start": start, "end": end},
         )
-    elif ("weather", "latest_country_hourly_forecast") in tables:
+    elif ("open_meteo", "latest_country_hourly_forecast") in tables:
         country_code = "DE" if market_area in {"DE_LU", "DE-LU"} else market_area[:2]
         frame = pd.read_sql_query(
             text(
@@ -463,7 +463,7 @@ def _load_weather_covariates(
                     wind_generation_index,
                     renewables_weather_index,
                     load_weather_index
-                FROM weather.latest_country_hourly_forecast
+                FROM open_meteo.latest_country_hourly_forecast
                 WHERE country_code = :country_code
                   AND forecast_time >= :start AND forecast_time < :end
                 ORDER BY forecast_time

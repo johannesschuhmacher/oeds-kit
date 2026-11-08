@@ -34,19 +34,20 @@ def core_dir():
 REQUIRED_TABLES = {
     "kit:copernicus_cds": ("downloaded_files", "variable_statistics"),
     "kit:entsoe_api": ("day_ahead_prices", "load_forecasts", "wind_solar_forecasts"),
-    "kit:entsoe_fms": ("EnergyPrices", "ActualTotalLoad"),
+    "kit:entsoe_files": ("EnergyPrices", "ActualTotalLoad"),
     "kit:epex_spot": ("continuous_statistics", "continuous_indices", "continuous_trades", "intraday_auction_prices_volumes"),
     "kit:regelleistung": ("file_rows", "numeric_values"),
     "kit:smard": ("prices", "smard"),
-    "kit:weather_forecast": ("hourly_forecast",),
+    "kit:open_meteo": ("hourly_forecast", "runs"),
     "kit:mastr": ("EinheitenWind", "Katalogkategorien", "Katalogwerte"),
-    "kit:power_system_data": ("powersystemdata", "eic_geo_location"),
+    "kit:powerplantmatching": ("powerplants", "eic_geo_location"),
     "core:entsoe_crawler": ("query_day_ahead_prices", "query_load", "query_load_forecast",
                              "query_generation_forecast", "query_generation", "query_wind_and_solar_forecast"),
     "core:regelleistung": ("fcr_bedarfe", "fcr_ergebnisse", "fcr_anonyme_ergebnisse"),
 }
+for _case in ("kit:renewables_ninja", "core:ninja"):
+    REQUIRED_TABLES[_case] = ("capacity_solar_merra2", "capacity_wind_on", "capacity_wind_off")
 for _source in ("kit", "core"):
-    REQUIRED_TABLES[f"{_source}:ninja"] = ("capacity_solar_merra2", "capacity_wind_on", "capacity_wind_off")
     REQUIRED_TABLES[f"{_source}:entsog"] = ("physical_flow", "allocation", "firm_technical")
 
 
@@ -111,7 +112,7 @@ def execute_case(case):
                   jao_api_key=os.environ.get("JAO_API_KEY", ""))
     config["email"] = {"mailhost": "", "fromaddr": "", "toaddrs": [],
                        "subject": "", "username": "", "password": ""}
-    if name == "entsoe_fms":
+    if name == "entsoe_files":
         config.update(target_data_items=["EnergyPrices_12.1.D_r3", "ActualTotalLoad_6.1.A_r3"],
                       fms_package_window_months=1, fms_package_write_mode="full_upsert")
     if source == "kit" and name == "mastr":
@@ -142,9 +143,8 @@ def execute_case(case):
         module = importlib.import_module("oeds.crawler." + name)
         cls = getattr(module, core_crawler_classes(core_dir() / (name + ".py"))[0])
     if name == "open_meteo":
-        config["locations"] = module.DEFAULT_LOCATIONS[:1]
-    elif name == "weather_forecast":
-        config["locations"] = cls.DEFAULT_LOCATIONS[:1]
+        config["locations"] = [{"location_id": "de_52_13", "name": "52°N 13°E", "country_code": "DE",
+                                "country_name": "Germany", "latitude": 52.0, "longitude": 13.0}]
     if source == "core" and name == "eon_grid_fees":
         from oeds.crawler.nuts_mapper import NutsCrawler
         NutsCrawler("public", config).crawl_structural()

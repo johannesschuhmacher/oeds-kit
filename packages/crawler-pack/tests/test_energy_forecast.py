@@ -1,6 +1,6 @@
 import pandas as pd
 
-from crawler.energy_forecast_crawler import EnergyForecastCrawler
+from crawler.energyforecast import EnergyForecastCrawler
 
 
 def test_csv_history_uses_runtime_data_directory(monkeypatch, tmp_path):

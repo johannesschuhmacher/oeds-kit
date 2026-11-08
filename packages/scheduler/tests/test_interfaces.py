@@ -150,7 +150,7 @@ def _wait_until(predicate, timeout=5.0):
 def test_planner_expands_named_jobs_with_inherited_config():
     config = {
         "enable": True,
-        "schema_name": "entsoe_fms",
+        "schema_name": "entsoe_files",
         "database_uri": DATABASE_URI,
         "post_run_scripts": ["scripts/gapfill_timeseries.py"],
         "jobs": {
@@ -167,11 +167,11 @@ def test_planner_expands_named_jobs_with_inherited_config():
         },
     }
 
-    jobs = expand_crawler_job_configs("entsoe_fms", config)
+    jobs = expand_crawler_job_configs("entsoe_files", config)
 
     assert [job.job_id for job in jobs] == [
-        "entsoe_fms:latest_hourly",
-        "entsoe_fms:revision_sweep_daily",
+        "entsoe_files:latest_hourly",
+        "entsoe_files:revision_sweep_daily",
     ]
     assert jobs[0].config["post_run_scripts"] == ["scripts/gapfill_timeseries.py"]
     assert jobs[0].config["target_data_items"] == ["ActualTotalLoad_6.1.A_r3"]
@@ -190,7 +190,7 @@ def test_planner_builds_plans_for_registered_crawlers_only():
             },
             "missing": {"enable": True, "schema_name": "missing"},
         },
-        ["smard", "entsoe_fms"],
+        ["smard", "entsoe_files"],
     )
 
     assert not result.errors

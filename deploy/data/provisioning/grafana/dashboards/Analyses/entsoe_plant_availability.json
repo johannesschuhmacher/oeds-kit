@@ -107,7 +107,7 @@
                     "editorMode": "code",
                     "format": "time_series",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n\n  \"InAreaDisplayName\" AS \"metric\", \n\n  \"ForecastTransferCapacity[MW]\" AS \"value\"\nFROM\n  entsoe_fms.\"ForecastedTransferCapacities\"\nWHERE\n  \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000)\n  AND\n  \"OutAreaDisplayName\" = '$Country'\nORDER BY\n  \"time\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n\n  \"InAreaDisplayName\" AS \"metric\", \n\n  \"ForecastTransferCapacity[MW]\" AS \"value\"\nFROM\n  entsoe_files.\"ForecastedTransferCapacities\"\nWHERE\n  \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000)\n  AND\n  \"OutAreaDisplayName\" = '$Country'\nORDER BY\n  \"time\" ASC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -216,7 +216,7 @@
                     "editorMode": "code",
                     "format": "time_series",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n\r\n  \"OutAreaDisplayName\" AS \"metric\", \r\n\r\n  \"ForecastTransferCapacity[MW]\" AS \"value\"\r\nFROM\r\n  entsoe_fms.\"ForecastedTransferCapacities\"\r\nWHERE\r\n  \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000)\r\n  AND\r\n  \"InAreaDisplayName\" = '$Country'\r\nORDER BY\r\n  \"time\" ASC;",
+                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n\r\n  \"OutAreaDisplayName\" AS \"metric\", \r\n\r\n  \"ForecastTransferCapacity[MW]\" AS \"value\"\r\nFROM\r\n  entsoe_files.\"ForecastedTransferCapacities\"\r\nWHERE\r\n  \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000)\r\n  AND\r\n  \"InAreaDisplayName\" = '$Country'\r\nORDER BY\r\n  \"time\" ASC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -326,7 +326,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Day-Ahead (60m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Day-Ahead Hourly\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_fms.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') \n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
+                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Day-Ahead (60m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Day-Ahead Hourly\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_files.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    (TRIM(COALESCE(\"Sequence\", '')) = '' OR \"Sequence\" = '1') \n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -351,7 +351,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Day-Ahead (15m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Day-Ahead Quarter-hourly\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_fms.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    \"Sequence\" = '2'\n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
+                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Day-Ahead (15m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Day-Ahead Quarter-hourly\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_files.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    \"Sequence\" = '2'\n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
                     "refId": "B",
                     "sql": {
                         "columns": [
@@ -376,7 +376,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Intraday (15m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Intraday\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_fms.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    \"Sequence\" = '3'\n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
+                    "rawSql": "SELECT\n  $__timeGroupAlias(my_time, $__interval),\n  'Intraday (15m)' AS \"metric\",\n  avg(\"Price[Currency/MWh]\") AS \"Intraday\"\nFROM (\n  SELECT\n    \"DateTime(UTC)\" AS my_time,\n    \"Price[Currency/MWh]\"\n  FROM\n    entsoe_files.\"EnergyPrices\"\n  WHERE\n    \"DateTime(UTC)\" BETWEEN to_timestamp($__from / 1000) AND to_timestamp($__to / 1000) AND\n    \"AreaDisplayName\" = '$Country' AND\n    \"AreaTypeCode\" = 'BZN' AND\n    \"Sequence\" = '3'\n) AS sub\nGROUP BY 1, 2 ORDER BY 1 ASC;",
                     "refId": "C",
                     "sql": {
                         "columns": [
@@ -486,7 +486,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"TotalLoad[MW]\" AS \"Total Load\"\nFROM\n  entsoe_fms.\"ActualTotalLoad\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\n  AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"TotalLoad[MW]\" AS \"Total Load\"\nFROM\n  entsoe_files.\"ActualTotalLoad\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\n  AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -511,7 +511,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"GenerationForecast[MW]\" AS \"Scheduled Generation\"\nFROM\n  entsoe_fms.\"DayAheadAggregatedGeneration\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\n  AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"GenerationForecast[MW]\" AS \"Scheduled Generation\"\nFROM\n  entsoe_files.\"DayAheadAggregatedGeneration\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\n  AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "B",
                     "sql": {
                         "columns": [
@@ -712,7 +712,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Solar Day-ahead\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Solar'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Solar Day-ahead\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Solar'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -737,7 +737,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Wind Onshore Day-ahead\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Onshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Wind Onshore Day-ahead\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Onshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "B",
                     "sql": {
                         "columns": [
@@ -762,7 +762,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Wind Offshore Day-ahead\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Offshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"DayAheadGenerationForecast[MW]\" AS \"Wind Offshore Day-ahead\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Offshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "C",
                     "sql": {
                         "columns": [
@@ -787,7 +787,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Solar Intraday\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Solar'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Solar Intraday\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Solar'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "D",
                     "sql": {
                         "columns": [
@@ -812,7 +812,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Wind Onshore Intraday\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Onshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Wind Onshore Intraday\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Onshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "E",
                     "sql": {
                         "columns": [
@@ -837,7 +837,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Wind Offshore Intraday\"\nFROM\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Offshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\n  \"DateTime(UTC)\" AS \"time\",\n  \"AreaDisplayName\" AS \"metric\",\n  \"IntradayGenerationForecast[MW]\" AS \"Wind Offshore Intraday\"\nFROM\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\nWHERE\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\n  AND\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\n  \"AreaDisplayName\" = '$Country' AND\n  \"AreaTypeCode\" = '$Area_Type' AND\n  \"ProductionType\" = 'Wind Offshore'\nORDER BY\n  \"DateTime(UTC)\" ASC;",
                     "refId": "F",
                     "sql": {
                         "columns": [
@@ -862,7 +862,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Solar Current\"\r\nFROM\r\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Solar'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Solar Current\"\r\nFROM\r\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Solar'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
                     "refId": "G",
                     "sql": {
                         "columns": [
@@ -887,7 +887,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Wind Onshore Current\"\r\nFROM\r\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Wind Onshore'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Wind Onshore Current\"\r\nFROM\r\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Wind Onshore'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
                     "refId": "H",
                     "sql": {
                         "columns": [
@@ -912,7 +912,7 @@
                     "format": "table",
                     "hide": false,
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Wind Offshore Current\"\r\nFROM\r\n  entsoe_fms.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Wind Offshore'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
+                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"AreaDisplayName\" AS \"metric\",\r\n  \"CurrentGenerationForecast[MW]\" AS \"Wind Offshore Current\"\r\nFROM\r\n  entsoe_files.\"GenerationForecastsForWindAndSolar\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0) AND\r\n  \"AreaDisplayName\" = '$Country' AND\r\n  \"AreaTypeCode\" = '$Area_Type' AND\r\n  \"ProductionType\" = 'Wind Offshore'\r\nORDER BY\r\n  \"DateTime(UTC)\" ASC;",
                     "refId": "I",
                     "sql": {
                         "columns": [
@@ -1029,7 +1029,7 @@
                     "editorMode": "code",
                     "format": "time_series",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"ProductionType\" AS metric,\r\n  avg(\"ActualGenerationOutput[MW]\") AS \"Generation\"\r\nFROM\r\n  \"entsoe_fms\".\"AggregatedGenerationPerType\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\r\n  AND \"AreaDisplayName\" = '$Country'\r\nGROUP BY\r\n  \"time\", \"ProductionType\" \r\nORDER BY\r\n  \"time\"",
+                    "rawSql": "SELECT\r\n  \"DateTime(UTC)\" AS \"time\",\r\n  \"ProductionType\" AS metric,\r\n  avg(\"ActualGenerationOutput[MW]\") AS \"Generation\"\r\nFROM\r\n  \"entsoe_files\".\"AggregatedGenerationPerType\"\r\nWHERE\r\n  \"DateTime(UTC)\" >= to_timestamp($__from / 1000.0)\r\n  AND\r\n  \"DateTime(UTC)\" <= to_timestamp($__to / 1000.0)\r\n  AND \"AreaDisplayName\" = '$Country'\r\nGROUP BY\r\n  \"time\", \"ProductionType\" \r\nORDER BY\r\n  \"time\"",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -1176,7 +1176,7 @@
                     "editorMode": "code",
                     "format": "time_series",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n    make_date(\"Year\"::int, 1, 1) AS \"time\",\n    \"ProductionType\",\n    SUM(\"AggregatedInstalledCapacity[MW]\") AS \" \"\nFROM\n  entsoe_fms.\"InstalledGenerationCapacityAggregated\"\nWHERE\n  \"AreaDisplayName\" = '$Country'\n  AND\n  \"AreaTypeCode\" = '$Area_Type'\nGROUP BY \"time\", \"ProductionType\"\nORDER BY\n  \"time\";",
+                    "rawSql": "SELECT\n    make_date(\"Year\"::int, 1, 1) AS \"time\",\n    \"ProductionType\",\n    SUM(\"AggregatedInstalledCapacity[MW]\") AS \" \"\nFROM\n  entsoe_files.\"InstalledGenerationCapacityAggregated\"\nWHERE\n  \"AreaDisplayName\" = '$Country'\n  AND\n  \"AreaTypeCode\" = '$Area_Type'\nGROUP BY \"time\", \"ProductionType\"\nORDER BY\n  \"time\";",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -1379,7 +1379,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,\r\n  AVG(lon) AS lon,\r\n  fuel_type AS \"energy_source\",\r\n  country,\r\n  SUM(capacity) AS \"capacity\",\r\n  name\r\nFROM power_system_data.powersystemdata\r\nWHERE\r\n  (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE)) AND\r\n  fuel_type IN (\r\n    'Nuclear',     \r\n    'Hard Coal',   \r\n    'Lignite',     \r\n    'Natural Gas',  \r\n    'Oil',         \r\n    'Waste',       \r\n    'Hydro',       \r\n    'Other'\r\n  )\r\nGROUP BY \r\n  name, \r\n  fuel_type, \r\n  country, \r\n  \"time\"\r\nHAVING \r\n  SUM(capacity) >= 50  \r\nORDER BY \r\n  \"capacity\" DESC",
+                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,\r\n  AVG(lon) AS lon,\r\n  fuel_type AS \"energy_source\",\r\n  country,\r\n  SUM(capacity) AS \"capacity\",\r\n  name\r\nFROM powerplantmatching.powerplants\r\nWHERE\r\n  (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE)) AND\r\n  fuel_type IN (\r\n    'Nuclear',     \r\n    'Hard Coal',   \r\n    'Lignite',     \r\n    'Natural Gas',  \r\n    'Oil',         \r\n    'Waste',       \r\n    'Hydro',       \r\n    'Other'\r\n  )\r\nGROUP BY \r\n  name, \r\n  fuel_type, \r\n  country, \r\n  \"time\"\r\nHAVING \r\n  SUM(capacity) >= 50  \r\nORDER BY \r\n  \"capacity\" DESC",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -1582,7 +1582,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,\r\n  AVG(lon) AS lon,\r\n  fuel_type AS \"energy_source\",\r\n  country,\r\n  SUM(capacity) AS \"capacity\",\r\n  \r\n  CASE \r\n      WHEN name IS NULL OR name = '' OR name = 'Nan' \r\n      THEN country || '_' || fuel_type || '_Nr_' || source_id::text\r\n      ELSE name \r\n  END AS name\r\n\r\nFROM power_system_data.powersystemdata\r\nWHERE\r\n  (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE)) AND\r\n  fuel_type Not IN (\r\n    'Nuclear',     \r\n    'Hard Coal',   \r\n    'Lignite',     \r\n    'Natural Gas',  \r\n    'Oil',         \r\n    'Waste',       \r\n    'Hydro',       \r\n    'Other'\r\n  )\r\nGROUP BY \r\n  CASE \r\n      WHEN name IS NULL OR name = '' OR name = 'Nan' \r\n      THEN country || '_' || fuel_type || '_Nr_' || source_id::text\r\n      ELSE name \r\n  END,\r\n  fuel_type, \r\n  country, \r\n  \"time\"\r\nHAVING \r\n  SUM(capacity) >= 50  \r\nORDER BY \r\n  \"capacity\" DESC",
+                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,\r\n  AVG(lon) AS lon,\r\n  fuel_type AS \"energy_source\",\r\n  country,\r\n  SUM(capacity) AS \"capacity\",\r\n  \r\n  CASE \r\n      WHEN name IS NULL OR name = '' OR name = 'Nan' \r\n      THEN country || '_' || fuel_type || '_Nr_' || source_id::text\r\n      ELSE name \r\n  END AS name\r\n\r\nFROM powerplantmatching.powerplants\r\nWHERE\r\n  (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE)) AND\r\n  fuel_type Not IN (\r\n    'Nuclear',     \r\n    'Hard Coal',   \r\n    'Lignite',     \r\n    'Natural Gas',  \r\n    'Oil',         \r\n    'Waste',       \r\n    'Hydro',       \r\n    'Other'\r\n  )\r\nGROUP BY \r\n  CASE \r\n      WHEN name IS NULL OR name = '' OR name = 'Nan' \r\n      THEN country || '_' || fuel_type || '_Nr_' || source_id::text\r\n      ELSE name \r\n  END,\r\n  fuel_type, \r\n  country, \r\n  \"time\"\r\nHAVING \r\n  SUM(capacity) >= 50  \r\nORDER BY \r\n  \"capacity\" DESC",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -1785,7 +1785,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "WITH val_map (grafana_label, db_name) AS (\r\n    VALUES\r\n    ('Albania (AL)', 'Albania'),\r\n    ('Austria (AT)', 'Austria'),\r\n    ('Belgium (BE)', 'Belgium'),\r\n    ('Bosnia and Herz. (BA)', 'Bosnia and Herzegovina'),\r\n    ('Bulgaria (BG)', 'Bulgaria'),\r\n    ('Croatia (HR)', 'Croatia'),\r\n    ('Cyprus (CY)', 'Cyprus'),\r\n    ('Czech Republic (CZ)', 'Czechia'),\r\n    ('Denmark (DK)', 'Denmark'), ('DK', 'Denmark'), ('DK1', 'Denmark'), ('DK2', 'Denmark'),\r\n    ('Estonia (EE)', 'Estonia'),\r\n    ('Finland (FI)', 'Finland'),\r\n    ('France (FR)', 'France'),\r\n    ('Germany (DE)', 'Germany'), ('DE(50Hertz)', 'Germany'), ('DE(Amprion)', 'Germany'), \r\n    ('DE(TenneT GER)', 'Germany'), ('DE(TransnetBW)', 'Germany'), ('DE-LU', 'Germany'),\r\n    ('Greece (GR)', 'Greece'),\r\n    ('Hungary (HU)', 'Hungary'),\r\n    ('Ireland (IE)', 'Ireland'), ('IE(SEM)', 'Ireland'), ('NIE', 'United Kingdom'),\r\n    ('Italy (IT)', 'Italy'), ('IT-Calabria', 'Italy'), ('IT-Centre-North', 'Italy'), \r\n    ('IT-Centre-South', 'Italy'), ('IT-North', 'Italy'), ('IT-Sardinia', 'Italy'), \r\n    ('IT-Sicily', 'Italy'), ('IT-South', 'Italy'),\r\n    ('Kosovo (XK)', 'Kosovo'),\r\n    ('Latvia (LV)', 'Latvia'),\r\n    ('Lithuania (LT)', 'Lithuania'),\r\n    ('Luxembourg (LU)', 'Luxembourg'),\r\n    ('Moldova (MD)', 'Moldova'),\r\n    ('Montenegro (ME)', 'Montenegro'),\r\n    ('Netherlands (NL)', 'Netherlands'),\r\n    ('North Macedonia (MK)', 'North Macedonia'),\r\n    ('Norway (NO)', 'Norway'), ('NO1', 'Norway'), ('NO2', 'Norway'), \r\n    ('NO3', 'Norway'), ('NO4', 'Norway'), ('NO5', 'Norway'),\r\n    ('Poland (PL)', 'Poland'),\r\n    ('Portugal (PT)', 'Portugal'),\r\n    ('Romania (RO)', 'Romania'),\r\n    ('Serbia (RS)', 'Serbia'),\r\n    ('Slovakia (SK)', 'Slovakia'),\r\n    ('Slovenia (SI)', 'Slovenia'),\r\n    ('Spain (ES)', 'Spain'),\r\n    ('Sweden (SE)', 'Sweden'), ('SE1', 'Sweden'), ('SE2', 'Sweden'), \r\n    ('SE3', 'Sweden'), ('SE4', 'Sweden'),\r\n    ('Switzerland (CH)', 'Switzerland'),\r\n    ('United Kingdom (UK)', 'United Kingdom'),\r\n    ('Ukraine (UA)', 'Ukraine')\r\n)\r\n\r\nSELECT\r\n  0 AS \"time\", \r\n  AVG(t.lat) AS lat,\r\n  AVG(t.lon) AS lon,\r\n  t.fuel_type AS \"energy_source\",\r\n  t.country,\r\n  SUM(t.capacity) AS \"capacity\",\r\n  CASE \r\n      WHEN t.name IS NULL OR t.name = '' OR t.name = 'nan' \r\n      THEN t.country || '_' || t.fuel_type || '_Nr_' || t.source_id::text\r\n      ELSE t.name \r\n  END AS name\r\n\r\nFROM power_system_data.powersystemdata t\r\nWHERE\r\n  t.country IN (\r\n      SELECT DISTINCT m.db_name \r\n      FROM val_map m\r\n      WHERE m.grafana_label IN (${Country:sqlstring}) \r\n  )\r\n  AND (t.date_out IS NULL OR t.date_out >= EXTRACT(YEAR FROM CURRENT_DATE))\r\n\r\nGROUP BY \r\n  CASE \r\n      WHEN t.name IS NULL OR t.name = '' OR t.name = 'nan' \r\n      THEN t.country || '_' || t.fuel_type || '_Nr_' || t.source_id::text\r\n      ELSE t.name \r\n  END,\r\n  t.fuel_type, \r\n  t.country",
+                    "rawSql": "WITH val_map (grafana_label, db_name) AS (\r\n    VALUES\r\n    ('Albania (AL)', 'Albania'),\r\n    ('Austria (AT)', 'Austria'),\r\n    ('Belgium (BE)', 'Belgium'),\r\n    ('Bosnia and Herz. (BA)', 'Bosnia and Herzegovina'),\r\n    ('Bulgaria (BG)', 'Bulgaria'),\r\n    ('Croatia (HR)', 'Croatia'),\r\n    ('Cyprus (CY)', 'Cyprus'),\r\n    ('Czech Republic (CZ)', 'Czechia'),\r\n    ('Denmark (DK)', 'Denmark'), ('DK', 'Denmark'), ('DK1', 'Denmark'), ('DK2', 'Denmark'),\r\n    ('Estonia (EE)', 'Estonia'),\r\n    ('Finland (FI)', 'Finland'),\r\n    ('France (FR)', 'France'),\r\n    ('Germany (DE)', 'Germany'), ('DE(50Hertz)', 'Germany'), ('DE(Amprion)', 'Germany'), \r\n    ('DE(TenneT GER)', 'Germany'), ('DE(TransnetBW)', 'Germany'), ('DE-LU', 'Germany'),\r\n    ('Greece (GR)', 'Greece'),\r\n    ('Hungary (HU)', 'Hungary'),\r\n    ('Ireland (IE)', 'Ireland'), ('IE(SEM)', 'Ireland'), ('NIE', 'United Kingdom'),\r\n    ('Italy (IT)', 'Italy'), ('IT-Calabria', 'Italy'), ('IT-Centre-North', 'Italy'), \r\n    ('IT-Centre-South', 'Italy'), ('IT-North', 'Italy'), ('IT-Sardinia', 'Italy'), \r\n    ('IT-Sicily', 'Italy'), ('IT-South', 'Italy'),\r\n    ('Kosovo (XK)', 'Kosovo'),\r\n    ('Latvia (LV)', 'Latvia'),\r\n    ('Lithuania (LT)', 'Lithuania'),\r\n    ('Luxembourg (LU)', 'Luxembourg'),\r\n    ('Moldova (MD)', 'Moldova'),\r\n    ('Montenegro (ME)', 'Montenegro'),\r\n    ('Netherlands (NL)', 'Netherlands'),\r\n    ('North Macedonia (MK)', 'North Macedonia'),\r\n    ('Norway (NO)', 'Norway'), ('NO1', 'Norway'), ('NO2', 'Norway'), \r\n    ('NO3', 'Norway'), ('NO4', 'Norway'), ('NO5', 'Norway'),\r\n    ('Poland (PL)', 'Poland'),\r\n    ('Portugal (PT)', 'Portugal'),\r\n    ('Romania (RO)', 'Romania'),\r\n    ('Serbia (RS)', 'Serbia'),\r\n    ('Slovakia (SK)', 'Slovakia'),\r\n    ('Slovenia (SI)', 'Slovenia'),\r\n    ('Spain (ES)', 'Spain'),\r\n    ('Sweden (SE)', 'Sweden'), ('SE1', 'Sweden'), ('SE2', 'Sweden'), \r\n    ('SE3', 'Sweden'), ('SE4', 'Sweden'),\r\n    ('Switzerland (CH)', 'Switzerland'),\r\n    ('United Kingdom (UK)', 'United Kingdom'),\r\n    ('Ukraine (UA)', 'Ukraine')\r\n)\r\n\r\nSELECT\r\n  0 AS \"time\", \r\n  AVG(t.lat) AS lat,\r\n  AVG(t.lon) AS lon,\r\n  t.fuel_type AS \"energy_source\",\r\n  t.country,\r\n  SUM(t.capacity) AS \"capacity\",\r\n  CASE \r\n      WHEN t.name IS NULL OR t.name = '' OR t.name = 'nan' \r\n      THEN t.country || '_' || t.fuel_type || '_Nr_' || t.source_id::text\r\n      ELSE t.name \r\n  END AS name\r\n\r\nFROM powerplantmatching.powerplants t\r\nWHERE\r\n  t.country IN (\r\n      SELECT DISTINCT m.db_name \r\n      FROM val_map m\r\n      WHERE m.grafana_label IN (${Country:sqlstring}) \r\n  )\r\n  AND (t.date_out IS NULL OR t.date_out >= EXTRACT(YEAR FROM CURRENT_DATE))\r\n\r\nGROUP BY \r\n  CASE \r\n      WHEN t.name IS NULL OR t.name = '' OR t.name = 'nan' \r\n      THEN t.country || '_' || t.fuel_type || '_Nr_' || t.source_id::text\r\n      ELSE t.name \r\n  END,\r\n  t.fuel_type, \r\n  t.country",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -1988,7 +1988,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,                \r\n  AVG(lon) AS lon,\r\n  country,\r\n  fuel_type AS \"energy_source\",\r\n  SUM(plant_capacity) AS \"capacity\", \r\n  'Small ' || fuel_type || ' (<50MW)' AS name \r\nFROM (\r\n    \r\n    SELECT \r\n        country,\r\n        fuel_type,\r\n        AVG(lat) as lat,\r\n        AVG(lon) as lon,\r\n        SUM(capacity) as plant_capacity\r\n    FROM power_system_data.powersystemdata\r\n    WHERE (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE))\r\n    GROUP BY name, country, fuel_type\r\n    HAVING SUM(capacity) < 50\r\n) AS small_plants\r\nGROUP BY \r\n  country, \r\n  fuel_type,\r\n  \"time\"",
+                    "rawSql": "SELECT\r\n  0 AS \"time\",\r\n  AVG(lat) AS lat,                \r\n  AVG(lon) AS lon,\r\n  country,\r\n  fuel_type AS \"energy_source\",\r\n  SUM(plant_capacity) AS \"capacity\", \r\n  'Small ' || fuel_type || ' (<50MW)' AS name \r\nFROM (\r\n    \r\n    SELECT \r\n        country,\r\n        fuel_type,\r\n        AVG(lat) as lat,\r\n        AVG(lon) as lon,\r\n        SUM(capacity) as plant_capacity\r\n    FROM powerplantmatching.powerplants\r\n    WHERE (date_out IS NULL OR date_out >= EXTRACT(YEAR FROM CURRENT_DATE))\r\n    GROUP BY name, country, fuel_type\r\n    HAVING SUM(capacity) < 50\r\n) AS small_plants\r\nGROUP BY \r\n  country, \r\n  fuel_type,\r\n  \"time\"",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -2359,7 +2359,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT\r\n  geo.lat AS latitude,\r\n  geo.lon AS longitude,\r\n  gen.\"GenerationUnitType\" AS unit_type,\r\n  STRING_AGG(DISTINCT gen.\"GenerationUnitName\", ', ') AS unit_name,\r\n  STRING_AGG(DISTINCT gen.\"GenerationUnitCode\", ', ') AS eic_code,\r\n  SUM(gen.\"ActualGenerationOutput[MW]\") AS total_output\r\nFROM entsoe_fms.\"ActualGenerationOutputPerGenerationUnit\" AS gen\r\nJOIN power_system_data.eic_geo_location AS geo\r\n  ON gen.\"GenerationUnitCode\" = geo.eic_code\r\nWHERE \r\n  gen.\"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()\r\n  AND gen.\"ActualGenerationOutput[MW]\" IS NOT NULL\r\n  AND gen.\"ActualGenerationOutput[MW]\" != 'NaN'\r\nGROUP BY\r\n  geo.lat,\r\n  geo.lon,\r\n  gen.\"GenerationUnitType\"\r\nORDER BY total_output DESC;",
+                    "rawSql": "SELECT\r\n  geo.lat AS latitude,\r\n  geo.lon AS longitude,\r\n  gen.\"GenerationUnitType\" AS unit_type,\r\n  STRING_AGG(DISTINCT gen.\"GenerationUnitName\", ', ') AS unit_name,\r\n  STRING_AGG(DISTINCT gen.\"GenerationUnitCode\", ', ') AS eic_code,\r\n  SUM(gen.\"ActualGenerationOutput[MW]\") AS total_output\r\nFROM entsoe_files.\"ActualGenerationOutputPerGenerationUnit\" AS gen\r\nJOIN powerplantmatching.eic_geo_location AS geo\r\n  ON gen.\"GenerationUnitCode\" = geo.eic_code\r\nWHERE \r\n  gen.\"DateTime(UTC)\" BETWEEN $__timeFrom() AND $__timeTo()\r\n  AND gen.\"ActualGenerationOutput[MW]\" IS NOT NULL\r\n  AND gen.\"ActualGenerationOutput[MW]\" != 'NaN'\r\nGROUP BY\r\n  geo.lat,\r\n  geo.lon,\r\n  gen.\"GenerationUnitType\"\r\nORDER BY total_output DESC;",
                     "refId": "A",
                     "sql": {
                         "columns": [
@@ -2399,10 +2399,10 @@
                     "text": "France (FR)",
                     "value": "France (FR)"
                 },
-                "definition": "SELECT DISTINCT \"AreaDisplayName\" from \"entsoe_fms\".\"ActualTotalLoad\"",
+                "definition": "SELECT DISTINCT \"AreaDisplayName\" from \"entsoe_files\".\"ActualTotalLoad\"",
                 "name": "Country",
                 "options": [],
-                "query": "SELECT DISTINCT \"AreaDisplayName\" from \"entsoe_fms\".\"ActualTotalLoad\"",
+                "query": "SELECT DISTINCT \"AreaDisplayName\" from \"entsoe_files\".\"ActualTotalLoad\"",
                 "refresh": 1,
                 "regex": "",
                 "type": "query"
@@ -2412,11 +2412,11 @@
                     "text": "BZN/CTA/CTY",
                     "value": "BZN/CTA/CTY"
                 },
-                "definition": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "definition": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_files.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
                 "label": "Area Type",
                 "name": "Area_Type",
                 "options": [],
-                "query": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_fms.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
+                "query": "SELECT area_type\nFROM (\n    SELECT\n        \"AreaTypeCode\" AS area_type,\n        MAX(\"DateTime(UTC)\") AS latest_ts,\n        CASE\n            WHEN \"AreaTypeCode\" = 'BZN' THEN 1\n            WHEN POSITION('BZN' IN \"AreaTypeCode\") > 0 THEN 2\n            WHEN POSITION('CTA' IN \"AreaTypeCode\") > 0 THEN 3\n            WHEN POSITION('CTY' IN \"AreaTypeCode\") > 0 THEN 4\n            ELSE 9\n        END AS priority\n    FROM entsoe_files.\"ActualTotalLoad\"\n    WHERE \"DateTime(UTC)\" >= now() - interval '30 days'\n      AND \"AreaDisplayName\" = '$Country'\n    GROUP BY 1, 3\n) ranked\nORDER BY priority, latest_ts DESC, area_type",
                 "refresh": 1,
                 "regex": "",
                 "type": "query",

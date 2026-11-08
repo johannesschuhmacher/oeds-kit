@@ -22,7 +22,7 @@ crawlers have written source tables.
 ## CLI
 
 ```powershell
-oeds-post gapfill entsoe-fms
+oeds-post gapfill entsoe-files
 oeds-post refresh entsoe-availability-map
 oeds-post forecast day-ahead-price
 oeds-post backfill entsoe-unavailability
@@ -31,8 +31,8 @@ oeds-post submit energy-arena
 
 Each command runs the `main()` of its module under `scripts/` in-process, in
 the current working directory; further arguments are passed on (for example
-`oeds-post gapfill entsoe-fms --self-test`, `oeds-post forecast day-ahead-price --help`).
-`gapfill entsoe-fms` adds `--job entsoe_fms`. Set `OEDS_CRAWLER_DATA_DIR` to a
+`oeds-post gapfill entsoe-files --self-test`, `oeds-post forecast day-ahead-price --help`).
+`gapfill entsoe-files` adds `--job entsoe_files`. Set `OEDS_CRAWLER_DATA_DIR` to a
 writable directory for downloaded files; installed source code can be read-only.
 
 ## Included Implementation

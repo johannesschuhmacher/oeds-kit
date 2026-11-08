@@ -8,8 +8,8 @@ from sqlalchemy.types import Float, String
 
 # ================= Configuration (Defaults) =================
 DEFAULT_DB_URI = "postgresql://opendata:opendata@localhost:6432/opendata"
-DEFAULT_SOURCE_SCHEMA = "power_system_data"
-DEFAULT_SOURCE_TABLE = "powersystemdata"
+DEFAULT_SOURCE_SCHEMA = "powerplantmatching"
+DEFAULT_SOURCE_TABLE = "powerplants"
 DEFAULT_TARGET_TABLE = "eic_geo_location"
 DEFAULT_MAPPING_FILE = os.path.join(os.path.dirname(__file__), "mapping_p_to_g.json")
 # ===========================================================

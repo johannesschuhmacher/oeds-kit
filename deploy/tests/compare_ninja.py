@@ -5,11 +5,12 @@ from sqlalchemy import create_engine
 
 for table in ['capacity_wind_on', 'capacity_wind_off', 'capacity_solar_merra2']:
     frames = []
-    for source in ['kit', 'core']:
+    # KIT crawler renewables_ninja and core crawler ninja, each in its own database
+    for database, schema in [('kit_renewables_ninja', 'renewables_ninja'), ('core_ninja', 'ninja')]:
         engine = create_engine(
-            f'postgresql://opendata:opendata@oeds-crawler-validation-db:5432/{source}_ninja')
+            f'postgresql://opendata:opendata@oeds-crawler-validation-db:5432/{database}')
         with engine.connect() as conn:
-            frames.append(pd.read_sql(f'SELECT * FROM ninja.{table} ORDER BY time', conn))
+            frames.append(pd.read_sql(f'SELECT * FROM {schema}.{table} ORDER BY time', conn))
         engine.dispose()
     for frame in frames:
         frame['time'] = pd.to_datetime(frame['time'], utc=True)
