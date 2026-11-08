@@ -487,6 +487,10 @@ class EntsoeFilesCrawler(KitCrawler):
     def _list_metadata(self, data_item: str, start: pd.Timestamp, end: pd.Timestamp) -> List[Dict]:
         return self._list_folder(f"/TP_export/{self._resolve_folder(data_item)}/")
 
+    # The File Library sometimes serves a file empty for a moment (seen on
+    # 2026-11-07 at two sites at once); the next download is complete.
+    EMPTY_DOWNLOAD_RETRY_SECONDS = 60
+
     def _download_file(self, fileid: str, target: str) -> None:
         payload = {
             "fileIdList": [
@@ -992,6 +996,14 @@ class EntsoeFilesCrawler(KitCrawler):
                 self.logger.info(f"Downloading file: {fname} (ID: {meta.get('fileId', 'N/A')})")
                 try:
                     self._download_file(meta["fileId"], local_path)
+                    if os.path.getsize(local_path) == 0:
+                        self.logger.warning(
+                            "Downloaded %s is empty; downloading it again in %s s.",
+                            fname,
+                            self.EMPTY_DOWNLOAD_RETRY_SECONDS,
+                        )
+                        time.sleep(self.EMPTY_DOWNLOAD_RETRY_SECONDS)
+                        self._download_file(meta["fileId"], local_path)
                 except requests.HTTPError as exc:
                     self.logger.error(f"Download failed for {fname}: {exc}", exc_info=True)
                     failures.append(f"{fname}: download")
