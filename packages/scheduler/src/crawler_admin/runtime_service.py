@@ -643,7 +643,7 @@ class CrawlerRunService:
                             min_value=14,
                             max_value=365,
                             default_value=self._env_int_default(
-                                "OEDS_PRICE_FORECAST_TRAIN_DAYS", 56
+                                "OEDS_PRICE_FORECAST_TRAIN_DAYS", 364
                             ),
                         ),
                         ActionField(
