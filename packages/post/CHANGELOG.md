@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Day-ahead price forecast: LEAR trains on 364 instead of 56 days
+  (`OEDS_PRICE_FORECAST_TRAIN_DAYS`), and the point forecast is the mean of
+  LEAR and the EXAA price of the target day (`exaa_weight`). Backtest
+  1 Oct - 10 Nov 2026: daily RMSE 18.4 -> 17.0 EUR/MWh, WIS 9.0 -> 8.2. The
+  quantile offsets keep their 56-day window. Model version 0.2.0.
 - Add `oeds-post submit energy-arena`: submits the newest completed day-ahead
   price forecast for tomorrow to the Energy Arena (challenge 2 point,
   challenge 8 quantiles), only before the deadline and only when the EXAA

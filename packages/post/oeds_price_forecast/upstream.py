@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import partial
 
+import numpy as np
 import pandas as pd
 
 from oeds_price_forecast.model import (
@@ -166,7 +167,7 @@ def _quantiles_from_residual_proxy(
     if residuals.empty:
         residual_offsets = pd.Series(0.0, index=list(config.quantiles))
     else:
-        residual_offsets = residuals.tail(config.train_days * 96).quantile(list(config.quantiles))
+        residual_offsets = residuals.tail(config.residual_days * 96).quantile(list(config.quantiles))
 
     return quantile_forecast(point, residual_offsets, config.quantiles)
 
@@ -219,6 +220,9 @@ def forecast_day_upstream(
     y_pred = forecast_df["y_pred"].to_numpy(dtype=float)[mtu]
     y_true = forecast_df["y_true"].to_numpy(dtype=float)[mtu]
     index_utc = delivery_local.tz_convert("UTC")
+    # Mean with the EXAA price of the target day; quarter-hours without EXAA keep LEAR.
+    exaa_day = _as_utc_series(exaa, "exaa").reindex(index_utc).to_numpy(dtype=float)
+    y_pred = np.where(np.isnan(exaa_day), y_pred, (1 - config.exaa_weight) * y_pred + config.exaa_weight * exaa_day)
     point = pd.DataFrame(
         {
             "delivery_start_utc": index_utc,

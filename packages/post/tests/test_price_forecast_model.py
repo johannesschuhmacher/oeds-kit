@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
 import pandas as pd
 from oeds_price_forecast.model import PriceForecastConfig, generate_self_test_series
 from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_day_upstream
@@ -32,8 +33,23 @@ class PriceForecastModelTest(unittest.TestCase):
         self.assertIn("exaa_d0_mtu_00", result.feature_columns)
         self.assertIn("load_d0_mtu_00", result.feature_columns)
 
+    def test_point_forecast_is_mean_of_lear_and_exaa(self) -> None:
+        target_date = pd.Timestamp("2026-05-18").date()
+        price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
+
+        lear = forecast_day_upstream(
+            price, exaa, covariates, target_date, PriceForecastConfig(train_days=14, exaa_weight=0.0)
+        ).point_forecast
+        mixed = forecast_day_upstream(
+            price, exaa, covariates, target_date, PriceForecastConfig(train_days=14)
+        ).point_forecast
+
+        exaa_day = exaa.reindex(pd.DatetimeIndex(mixed["delivery_start_utc"])).to_numpy()
+        np.testing.assert_allclose(mixed["value_eur_mwh"], 0.5 * lear["value_eur_mwh"] + 0.5 * exaa_day)
+
     def test_forecast_day_covers_local_day_on_clock_changes(self) -> None:
-        config = PriceForecastConfig(train_days=14)
+        # LEAR alone: the EXAA mean would give the two 02:xx hours their own values.
+        config = PriceForecastConfig(train_days=14, exaa_weight=0.0)
         # 25 Oct 2026: 25 hours, 02:00-03:00 twice; 29 Mar 2026: 23 hours, no 02:00.
         for day, rows, first, last in [
             ("2026-10-25", 100, "2026-10-24 22:00:00+00:00", "2026-10-25 22:45:00+00:00"),
