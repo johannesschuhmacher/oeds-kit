@@ -106,27 +106,18 @@ ensure_ansible() {
   if command -v ansible-playbook >/dev/null 2>&1; then
     return
   fi
-  log "ansible-playbook not found; installing Ansible for the current user"
-  # Ansible supports only some Python versions; Fedora's python3 can be newer
-  # (Fedora 45: 3.15), so take the newest supported one and install it there.
-  if ! command -v python3.14 >/dev/null 2>&1 && grep -qx 'ID=fedora' /etc/os-release; then
-    sudo dnf install -y python3.14
+  if grep -qx 'ID=fedora' /etc/os-release; then
+    # Fedora packages Ansible for its own Python, which can be newer than the
+    # PyPI release supports (Fedora 45: Python 3.15); Ansible runs its modules
+    # with that Python too.
+    log "ansible-playbook not found; installing ansible-core from Fedora"
+    sudo dnf install -y ansible-core
+  else
+    log "ansible-playbook not found; installing Ansible for the current user"
+    python3 -m venv "$HOME/.local/share/oeds-ansible"
+    "$HOME/.local/share/oeds-ansible/bin/pip" install ansible
+    export PATH="$HOME/.local/share/oeds-ansible/bin:$PATH"
   fi
-  local python=python3 candidate
-  for candidate in python3.14 python3.13 python3.12; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-      python=$candidate
-      break
-    fi
-  done
-  local venv="$HOME/.local/share/oeds-ansible"
-  # A venv from an unsupported Python is replaced.
-  if [[ -d "$venv" ]] && ! "$venv/bin/ansible-playbook" --version >/dev/null 2>&1; then
-    rm -rf "$venv"
-  fi
-  "$python" -m venv "$venv"
-  "$venv/bin/pip" install ansible
-  export PATH="$venv/bin:$PATH"
   require_command ansible-playbook
 }
 
