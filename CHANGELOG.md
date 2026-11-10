@@ -3,6 +3,13 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- Installation on Fedora (tested on Fedora 45): the host preparation takes
+  Docker CE from its Fedora repository and skips EPEL and CRB; the installer
+  installs Fedora's `ansible-core`, because the PyPI release of Ansible does
+  not yet run on Fedora 45's Python 3.15.
+
 ## 1.5.0 (2026-11-08)
 
 Clearer crawler names and one Open-Meteo crawler with much more data.

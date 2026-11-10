@@ -1,8 +1,9 @@
 # Test a fresh installation
 
 Use a disposable Linux VM. Never run the reset on a production server.
-The Ansible host setup currently targets CentOS Stream. Ubuntu host setup is
-not yet verified; do not treat a CentOS test as an Ubuntu certification.
+The Ansible host setup targets CentOS Stream and Fedora. Ubuntu host setup is
+not yet verified; do not treat a CentOS or Fedora test as an Ubuntu
+certification.
 
 ## 1. Prepare
 
