@@ -22,8 +22,9 @@ with `-e`. For installer runs, that file belongs in the installer's clone
 leave the committed files unchanged, because the installer refuses a clone
 with local changes.
 
-The automated host preparation targets CentOS Stream and currently sets SELinux
-to permissive mode. Review this host-wide security change with your administrator.
+The automated host preparation targets CentOS Stream and Fedora (Docker CE from
+the repository of the distribution; EPEL and CRB only on CentOS) and sets
+SELinux to permissive mode. Review this host-wide security change with your administrator.
 Ubuntu host setup has not been verified. Docker access grants host-level control;
 only trusted operators should join the `docker` group.
 

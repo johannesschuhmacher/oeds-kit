@@ -1,7 +1,12 @@
 - name: Update repositories
   hosts: all
   become: true
-  gather_facts: false
+  gather_facts: true
+  gather_subset: [distribution]
+  vars:
+    # Docker CE publishes one repository per distribution; on Fedora, EPEL and
+    # CRB do not exist because the packages are in Fedora itself.
+    oeds_docker_repo_distribution: "{{ 'fedora' if ansible_distribution == 'Fedora' else 'centos' }}"
   tasks:
   - name: Add EPEL repository
     ansible.builtin.yum_repository:
@@ -12,6 +17,7 @@
       gpgkey: "file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-$releasever_major"
       metadata_expire: "24h"
       enabled: true
+    when: ansible_distribution != 'Fedora'
 
   - name: Add CRB repository
     ansible.builtin.yum_repository:
@@ -23,12 +29,13 @@
       repo_gpgcheck: false
       metadata_expire: "6h"
       enabled: true
+    when: ansible_distribution != 'Fedora'
 
   - name: Add Docker repository
     ansible.builtin.yum_repository:
       name: "docker-ce-stable"
       description: "Docker Community Edition repo"
-      baseurl: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+      baseurl: "https://download.docker.com/linux/{{ oeds_docker_repo_distribution }}/$releasever/$basearch/stable"
       gpgcheck: true
-      gpgkey: "https://download.docker.com/linux/centos/gpg"
+      gpgkey: "https://download.docker.com/linux/{{ oeds_docker_repo_distribution }}/gpg"
       enabled: true
