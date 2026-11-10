@@ -20,9 +20,12 @@ build context is the repository root).
 
 Run these commands **inside the VM's Linux terminal**, after connecting with
 SSH from Windows; Ansible runs on the VM itself. Automated host preparation
-currently targets CentOS Stream; Ubuntu host preparation has not been
-validated. You need Git, Python 3.12+, sudo access and network access to
-GitHub/container registries.
+targets CentOS Stream and Fedora (tested: CentOS Stream 10, Fedora 45); Ubuntu
+host preparation has not been validated. You need Git, Python 3.12+, sudo
+access and network access to GitHub/container registries. If Ansible is
+missing, the installer installs it: on Fedora the distribution's `ansible-core`
+(the PyPI release does not yet run on Fedora 45's Python 3.15), elsewhere
+`ansible` from PyPI for the current user.
 
 The repository is public; cloning it requires no GitHub account or token
 (`OEDS_GIT_TOKEN` is only needed for private forks). Provider API keys for
