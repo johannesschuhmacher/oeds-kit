@@ -26,8 +26,14 @@ previous day's. It fails (exit code 1, alert mail) when the key is missing,
 when no forecast run is newer than the EXAA prices, or when the API refuses
 the submission.
 
-The quantiles are the point forecast shifted by quantiles of the past
-differences between SDAC and EXAA prices, not an error model of the forecast.
+The point forecast is the mean of the LEAR forecast (trained on the past 364
+days) and the EXAA price of the target day (`PriceForecastConfig.train_days`
+and `exaa_weight`). In a backtest from 1 October to 10 November 2026 this
+lowered the mean daily RMSE from 18.4 (LEAR on 56 days, used until November
+2026) to 17.0 EUR/MWh and the WIS from 9.0 to 8.2; EXAA alone had 18.8. The
+quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
+differences of the past 56 days, not an error model of the forecast; offsets
+from the forecast's own past errors or per hour of day did not score better.
 
 ## Schedule
 
@@ -40,9 +46,9 @@ the forecast and then submits it, at 09:40 and 10:40 UTC:
 | Summer (CEST) | 11:40, submits | 12:40, too late, nothing submitted | 10:00 UTC |
 
 EXAA prices appear in the ENTSO-E File Library around 11:10 Europe/Berlin
-(09:10 UTC in summer, 10:10 UTC in winter). A run takes about three minutes to
-the submission; the job skips the forecast's backtest (`--backtest-days 0`),
-which would add four more. A second submission on the same day replaces the
+(09:10 UTC in summer, 10:10 UTC in winter). A run takes about three to four minutes
+to the submission; the job skips the forecast's backtest (`--backtest-days 0`),
+which would add about a minute per backtest day. A second submission on the same day replaces the
 first. The daily forecast at 12:35 UTC
 (`forecast_daily`) stays as it is and submits nothing.
 

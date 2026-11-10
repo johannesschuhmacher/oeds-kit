@@ -912,7 +912,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--database-uri", default=_env_default("OEDS_PRICE_FORECAST_DATABASE_URI", DEFAULT_DATABASE_URI))
     parser.add_argument("--market-area", default=_env_default("OEDS_PRICE_FORECAST_MARKET_AREA", "DE_LU"))
     parser.add_argument("--target-date")
-    parser.add_argument("--train-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_TRAIN_DAYS", 56))
+    parser.add_argument("--train-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_TRAIN_DAYS", 364))
     parser.add_argument("--backtest-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_BACKTEST_DAYS", 0))
     parser.add_argument("--retention-days", type=int, default=_env_int("OEDS_PRICE_FORECAST_RETENTION_DAYS", 180))
     parser.add_argument(

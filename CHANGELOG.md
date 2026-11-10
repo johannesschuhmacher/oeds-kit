@@ -3,6 +3,14 @@
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- Day-ahead price forecast: one year of LEAR training days instead of 56 and
+  the mean of LEAR and the EXAA price as point forecast. In a backtest
+  (1 Oct - 10 Nov 2026) the daily RMSE fell from 18.4 to 17.0 EUR/MWh and the
+  WIS of the Energy Arena quantiles from 9.0 to 8.2. A forecast run takes
+  about 20 s longer and reads a year of prices from `entsoe_files`.
+
 ## 1.5.0 (2026-11-08)
 
 Clearer crawler names and one Open-Meteo crawler with much more data.

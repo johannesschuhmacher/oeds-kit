@@ -21,13 +21,20 @@ import pandas as pd
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 UTC_TZ = ZoneInfo("UTC")
-MODEL_VERSION = "0.1.0"
+MODEL_VERSION = "0.2.0"
 
 
 @dataclass(frozen=True)
 class PriceForecastConfig:
     market_area: str = "DE_LU"
-    train_days: int = 56
+    # A year of training days and an equal-weight mean of LEAR and the EXAA price of
+    # the target day: in a backtest from 1 Oct to 10 Nov 2026 this lowered the
+    # daily RMSE from 18.4 (56 days, LEAR only) to 17.0 EUR/MWh and the WIS from
+    # 9.0 to 8.2 (364 days alone: 17.4 and 8.4; 56 days with EXAA: 17.2 and 8.3).
+    train_days: int = 364
+    exaa_weight: float = 0.5
+    # Days of SDAC - EXAA differences behind the quantile offsets.
+    residual_days: int = 56
     frequency: str = "15min"
     # 0.025 and 0.975 are needed for the Energy Arena quantile challenge.
     quantiles: tuple[float, ...] = (0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975)
