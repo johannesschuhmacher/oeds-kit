@@ -10,6 +10,10 @@ The former module repositories keep their own history in
   (1 Oct - 10 Nov 2026) the daily RMSE fell from 18.4 to 17.0 EUR/MWh and the
   WIS of the Energy Arena quantiles from 9.0 to 8.2. A forecast run takes
   about 20 s longer and reads a year of prices from `entsoe_files`.
+- Installation on Fedora (tested on Fedora 45): the host preparation takes
+  Docker CE from its Fedora repository and skips EPEL and CRB; the installer
+  installs Fedora's `ansible-core`, because the PyPI release of Ansible does
+  not yet run on Fedora 45's Python 3.15.
 
 ## 1.5.0 (2026-11-08)
 
