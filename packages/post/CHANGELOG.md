@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Day-ahead price forecast: weather covariates now come from the kept daily
+  runs of `open_meteo.hourly_forecast` (for each delivery day the first run of
+  the day before) and only enter once these cover the whole training window.
+  Before, the schema `open_meteo` was never found, and the view of the newest
+  run would have filled all earlier training days with its first value.
+  Three variables: temperature, wind speed at 80 m, shortwave radiation.
 - Day-ahead price forecast: LEAR trains on 364 instead of 56 days
   (`OEDS_PRICE_FORECAST_TRAIN_DAYS`), and the point forecast is the mean of
   LEAR and the EXAA price of the target day (`exaa_weight`). Backtest

@@ -35,6 +35,15 @@ quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
 differences of the past 56 days, not an error model of the forecast; offsets
 from the forecast's own past errors or per hour of day did not score better.
 
+Weather covariates (temperature, wind speed at 80 m and shortwave radiation,
+German averages from `open_meteo`) enter only once the crawler's kept daily
+runs cover the whole training window, with 364 days from about November 2027
+on. For each delivery day the forecast takes the first run of the day before
+(about 00:45 UTC), so training days and the target day see forecasts with the
+same lead time. In the backtest these variables changed neither RMSE nor WIS
+(17.06 instead of 17.04), because the ENTSO-E load, wind and solar forecasts
+already carry the weather.
+
 ## Schedule
 
 The job `energy_arena` of the crawler `entsoe_api` loads the ENTSO-E data, runs
