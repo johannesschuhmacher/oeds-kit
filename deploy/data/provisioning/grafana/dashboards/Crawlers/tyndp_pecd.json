@@ -409,8 +409,8 @@
           "type": "grafana-postgresql-datasource",
           "uid": "P6EAA63344BCC9F38"
         },
-        "query": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' ORDER BY 1",
-        "definition": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' ORDER BY 1",
+        "query": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
+        "definition": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
         "refresh": 1,
         "sort": 0,
         "multi": false,
@@ -419,8 +419,8 @@
         "options": [],
         "current": {
           "selected": true,
-          "text": "WS061",
-          "value": "WS061"
+          "text": "WS001",
+          "value": "WS001"
         }
       }
     ]

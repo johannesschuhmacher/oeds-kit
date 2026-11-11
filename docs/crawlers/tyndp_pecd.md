@@ -17,12 +17,13 @@ published by ENTSO-E and ENTSOG with the TYNDP scenarios
 ## Data
 
 Each edition is one ZIP archive with one CSV file per target year, PECD zone
-and technology; each file has one column per climate year.
+and technology; each file has one column per climate year. The archives hold
+about 23,500 (2024) and 22,400 (2026) series, 1.3 GB in the database.
 
 | Edition | Archive | Climate years | Target years |
 | --- | --- | --- | --- |
-| `tyndp2024` | `PECD.zip` of the scenario inputs, PECD 3.1 (files "edition 2023.2") | `1982` to `2019` | 2030, 2040, 2050 |
-| `tyndp2026` | `PECD.zip` of the National Trends model input | `WS061` to `WS090` (weather scenarios) | 2030, 2035, 2040, 2050 |
+| `tyndp2024` | `PECD.zip` of the scenario inputs, PECD 3.1 (files "edition 2023.2") | `1982` to `2019` (38 years; rooftop and utility PV to `2020`) | 2030, 2040, 2050 |
+| `tyndp2026` | `PECD.zip` of the National Trends model input | 30 weather scenarios per target year: `WS001` to `WS030` (2030), `WS031` to `WS060` (2035), `WS061` to `WS090` (2040), `WS091` to `WS120` (2050) | 2030, 2035, 2040, 2050 |
 
 | Table | Content | Key |
 | --- | --- | --- |

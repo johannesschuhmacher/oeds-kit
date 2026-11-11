@@ -24,13 +24,14 @@ from crawler.common.crawler_utils import build_session, copy_insert, normalize_c
 
 
 EDITIONS = {
-    # PECD 3.1, climate years 1982-2019 (files "edition 2023.2").
+    # PECD 3.1, climate years 1982-2019 (rooftop and utility PV to 2020).
     "tyndp2024": {
         "url": "https://2024-data.entsos-tyndp-scenarios.eu/files/scenarios-inputs/PECD.zip",
         "attribution": "TYNDP 2024 Scenarios",
         "docs_url": "https://2024.entsos-tyndp-scenarios.eu/download/",
     },
-    # National Trends input, 30 weather scenarios WS061-WS090.
+    # National Trends input, 30 weather scenarios per target year: WS001-WS030
+    # for 2030, WS031-WS060 for 2035, WS061-WS090 for 2040, WS091-WS120 for 2050.
     "tyndp2026": {
         "url": "https://2026-data.entsos-tyndp-scenarios.eu/input/model-input/national-trends/PECD.zip",
         "attribution": "TYNDP 2026 Scenarios",
