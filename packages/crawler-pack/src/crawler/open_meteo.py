@@ -235,8 +235,7 @@ class OpenMeteoCrawler(KitCrawler):
         average = ",\n".join(
             f"SUM({column} * aggregation_weight) / NULLIF(SUM(aggregation_weight), 0) AS {column}" for column in averaged
         )
-        # The price forecast uses every numeric column of this view: its columns are
-        # those of the former weather.price_forecast_weather_features.
+        # The columns of the former weather.price_forecast_weather_features.
         price_features = [
             "temperature_2m_c",
             "apparent_temperature_c",

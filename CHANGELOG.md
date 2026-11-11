@@ -5,6 +5,9 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- Day-ahead price forecast: weather from `open_meteo` as known at submission
+  time (first run of the previous day), used once the kept runs cover the
+  training year (about November 2027). Until then the forecast is unchanged.
 - Day-ahead price forecast: one year of LEAR training days instead of 56 and
   the mean of LEAR and the EXAA price as point forecast. In a backtest
   (1 Oct - 10 Nov 2026) the daily RMSE fell from 18.4 to 17.0 EUR/MWh and the

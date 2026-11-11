@@ -98,8 +98,9 @@ docker exec oeds-scheduler oeds-crawl open_meteo
   schema `weather`). The first run of this crawler replaces the tables of the
   former `open_meteo`; the schema `weather` is no longer written and can be
   dropped.
-- The day-ahead price forecast in `packages/post` reads
-  `open_meteo.price_forecast_weather_features` (or
-  `open_meteo.latest_country_hourly_forecast`) as weather covariates. The
-  view has the columns of the former `weather` view; the country averages
-  now come from the grid instead of a few weighted cities.
+- `price_forecast_weather_features` has the columns of the former `weather`
+  view; the country averages now come from the grid instead of a few weighted
+  cities. The day-ahead price forecast in `packages/post` does not use the
+  view: it reads the kept daily runs from `hourly_forecast`, so that its
+  training days see forecasts of the same age as the target day (see
+  [Energy Arena](../energy_arena.md)).
