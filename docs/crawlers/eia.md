@@ -40,8 +40,49 @@ eia:
   enable: false
   schema_name: eia
   description: Crawls configured U.S. EIA Open Data API routes
-  schedule: 55 * * * *
   lookback_days: 14
+  jobs:
+    rto_hourly:
+      schedule: 55 * * * *
+    fuel_prices_daily:
+      schedule: 20 6 * * *
+      requests:
+      - id: spot_crude_oil_daily
+        route: petroleum/pri/spt/data/
+        use_default_date_window: false
+        max_rows: 60000
+        params:
+          frequency: daily
+          data[0]: value
+          facets[series][]: [RBRTE, RWTC]
+          sort[0][column]: period
+          sort[0][direction]: desc
+          sort[1][column]: series
+          sort[1][direction]: asc
+      - id: spot_natural_gas_daily
+        route: natural-gas/pri/fut/data/
+        use_default_date_window: false
+        max_rows: 30000
+        params:
+          frequency: daily
+          data[0]: value
+          facets[series][]: [RNGWHHD]
+          sort[0][column]: period
+          sort[0][direction]: desc
+```
+
+The template runs two jobs. `rto_hourly` runs the default request.
+`fuel_prices_daily` loads the daily spot prices of Brent (`RBRTE`, from
+1987) and WTI crude oil (`RWTC`, from 1986) in `$/BBL` and of Henry Hub
+natural gas (`RNGWHHD`, from 1997) in `$/MMBTU`, each time with the full
+history. Select a series by its `dimension`:
+
+```sql
+SELECT period, value AS usd_per_barrel
+FROM eia.numeric_values
+WHERE request_id = 'spot_crude_oil_daily' AND measure = 'value'
+  AND dimension LIKE '%series=RBRTE;%'
+ORDER BY period;
 ```
 
 `requests` replaces the default list; each entry has `id`, `route` and
@@ -62,7 +103,8 @@ docker exec oeds-scheduler oeds-crawl eia
 ## Notes
 
 - Each run deletes all rows of a request and writes the new window, so the
-  tables hold only the last `lookback_days`, not a growing history.
+  tables hold only the last `lookback_days`, not a growing history; requests
+  with `use_default_date_window: false` and no `start` load the full history.
 - Pages of `page_size` rows are read until a page is short or `max_rows` is
   reached.
 - Without an API key the run writes `access_status` and ends as skipped.
