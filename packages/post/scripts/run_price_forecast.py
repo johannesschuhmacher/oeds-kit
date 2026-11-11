@@ -110,7 +110,7 @@ def _existing_tables(conn) -> set[tuple[str, str]]:
         text(
             """
             SELECT table_schema, table_name FROM information_schema.tables
-            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'weather')
+            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'open_meteo')
             """
         )
     )
@@ -428,6 +428,14 @@ def _load_entsoe_covariates(
     }
 
 
+# Weather as known at submission time: for delivery day D (Berlin) the first open_meteo
+# run of UTC day D-1 (about 00:45 UTC), which the crawler keeps for every day. Training
+# days and the target day thus see forecasts with the same lead time. Three variables
+# keep the fit short; in a backtest (Oct/Nov 2026) they neither helped nor hurt
+# (RMSE 17.06 vs 17.04 EUR/MWh with the EXAA mean).
+WEATHER_COLUMNS = ("temperature_2m_c", "wind_speed_80m_ms", "shortwave_radiation_wm2")
+
+
 def _load_weather_covariates(
     conn,
     tables: set[tuple[str, str]],
@@ -435,54 +443,49 @@ def _load_weather_covariates(
     start: pd.Timestamp,
     end: pd.Timestamp,
 ) -> pd.DataFrame:
-    if ("open_meteo", "price_forecast_weather_features") in tables:
-        frame = pd.read_sql_query(
-            text(
-                """
-                SELECT *
-                FROM open_meteo.price_forecast_weather_features
-                WHERE market_area = :market_area
-                  AND delivery_start_utc >= :start AND delivery_start_utc < :end
-                ORDER BY delivery_start_utc
-                """
-            ),
-            conn,
-            params={"market_area": market_area, "start": start, "end": end},
-        )
-    elif ("open_meteo", "latest_country_hourly_forecast") in tables:
-        country_code = "DE" if market_area in {"DE_LU", "DE-LU"} else market_area[:2]
-        frame = pd.read_sql_query(
-            text(
-                """
-                SELECT
-                    forecast_time AS delivery_start_utc,
-                    temperature_2m_c,
-                    wind_speed_80m_ms,
-                    shortwave_radiation_wm2,
-                    solar_generation_index,
-                    wind_generation_index,
-                    renewables_weather_index,
-                    load_weather_index
-                FROM open_meteo.latest_country_hourly_forecast
-                WHERE country_code = :country_code
-                  AND forecast_time >= :start AND forecast_time < :end
-                ORDER BY forecast_time
-                """
-            ),
-            conn,
-            params={"country_code": country_code, "start": start, "end": end},
-        )
-    else:
+    if ("open_meteo", "hourly_forecast") not in tables:
         return pd.DataFrame()
 
+    country_code = "DE" if market_area in {"DE_LU", "DE-LU"} else market_area[:2]
+    average = ", ".join(
+        f"SUM(hf.{column} * l.aggregation_weight) / NULLIF(SUM(l.aggregation_weight), 0) AS {column}"
+        for column in WEATHER_COLUMNS
+    )
+    frame = pd.read_sql_query(
+        text(
+            f"""
+            WITH daily_runs AS (
+                SELECT MIN(retrieved_at) AS retrieved_at
+                FROM open_meteo.runs
+                GROUP BY (retrieved_at AT TIME ZONE 'UTC')::date
+            )
+            SELECT hf.forecast_time AS delivery_start_utc,
+                   {average}
+            FROM open_meteo.hourly_forecast hf
+            JOIN daily_runs dr ON dr.retrieved_at = hf.retrieved_at
+            JOIN open_meteo.locations l ON l.location_id = hf.location_id
+            WHERE l.enabled AND l.country_code = :country_code
+              AND (hf.retrieved_at AT TIME ZONE 'UTC')::date
+                  = (hf.forecast_time AT TIME ZONE 'Europe/Berlin')::date - 1
+              AND hf.forecast_time >= :start AND hf.forecast_time < :end
+            GROUP BY hf.forecast_time
+            ORDER BY hf.forecast_time
+            """
+        ),
+        conn,
+        params={"country_code": country_code, "start": start, "end": end},
+    )
     if frame.empty:
         return pd.DataFrame()
 
     frame["delivery_start_utc"] = pd.to_datetime(frame["delivery_start_utc"], utc=True, errors="coerce")
     frame = frame.dropna(subset=["delivery_start_utc"]).set_index("delivery_start_utc")
-    ignored = {"market_area", "country_code", "country_name", "retrieved_at"}
-    columns = [column for column in frame.columns if column not in ignored]
-    return frame[columns].apply(pd.to_numeric, errors="coerce")
+    # The model fills days without a covariate from the nearest day with one, so weather
+    # is only used once the kept runs reach back to the start of the window (with 364
+    # training days from about November 2027 on).
+    if frame.index.min() > start + pd.Timedelta(days=1):
+        return pd.DataFrame()
+    return frame.apply(pd.to_numeric, errors="coerce")
 
 
 def load_oeds_inputs(
@@ -514,6 +517,7 @@ def load_oeds_inputs(
         "exaa_rows": int(len(exaa)),
         "covariate_rows": int(len(covariates)),
         "covariate_columns": list(covariates.columns),
+        "weather_covariate_rows": int(len(weather_covariates)),
     } | price_source_summary | entsoe_covariate_summary
     return price, exaa, covariates, summary
 
