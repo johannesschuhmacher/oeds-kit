@@ -6,8 +6,8 @@ The former module repositories keep their own history in
 ## Unreleased
 
 - New crawlers: `tyndp_pecd` (hourly PECD capacity factors of TYNDP 2024,
-  climate years 1982-2019, and TYNDP 2026, weather scenarios WS061-WS090; CC
-  BY 4.0), `pypsa_technology_data` (cost assumptions of every PyPSA
+  climate years 1982-2019, and TYNDP 2026, 30 weather scenarios per target
+  year; CC BY 4.0), `pypsa_technology_data` (cost assumptions of every PyPSA
   technology-data release), `worldbank_commodities` (World Bank Pink Sheet
   monthly prices: coal, crude oil, natural gas, LNG and other commodities; CC
   BY 4.0) and `eex_eua_auctions` (EEX EU ETS auction results with the EUA
