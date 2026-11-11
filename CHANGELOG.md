@@ -5,6 +5,18 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- New crawlers: `tyndp_pecd` (hourly PECD capacity factors of TYNDP 2024,
+  climate years 1982-2019, and TYNDP 2026, 30 weather scenarios per target
+  year; CC BY 4.0), `pypsa_technology_data` (cost assumptions of every PyPSA
+  technology-data release), `worldbank_commodities` (World Bank Pink Sheet
+  monthly prices: coal, crude oil, natural gas, LNG and other commodities; CC
+  BY 4.0) and `eex_eua_auctions` (EEX EU ETS auction results with the EUA
+  clearing price; EEX terms forbid republication, so not for public
+  dashboards). All start disabled.
+- `eia`: the template has two jobs, `rto_hourly` (the previous default
+  request) and `fuel_prices_daily` (daily Brent, WTI and Henry Hub spot prices
+  with their full history). An existing `runtime/CRAWLER_CONFIG.yml` keeps its
+  `eia` section; copy the jobs from `deploy/CRAWLER_CONFIG.yml` to use them.
 - Day-ahead price forecast: weather from `open_meteo` as known at submission
   time (first run of the previous day), used once the kept runs cover the
   training year (about November 2027). Until then the forecast is unchanged.
