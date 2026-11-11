@@ -258,5 +258,56 @@ eia:
   enable: false
   schema_name: eia
   description: Crawls configured U.S. EIA Open Data API routes
-  schedule: 55 * * * *
   lookback_days: 14
+  jobs:
+    # The default request: hourly California generation by fuel type.
+    rto_hourly:
+      schedule: 55 * * * *
+    # Daily spot prices: Brent and WTI crude oil, Henry Hub natural gas.
+    fuel_prices_daily:
+      schedule: 20 6 * * *
+      requests:
+      - id: spot_crude_oil_daily
+        route: petroleum/pri/spt/data/
+        use_default_date_window: false
+        max_rows: 60000
+        params:
+          frequency: daily
+          data[0]: value
+          facets[series][]: [RBRTE, RWTC]
+          sort[0][column]: period
+          sort[0][direction]: desc
+          sort[1][column]: series
+          sort[1][direction]: asc
+      - id: spot_natural_gas_daily
+        route: natural-gas/pri/fut/data/
+        use_default_date_window: false
+        max_rows: 30000
+        params:
+          frequency: daily
+          data[0]: value
+          facets[series][]: [RNGWHHD]
+          sort[0][column]: period
+          sort[0][direction]: desc
+tyndp_pecd:
+  enable: false
+  schema_name: tyndp_pecd
+  description: Loads the TYNDP 2024 and 2026 PECD hourly capacity factors
+  # Checks the archives weekly; a changed archive (0.8-1.4 GB) is loaded again.
+  schedule: 15 2 * * 6
+pypsa_technology_data:
+  enable: false
+  schema_name: pypsa_technology_data
+  description: Loads the cost assumptions of every PyPSA technology-data release
+  schedule: 30 6 * * *
+worldbank_commodities:
+  enable: false
+  schema_name: worldbank_commodities
+  description: Loads the World Bank Pink Sheet monthly commodity prices (coal, oil, gas)
+  schedule: 45 6 * * *
+eex_eua_auctions:
+  enable: false
+  schema_name: eex_eua_auctions
+  description: Loads the EEX EU ETS primary auction results (EUA clearing prices)
+  # Auctions close at 11:00 Europe/Berlin; results are in the report soon after.
+  schedule: 0 12 * * *
