@@ -52,6 +52,10 @@ powerplantmatching = "crawler.powerplantmatching:PowerplantmatchingCrawler"
 prisma_capacity = "crawler.prisma_capacity:PrismaCapacityCrawler"
 regelleistung = "crawler.regelleistung:RegelleistungCrawler"
 tradinghub = "crawler.tradinghub:TradingHubCrawler"
+tyndp_pecd = "crawler.tyndp_pecd:TyndpPecdCrawler"
+pypsa_technology_data = "crawler.pypsa_technology_data:PypsaTechnologyDataCrawler"
+worldbank_commodities = "crawler.worldbank_commodities:WorldbankCommoditiesCrawler"
+eex_eua_auctions = "crawler.eex_eua_auctions:EexEuaAuctionsCrawler"
 
 [tool.setuptools.packages.find]
 where = ["src"]
