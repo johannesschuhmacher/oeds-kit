@@ -623,11 +623,12 @@ class PasswordRotator:
             ("opendata", "OEDS_DB_PASSWORD"),
             ("readonly", "OEDS_READONLY_PASSWORD"),
         ):
+            # The image has no "postgres" role; opendata is the superuser.
             self.docker_exec(
-                "-u",
-                "postgres",
                 OPEN_DATA_SERVICE,
                 "psql",
+                "-U",
+                "opendata",
                 "-d",
                 DEFAULT_DB_NAME,
                 "-v",
@@ -669,6 +670,9 @@ class PasswordRotator:
             DEFAULT_PGADMIN_ADMIN_EMAIL,
             "--password",
             password,
+            # pgAdmin 9 fails without an explicit role.
+            "--role",
+            "Administrator",
             label="Rotate pgAdmin admin password",
         )
 
