@@ -146,6 +146,8 @@ shell that runs Ansible.
 Set `BW_SERVER_URL` for a self-hosted vault. It rotates database, readonly,
 Grafana and pgAdmin passwords, verifies services and stores credentials in
 Bitwarden. It attempts rollback on failure.
+For Vaultwarden use Bitwarden CLI 2026.8.0 or older: from 2026.9.0 `bw unlock`
+fails with a 404 on the user key id backfill (Vaultwarden issues #7750, #7820).
 
 ```bash
 ansible-playbook -K oeds-rotate-passwords.yml \
