@@ -99,7 +99,9 @@ def build_session(user_agent: str | None = None, retries: int = 4, backoff_facto
         connect=retries,
         read=retries,
         backoff_factor=backoff_factor,
-        status_forcelist=(429, 500, 502, 503, 504),
+        # 599 is a gateway "network connect timeout"; the ENTSO-E File Library
+        # returned it once on 2026-11-12 and answered normally an hour later.
+        status_forcelist=(429, 500, 502, 503, 504, 599),
         allowed_methods=("GET", "POST"),
         respect_retry_after_header=True,
     )

@@ -5,6 +5,9 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- Crawler HTTP sessions also retry status 599 (gateway timeout). The ENTSO-E
+  File Library returned it once for `listFolder`, which failed the hourly
+  `entsoe_files` run.
 - New crawlers: `tyndp_pecd` (hourly PECD capacity factors of TYNDP 2024,
   climate years 1982-2019, and TYNDP 2026, 30 weather scenarios per target
   year; CC BY 4.0), `pypsa_technology_data` (cost assumptions of every PyPSA

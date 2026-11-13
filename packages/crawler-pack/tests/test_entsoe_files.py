@@ -359,3 +359,12 @@ def test_watermarks_are_naive_utc_whatever_the_session_time_zone():
 
     assert state["last_update_time"] == datetime(2026, 10, 24, 10, 0)
     assert state["last_date_time"] == datetime(2026, 10, 24, 0, 0)
+
+
+def test_file_library_session_retries_gateway_timeout_599():
+    from crawler.common.crawler_utils import build_session
+
+    session = build_session(retries=5, backoff_factor=2)
+    retry = session.get_adapter("https://fms.tp.entsoe.eu").max_retries
+
+    assert retry.is_retry("POST", 599)
