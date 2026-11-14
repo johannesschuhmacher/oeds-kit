@@ -31,6 +31,10 @@ from crawler.common.kit_base import KitCrawler
 GRID_FILE = Path(__file__).resolve().parent / "data" / "open_meteo_grid.json"
 
 
+class OpenMeteoLimitReached(Exception):
+    """Open-Meteo answered 429: a minutely, hourly or daily call limit is used up."""
+
+
 class OpenMeteoCrawler(KitCrawler):
     """Hourly DWD ICON forecasts from Open-Meteo on a 1-degree grid over Europe.
 
@@ -118,8 +122,12 @@ class OpenMeteoCrawler(KitCrawler):
         super().__init__(crawler_name, config)
         self.metadata = MetaData(schema=self.schema_name)
         # Open-Meteo answers 503 "The service is overloaded" at times: retry at once,
-        # then after 20, 40, 80 and 120 s.
-        self.session = build_session(self.config.get("user_agent"), retries=5, backoff_factor=10)
+        # then after 20, 40, 80 and 120 s. 429 is not retried: after the daily limit
+        # Open-Meteo sends a Retry-After until midnight, and urllib3 slept that long
+        # (2026-11-13: runs hung from 12:45 until 00:03 and blocked the later runs).
+        self.session = build_session(
+            self.config.get("user_agent"), retries=5, backoff_factor=10, retry_statuses=(500, 502, 503, 504, 599)
+        )
         self.timeout_seconds = int(self.config.get("request_timeout_seconds", 90))
         self.forecast_hours = int(self.config.get("forecast_hours", 120))
         self.past_hours = int(self.config.get("past_hours", 24))
@@ -361,6 +369,8 @@ class OpenMeteoCrawler(KitCrawler):
             params=self._request_params(batch),
             timeout=self.timeout_seconds,
         )
+        if response.status_code == 429:
+            raise OpenMeteoLimitReached(response.text[:300])
         response.raise_for_status()
         payload = response.json()
         # One location returns an object, several a list in request order.
@@ -437,12 +447,18 @@ class OpenMeteoCrawler(KitCrawler):
         self._upsert_static_tables(locations)
 
         frames, elevations, failed = [], {}, 0
-        for batch in batches:
+        for index, batch in enumerate(batches):
             started = time.monotonic()
             try:
                 frame, batch_elevations = self._fetch_batch(batch, retrieved_at)
                 frames.append(frame)
                 elevations.update(batch_elevations)
+            except OpenMeteoLimitReached as exc:
+                # The remaining batches would get the same answer.
+                skipped = sum(len(rest) for rest in batches[index:])
+                failed += skipped
+                self.logger.error("Open-Meteo call limit reached, %s locations not fetched: %s", skipped, exc)
+                break
             except Exception as exc:
                 failed += len(batch)
                 self.logger.error("Failed to fetch %s locations from %s: %s", len(batch), batch[0]["location_id"], exc)
