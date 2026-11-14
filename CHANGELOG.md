@@ -5,6 +5,10 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `open_meteo` no longer waits for hours when Open-Meteo answers 429 (call
+  limit used up). urllib3 obeyed Open-Meteo's Retry-After of up to 11 hours,
+  which blocked the following runs; now the run stops at once and logs the
+  error.
 - Crawler HTTP sessions also retry status 599 (gateway timeout). The ENTSO-E
   File Library returned it once for `listFolder`, which failed the hourly
   `entsoe_files` run.
