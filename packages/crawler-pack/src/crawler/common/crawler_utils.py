@@ -91,7 +91,12 @@ def copy_upsert(engine, table, df: pd.DataFrame, constraint_name: str, key_colum
     return len(df)
 
 
-def build_session(user_agent: str | None = None, retries: int = 4, backoff_factor: float = 1.0) -> requests.Session:
+def build_session(
+    user_agent: str | None = None,
+    retries: int = 4,
+    backoff_factor: float = 1.0,
+    retry_statuses: tuple[int, ...] = (429, 500, 502, 503, 504, 599),
+) -> requests.Session:
     session = requests.Session()
     session.headers.update({"User-Agent": user_agent or DEFAULT_USER_AGENT})
     retry = Retry(
@@ -101,7 +106,7 @@ def build_session(user_agent: str | None = None, retries: int = 4, backoff_facto
         backoff_factor=backoff_factor,
         # 599 is a gateway "network connect timeout"; the ENTSO-E File Library
         # returned it once on 2026-11-12 and answered normally an hour later.
-        status_forcelist=(429, 500, 502, 503, 504, 599),
+        status_forcelist=retry_statuses,
         allowed_methods=("GET", "POST"),
         respect_retry_after_header=True,
     )
