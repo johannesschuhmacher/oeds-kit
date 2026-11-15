@@ -5,6 +5,9 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `smard` no longer logs an ERROR on Sunday mornings when the chart file of
+  the next week does not exist yet (HTTP 404 for a week that starts in the
+  future). It logs INFO; a 404 for a past week is still an error.
 - `open_meteo` no longer waits for hours when Open-Meteo answers 429 (call
   limit used up). urllib3 obeyed Open-Meteo's Retry-After of up to 11 hours,
   which blocked the following runs; now the run stops at once and logs the
