@@ -157,6 +157,11 @@ class SmardCrawler(KitCrawler):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
+                # Once the current week is complete, the next weekly file does
+                # not exist until that week starts; SMARD answers 404 for it.
+                if response.status_code == 404 and start_date > pd.Timestamp.now(tz="UTC"):
+                    log.info(f"No chart file yet for commodity {commodity_id} week {start_date}")
+                    continue
                 log.error(f"Could not get data for commodity: {commodity_id} {e}")
                 continue
             data = json.loads(response.text)
