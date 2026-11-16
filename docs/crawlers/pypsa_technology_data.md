@@ -61,5 +61,9 @@ docker exec oeds-scheduler oeds-crawl pypsa_technology_data
 
 - Release files do not change, so a run loads only releases that are not yet
   in `releases`; the first run loads all releases (about 165,000 rows).
+- The release list comes from the GitHub API, which allows 60 requests per
+  hour and IP address without a token. When the limit is used up (for
+  example by other machines behind the same address), the run ends as
+  skipped and the next scheduled run tries again.
 - The US cost files (`outputs/US/`) are not loaded.
 - Monetary values are in EUR of the row's `currency_year`.
