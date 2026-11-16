@@ -23,3 +23,15 @@ def test_daily_limit_429_stops_the_run_without_retry_after_sleep():
         crawler.run()
     assert crawler.session.get.call_count == 1
 
+
+def test_session_caps_a_long_retry_after():
+    from urllib3 import HTTPResponse
+
+    from crawler.common.crawler_utils import build_session
+
+    session = build_session(retries=5, backoff_factor=10, retry_statuses=(503,))
+    retry = session.get_adapter("https://api.open-meteo.com").max_retries
+    response = HTTPResponse(status=503, headers={"Retry-After": "40000"})
+
+    assert retry.get_retry_after(response) == 300
+    assert retry.new(total=4).get_retry_after(response) == 300
