@@ -15,7 +15,8 @@ Die Gruppe arbeitet zusammen auf einer VM im KIT-Netz:
 `iip-vm-oeds-ext.iip.kit.edu`. Dort läuft ein OEDS mit den offenen Daten
 (MaStR, ENTSO-E, SMARD, ENTSOG, Netztransparenz, Open-Meteo, Eurostat, DWD,
 powerplantmatching, renewables.ninja, regelleistung.net, Trading Hub Europe, GIE,
-EIA). Die Quellen ohne Schlüssel werden täglich aktualisiert.
+EIA, TYNDP-PECD-Kapazitätsfaktoren, PyPSA technology-data, Rohstoffpreise der
+Weltbank). Die Quellen ohne Schlüssel werden täglich aktualisiert.
 
 **Anmelden:** mit eurem KIT-Konto per Remote-Desktop (RDP) oder SSH. Die
 Freischaltung beantragt die Betreuung bei der IT. Außerhalb des KIT-Netzes
@@ -62,6 +63,11 @@ pd.read_sql("select * from smard.prices limit 10", engine)
 - **Keine Passwörter und Schlüssel in Git**, in Notebooks oder im
   Gruppenordner. Eure eigenen Schlüssel liegen in `~/.oeds-keys.env` in eurem
   Home-Verzeichnis (siehe [zugaenge.md](zugaenge.md)).
+- **Admin-Rechte nur nach Absprache.** Euer KIT-Konto hat auf der VM
+  `sudo`-Rechte. Startet keine Container oder Dienste neu, ändert nichts unter
+  `/open_energy_data_server` und nutzt nicht die Passwörter aus dessen
+  `.env`-Dateien; für eure Arbeit reicht der Zugang aus
+  `/etc/oeds-gruppe.env`. Braucht ihr etwas am Server, fragt die Betreuung.
 - **Den Zeitplan des Servers ändert die Betreuung.** Ihr startet eure Crawler
   selbst (siehe unten). Läuft ein Crawler stabil, nehmen wir ihn in den
   Serverbetrieb auf.
