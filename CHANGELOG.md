@@ -5,6 +5,30 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `energyforecast` now uses the retrying crawler HTTP session. One run failed
+  on a single "Network is unreachable" and the 04:00 forecast was lost.
+- `smard` no longer logs an ERROR on Sunday mornings when the chart file of
+  the next week does not exist yet (HTTP 404 for a week that starts in the
+  future). It logs INFO; a 404 for a past week is still an error.
+- `open_meteo` no longer waits for hours when Open-Meteo answers 429 (call
+  limit used up). urllib3 obeyed Open-Meteo's Retry-After of up to 11 hours,
+  which blocked the following runs; now the run stops at once and logs the
+  error.
+- Crawler HTTP sessions also retry status 599 (gateway timeout). The ENTSO-E
+  File Library returned it once for `listFolder`, which failed the hourly
+  `entsoe_files` run.
+- New crawlers: `tyndp_pecd` (hourly PECD capacity factors of TYNDP 2024,
+  climate years 1982-2019, and TYNDP 2026, 30 weather scenarios per target
+  year; CC BY 4.0), `pypsa_technology_data` (cost assumptions of every PyPSA
+  technology-data release), `worldbank_commodities` (World Bank Pink Sheet
+  monthly prices: coal, crude oil, natural gas, LNG and other commodities; CC
+  BY 4.0) and `eex_eua_auctions` (EEX EU ETS auction results with the EUA
+  clearing price; EEX terms forbid republication, so not for public
+  dashboards). All start disabled.
+- `eia`: the template has two jobs, `rto_hourly` (the previous default
+  request) and `fuel_prices_daily` (daily Brent, WTI and Henry Hub spot prices
+  with their full history). An existing `runtime/CRAWLER_CONFIG.yml` keeps its
+  `eia` section; copy the jobs from `deploy/CRAWLER_CONFIG.yml` to use them.
 - Day-ahead price forecast: weather from `open_meteo` as known at submission
   time (first run of the previous day), used once the kept runs cover the
   training year (about November 2027). Until then the forecast is unchanged.

@@ -1,0 +1,438 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Access Status",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT status, access_model, credentials_required, configured_credentials, message, docs_url, checked_at FROM tyndp_pecd.access_status WHERE source_name = 'TYNDP scenarios PECD' ORDER BY checked_at DESC LIMIT 1"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Series",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT now() AS time, count(*)::double precision AS value FROM tyndp_pecd.capacity_factors"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Mean capacity factor per climate year: $zone, $technology, $target_year",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT climate_year, avg(v) AS mean_capacity_factor FROM tyndp_pecd.capacity_factors c, unnest(c.capacity_factor) AS v WHERE edition = '$edition' AND target_year = $target_year AND zone = '$zone' AND technology = '$technology' GROUP BY climate_year ORDER BY climate_year"
+        }
+      ],
+      "options": {
+        "orientation": "vertical",
+        "xTickLabelRotation": -45,
+        "showValue": "never",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "description": "Annual mean of the 8760 hourly capacity factors per climate year (TYNDP 2024) or weather scenario (TYNDP 2026)."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Hourly capacity factor, climate year $climate_year (shown on the calendar of 2001)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp with time zone '2001-01-01 00:00:00+00' + (h.hour_of_year - 1) * interval '1 hour' AS time, h.v AS \"$climate_year\" FROM tyndp_pecd.capacity_factors c CROSS JOIN LATERAL unnest(c.capacity_factor) WITH ORDINALITY AS h(v, hour_of_year) WHERE edition = '$edition' AND target_year = $target_year AND zone = '$zone' AND technology = '$technology' AND climate_year = '$climate_year' ORDER BY 1"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "description": "PECD series have 8760 hours without a calendar year; hour 1 is shown at 2001-01-01 00:00 UTC."
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Editions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM tyndp_pecd.editions ORDER BY edition"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Series per edition, target year and technology",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "P6EAA63344BCC9F38"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM tyndp_pecd.series_summary ORDER BY edition, target_year, technology"
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ]
+        },
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "climate",
+    "renewables",
+    "tyndp",
+    "entso-e"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "edition",
+        "label": "Edition",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT edition FROM tyndp_pecd.capacity_factors ORDER BY 1",
+        "definition": "SELECT DISTINCT edition FROM tyndp_pecd.capacity_factors ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "tyndp2026",
+          "value": "tyndp2026"
+        }
+      },
+      {
+        "name": "target_year",
+        "label": "Target year",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT target_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' ORDER BY 1",
+        "definition": "SELECT DISTINCT target_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "2030",
+          "value": "2030"
+        }
+      },
+      {
+        "name": "technology",
+        "label": "Technology",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT technology FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
+        "definition": "SELECT DISTINCT technology FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "wind_onshore",
+          "value": "wind_onshore"
+        }
+      },
+      {
+        "name": "zone",
+        "label": "Zone",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT zone FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year AND technology = '$technology' ORDER BY 1",
+        "definition": "SELECT DISTINCT zone FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year AND technology = '$technology' ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "DE00",
+          "value": "DE00"
+        }
+      },
+      {
+        "name": "climate_year",
+        "label": "Climate year",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "P6EAA63344BCC9F38"
+        },
+        "query": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
+        "definition": "SELECT DISTINCT climate_year FROM tyndp_pecd.capacity_factors WHERE edition = '$edition' AND target_year = $target_year ORDER BY 1",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": "WS001",
+          "value": "WS001"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "2001-01-01T00:00:00.000Z",
+    "to": "2002-01-01T00:00:00.000Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TYNDP PECD – Capacity factors",
+  "uid": "tyndp-pecd",
+  "version": 1,
+  "weekStart": ""
+}

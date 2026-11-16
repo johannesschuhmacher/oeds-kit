@@ -48,3 +48,36 @@ def test_run_repeats_weekly_passes_until_caught_up():
     crawler.run()
 
     assert len(calls) == 4
+
+
+def _crawler_with_404(monkeypatch, start_date):
+    import requests
+    from crawler import smard
+
+    response = requests.Response()
+    response.status_code = 404
+    response.url = "https://www.smard.de/app/chart_data/x.json"
+    session = Mock()
+    session.get.return_value = response
+    monkeypatch.setattr(smard, "build_session", lambda **kwargs: session)
+    monkeypatch.setattr(smard, "REQUEST_PAUSE_SECONDS", 0)
+    crawler = object.__new__(SmardCrawler)
+    crawler.select_latest = lambda commodity_id: (start_date, start_date)
+    return crawler
+
+
+def test_missing_file_for_future_week_is_not_an_error(monkeypatch, caplog):
+    # Sunday morning: the current week is complete, next week's file starts at Monday 00:00.
+    future_week = pd.Timestamp.now(tz="UTC") + pd.Timedelta(hours=20)
+    crawler = _crawler_with_404(monkeypatch, future_week)
+
+    assert list(crawler.get_data_per_commodity()) == []
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+
+
+def test_missing_file_for_past_week_is_an_error(monkeypatch, caplog):
+    past_week = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=7)
+    crawler = _crawler_with_404(monkeypatch, past_week)
+
+    assert list(crawler.get_data_per_commodity()) == []
+    assert [r for r in caplog.records if r.levelname == "ERROR"]
