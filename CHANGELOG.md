@@ -5,6 +5,8 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `energyforecast` now uses the retrying crawler HTTP session. One run failed
+  on a single "Network is unreachable" and the 04:00 forecast was lost.
 - `smard` no longer logs an ERROR on Sunday mornings when the chart file of
   the next week does not exist yet (HTTP 404 for a week that starts in the
   future). It logs INFO; a 404 for a past week is still an error.
