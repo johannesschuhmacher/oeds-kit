@@ -91,6 +91,20 @@ def copy_upsert(engine, table, df: pd.DataFrame, constraint_name: str, key_colum
     return len(df)
 
 
+class CappedRetry(Retry):
+    """Retry that waits at most ``MAX_RETRY_AFTER`` seconds for a Retry-After header.
+
+    Open-Meteo answered 503 with a Retry-After until midnight; urllib3 slept that
+    long and the run blocked the scheduler for hours (intern, 2026-11-16).
+    """
+
+    MAX_RETRY_AFTER = 300
+
+    def get_retry_after(self, response):
+        seconds = super().get_retry_after(response)
+        return None if seconds is None else min(seconds, self.MAX_RETRY_AFTER)
+
+
 def build_session(
     user_agent: str | None = None,
     retries: int = 4,
@@ -99,7 +113,7 @@ def build_session(
 ) -> requests.Session:
     session = requests.Session()
     session.headers.update({"User-Agent": user_agent or DEFAULT_USER_AGENT})
-    retry = Retry(
+    retry = CappedRetry(
         total=retries,
         connect=retries,
         read=retries,
