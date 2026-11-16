@@ -5,12 +5,12 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-import requests
 import pandas as pd
 from datetime import datetime
 from sqlalchemy import Table, MetaData, Column, DateTime, Float, String
 from sqlalchemy.dialects.postgresql import insert
 
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
 
 class EnergyForecastCrawler(KitCrawler):
@@ -73,7 +73,9 @@ class EnergyForecastCrawler(KitCrawler):
             self.logger.info(f"Fetching data from {url}")
             print(f"Fetching data from {url}") 
             
-            response = requests.get(url, params=params, headers=headers, timeout=30)
+            # A retrying session: on 2026-11-16 one run failed on a single
+            # "Network is unreachable" while every other crawler worked.
+            response = build_session().get(url, params=params, headers=headers, timeout=30)
             
             if response.status_code == 200:
                 return self._process_json_to_df(response.json())
