@@ -15,7 +15,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from crawler.common.kit_base import KitCrawler
-from crawler.common.crawler_utils import build_session, copy_insert, utc_now, write_access_status
+from crawler.common.crawler_utils import CrawlerSkipped, build_session, copy_insert, utc_now, write_access_status
 
 
 REPO = "PyPSA/technology-data"
@@ -90,6 +90,10 @@ class PypsaTechnologyDataCrawler(KitCrawler):
 
     def _releases(self) -> list[dict]:
         response = self.session.get(RELEASES_URL, params={"per_page": 100}, timeout=self.timeout_seconds)
+        # Without a token GitHub allows 60 API requests per hour and IP address;
+        # behind a shared address the limit can be used up by others.
+        if response.status_code in (403, 429) and response.headers.get("X-RateLimit-Remaining") == "0":
+            raise CrawlerSkipped("GitHub API rate limit reached; the next scheduled run tries again.")
         response.raise_for_status()
         return [
             {"version": release["tag_name"], "published_at": release["published_at"]}
