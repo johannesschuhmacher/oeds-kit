@@ -3,11 +3,14 @@ PyPSA technology-data cost files, on small files with the sources' layout."""
 
 from datetime import date, datetime
 import io
+from unittest.mock import Mock
 
 import pandas as pd
+import pytest
 
 from crawler.eex_eua_auctions import parse_auction_report
-from crawler.pypsa_technology_data import parse_costs_csv
+from crawler.common.crawler_utils import CrawlerSkipped
+from crawler.pypsa_technology_data import PypsaTechnologyDataCrawler, parse_costs_csv
 from crawler.worldbank_commodities import parse_monthly_prices
 
 
@@ -82,3 +85,13 @@ def test_costs_file_before_currency_year_column():
     assert frame.columns.tolist() == ["technology", "parameter", "value", "unit", "source", "further_description", "currency_year"]
     assert frame["value"].iloc[0] == 0.58
     assert pd.isna(frame["currency_year"].iloc[0])
+
+
+def test_github_rate_limit_skips_the_run():
+    crawler = object.__new__(PypsaTechnologyDataCrawler)
+    crawler.timeout_seconds = 5
+    response = Mock(status_code=403, headers={"X-RateLimit-Remaining": "0"})
+    crawler.session = Mock(get=Mock(return_value=response))
+    with pytest.raises(CrawlerSkipped):
+        crawler._releases()
+    response.raise_for_status.assert_not_called()

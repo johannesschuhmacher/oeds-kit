@@ -5,6 +5,8 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `pypsa_technology_data` ends as skipped instead of failed when the GitHub
+  API rate limit (60 requests per hour and IP address) is used up.
 - `energyforecast` now uses the retrying crawler HTTP session. One run failed
   on a single "Network is unreachable" and the 04:00 forecast was lost.
 - `smard` no longer logs an ERROR on Sunday mornings when the chart file of
