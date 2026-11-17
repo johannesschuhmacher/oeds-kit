@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SPDX-FileCopyrightText: OpenAI
+# SPDX-FileCopyrightText: Johannes Schuhmacher
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ruff: noqa: E402,I001

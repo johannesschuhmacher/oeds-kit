@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # oeds-kit
 
 KIT additions to the [Open Energy Data Server](https://github.com/open-energy-data-server/open-energy-data-server)

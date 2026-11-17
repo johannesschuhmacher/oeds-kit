@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # oeds-post-scripts
 
 Post-run processing package of the [oeds-kit](../../README.md) workspace.

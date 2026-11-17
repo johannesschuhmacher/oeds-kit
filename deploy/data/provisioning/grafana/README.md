@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Grafana dashboards
 
 Grafana provisions every JSON file below `dashboards/`. Each subdirectory becomes

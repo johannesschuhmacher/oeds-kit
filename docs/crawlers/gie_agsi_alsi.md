@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # GIE AGSI/ALSI
 
 Daily gas storage (AGSI) and LNG terminal (ALSI) data from the

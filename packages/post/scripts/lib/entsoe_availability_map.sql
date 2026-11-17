@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: Johannes Schuhmacher
+--
+-- SPDX-License-Identifier: AGPL-3.0-or-later
+
 -- Derived live availability layer for the ENTSO-E FMS dashboard.
 -- The hourly refresh is triggered via scripts/refresh_entsoe_availability_map.py.
 

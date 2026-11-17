@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Florian Maurer
+# SPDX-FileCopyrightText: Florian Maurer, Johannes Schuhmacher
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 

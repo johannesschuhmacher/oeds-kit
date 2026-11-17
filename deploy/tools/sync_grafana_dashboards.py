@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Read-only export of the SMARD starter dashboard from the public OEDS Grafana.
 
 The Open-Meteo dashboard is maintained here; the public one reads the former

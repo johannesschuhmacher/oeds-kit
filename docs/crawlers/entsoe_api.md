@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # ENTSO-E Web API
 
 Day-ahead prices, the load forecast and the wind and solar forecast for one

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Validate the checked-out repository: Grafana JSON and the files the
 deployment copies or mounts. No Docker required."""
 

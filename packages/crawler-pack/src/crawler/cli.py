@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """``oeds-crawl``: run one crawler by hand, with the config the scheduler would use.
 
 Crawlers are found through the ``oeds.crawlers`` entry points that every crawler

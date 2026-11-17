@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Johannes Schuhmacher
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 /* Crawler control in the style of a macOS app: sidebar, large titles, inset
    grouped lists, segmented controls, switches. System colours; colour
    otherwise only means run state (ok, failed, running, off). */
