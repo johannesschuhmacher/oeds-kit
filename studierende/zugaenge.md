@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Konten und API-Schlüssel
 
 Die meisten Quellen sind ohne Konto nutzbar und auf der Gruppen-VM schon

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Arbeiten am OEDS – Studierendengruppe
 
 Dieser Branch `studierende` ist der gemeinsame Stand der Studierendengruppe.
