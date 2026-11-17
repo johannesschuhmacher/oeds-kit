@@ -24,7 +24,7 @@ constraint-dependencies = [
 members = ["packages/crawler-pack", "packages/scheduler", "packages/post"]
 
 [tool.uv.sources]
-oeds = { git = "https://github.com/johannesschuhmacher/oeds-core.git", rev = "69e600579d02984197b44803b93559be26bc852e" }
+oeds = { git = "https://github.com/johannesschuhmacher/oeds-core.git", rev = "9c240ae35615747aea2b6cfe5cf5286a2ed5e769" }
 oeds-crawler-pack = { workspace = true }
 oeds-scheduler-ui = { workspace = true }
 oeds-post-scripts = { workspace = true }

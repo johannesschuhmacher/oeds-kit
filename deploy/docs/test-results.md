@@ -146,7 +146,7 @@ dashboard queries of `tools/check_dashboards.py` passed.
 
 ## Release 1.0.0, 2026-10-22
 
-Checks of the oeds-kit release with `oeds-core` `69e6005` (pinned in `uv.lock`).
+Checks of the oeds-kit release with `oeds-core` `9c240ae` (pinned in `uv.lock`).
 
 **Installation.** On iip-vm-oeds-intern-test (CentOS Stream 10, operating system
 not reinstalled) the remains of the earlier test installations were moved
