@@ -1297,12 +1297,8 @@
             "id": 7,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
@@ -1500,12 +1496,8 @@
             "id": 12,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
@@ -1703,12 +1695,8 @@
             "id": 11,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
@@ -1906,12 +1894,8 @@
             "id": 13,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
@@ -2074,12 +2058,8 @@
             "id": 14,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
@@ -2277,12 +2257,8 @@
             "id": 15,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
