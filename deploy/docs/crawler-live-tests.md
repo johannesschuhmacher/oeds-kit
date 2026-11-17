@@ -97,7 +97,7 @@ docker network rm oeds-crawler-validation
 ## Release 1.0.0, 2026-10-22
 
 Run on iip-vm-oeds-intern-test with the `oeds-test:runtime` image of oeds-kit
-1.0.0 (`oeds-core` `69e6005` with its crawler extra), UID 1000, two workers,
+1.0.0 (`oeds-core` `9c240ae` with its crawler extra), UID 1000, two workers,
 2-GB memory per worker and empty validation databases (`--reset`). The first
 pass used the 240-s limit; six cases were repeated with `--timeout 900`,
 two of them (`core:e2watch`, `core:ecmwf_crawler`) after the core package
