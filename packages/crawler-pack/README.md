@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # oeds-crawler-pack
 
 Installable package for the KIT crawler extensions while upstream OEDS

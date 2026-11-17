@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Sphinx configuration for https://open-energy-data-server-kit.readthedocs.io.
 #
 # The source directory is the repository root, so the existing READMEs are pages

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Heatwave 2026 Interactive Grafana Dashboards
 
 These dashboards query the OEDS PostgreSQL datasource directly. They do not embed PNG images.

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Crawler lookup, shared with ``oeds-crawl``.
 
 Crawlers registered as ``oeds.crawlers`` entry points come first, then the

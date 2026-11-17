@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 networks:
   netlocalhost:
     driver: bridge
@@ -136,7 +140,7 @@ services:
     environment:
       GF_SECURITY_ALLOW_EMBEDDING: "true"
       GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_GEOMAP_DEFAULT_BASELAYER_CONFIG: '{"type":"carto","config":{"theme":"auto","showLabels":true}}'
+      GF_GEOMAP_DEFAULT_BASELAYER_CONFIG: '{"type":"osm-standard"}'
       GF_PLUGINS_PREINSTALL: "marcusolsson-dynamictext-panel,orchestracities-map-panel"
       GF_SECURITY_ADMIN_USER: opendata
       GF_SECURITY_ADMIN_PASSWORD: ${OEDS_GRAFANA_ADMIN_PASSWORD:-opendata}

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Build one crawler's effective config from CRAWLER_CONFIG.yml.
 
 The file has a ``default`` section and one section per crawler; a crawler section

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher, Felix Maier
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 - name: OEDS package installation
   hosts: oeds
   become: true

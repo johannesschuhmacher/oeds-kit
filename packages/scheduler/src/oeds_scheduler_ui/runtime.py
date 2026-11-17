@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Runtime execution helpers for planned scheduler jobs.
 
 A scheduled run is an ``oeds-crawl`` subprocess (provided by the crawler pack)
