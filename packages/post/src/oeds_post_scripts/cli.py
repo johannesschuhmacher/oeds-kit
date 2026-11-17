@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """``oeds-post`` command line: run a post-run command in-process."""
 
 from __future__ import annotations

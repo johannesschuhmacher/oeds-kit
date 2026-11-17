@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Read the Docs build: https://open-energy-data-server-kit.readthedocs.io
 version: 2
 

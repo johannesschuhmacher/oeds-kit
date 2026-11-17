@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Move an installation from the crawler names before release 1.5.0 to the new ones.
 
     python rename_crawlers.py /app/CRAWLER_CONFIG.yml

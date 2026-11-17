@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 set -euo pipefail
 
 REPO_URL=${OEDS_REPO_URL:-https://github.com/johannesschuhmacher/oeds-kit.git}

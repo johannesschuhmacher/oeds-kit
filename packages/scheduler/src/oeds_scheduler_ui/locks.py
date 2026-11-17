@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Cross-process crawler lock: a PostgreSQL session advisory lock.
 
 The scheduler daemon and the admin UI run in separate containers, so an

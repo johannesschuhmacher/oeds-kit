@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Bounded live-source checks in disposable Docker containers and separate databases.
 
 Run on the test VM, never against the operational database. Nonempty tables are
