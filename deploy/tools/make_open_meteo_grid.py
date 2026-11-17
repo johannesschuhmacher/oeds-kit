@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Build the 1-degree grid of the open_meteo crawler (crawler/data/open_meteo_grid.json).
 
 Run once by hand; the crawler only reads the JSON file. Needs geopandas and the

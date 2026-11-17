@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Install or update OEDS from the oeds-kit checkout at oeds_repo_local_src on
 # this host. Install and update are the same run:
 #   1. stage the new source in <repo>.next and build the images there while

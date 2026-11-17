@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # World Bank commodity prices
 
 Monthly commodity prices of the World Bank Pink Sheet

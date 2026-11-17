@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Compare all real Ninja values after running both isolated live crawler tests."""
 
 import pandas as pd

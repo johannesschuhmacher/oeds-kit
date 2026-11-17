@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DWD CDC
 
 Monthly regional climate averages for Germany and its federal states from the

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Crawler configuration
 
 All crawlers and their schedules are set in one file,

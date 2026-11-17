@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Test a fresh installation
 
 Use a disposable Linux VM. Never run the reset on a production server.

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Parsers of the World Bank Pink Sheet, the EEX auction reports and the
 PyPSA technology-data cost files, on small files with the sources' layout."""
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Johannes Schuhmacher
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Shared page helpers: relative times and tabs. Loaded in <head>, so page
 // scripts can call these functions directly.
 

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # regelleistung.net
 
 Tender results and maximum exchange limits of the balancing products FCR,

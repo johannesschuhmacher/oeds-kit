@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Query dashboard SQL panels through Grafana's real datasource API.
 
 Without arguments: the two starter dashboards must return data (installation test).

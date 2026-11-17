@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # oeds-scheduler-ui
 
 Scheduler and crawler admin UI package of the [oeds-kit](../../README.md)

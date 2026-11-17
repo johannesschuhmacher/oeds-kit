@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Johannes Schuhmacher
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # EPEX SPOT
 
 German intraday market data from the market-data SFTP service of EPEX SPOT

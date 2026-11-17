@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 ---
 # Ansible runs on the OEDS host itself. Set host-specific variables in
 # group_vars/oeds.yml (not in Git), not here.

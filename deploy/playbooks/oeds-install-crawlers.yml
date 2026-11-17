@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 ---
 # Docker must be installed: run oeds-install-host-prep.yml first (the
 # installer does, unless --skip-host-prep).

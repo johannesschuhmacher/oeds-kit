@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Small deterministic DB/HTTP/crawler/scheduler test. Writes oeds_test_* schemas.
 
 Runs inside the built runtime image; the positional argument selects the layer

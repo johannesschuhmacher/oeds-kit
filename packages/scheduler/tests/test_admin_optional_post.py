@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Johannes Schuhmacher
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """The admin UI must import and serve without oeds-post-scripts.
 
 Needs the crawler pack (``crawler.common.*``); the post packages are made
