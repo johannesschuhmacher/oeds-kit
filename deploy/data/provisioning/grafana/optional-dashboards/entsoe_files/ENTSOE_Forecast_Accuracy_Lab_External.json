@@ -742,12 +742,8 @@
             "id": 9,
             "options": {
                 "basemap": {
-                    "config": {
-                        "showLabels": true,
-                        "theme": "auto"
-                    },
-                    "name": "Layer 0",
-                    "type": "carto"
+                    "name": "OpenStreetMap",
+                    "type": "osm-standard"
                 },
                 "controls": {
                     "mouseWheelZoom": true,
