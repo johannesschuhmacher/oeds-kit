@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import time
@@ -46,6 +47,19 @@ class OpenMeteoCrawler(KitCrawler):
     SOURCE_URL = "https://api.open-meteo.com/v1/dwd-icon"
     CUSTOMER_URL = "https://customer-api.open-meteo.com/v1/dwd-icon"
     DOCS_URL = "https://open-meteo.com/en/docs/dwd-api"
+    ARCHIVE_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
+    ARCHIVE_CUSTOMER_URL = "https://customer-previous-runs-api.open-meteo.com/v1/forecast"
+
+    # Archive of past forecasts (Previous Runs API, model icon_seamless, from about
+    # February 2024): for each hour the forecast issued 1 and 2 days before it.
+    # Six variables and at most 2 weeks count as one call per location.
+    ARCHIVE_VARIABLES = {
+        "temperature_2m": "temperature_2m_c",
+        "wind_speed_80m": "wind_speed_80m_ms",
+        "shortwave_radiation": "shortwave_radiation_wm2",
+    }
+    ARCHIVE_LEAD_DAYS = (1, 2)
+    ARCHIVE_CHUNK_DAYS = 91
 
     # 15 variables: Open-Meteo counts a request with more than 10 variables as
     # (variables / 10) calls per location.
@@ -134,6 +148,9 @@ class OpenMeteoCrawler(KitCrawler):
         self.batch_size = int(self.config.get("batch_size", 50))
         # The free API allows 600 calls per minute; stay below it.
         self.calls_per_minute = float(self.config.get("calls_per_minute", 500))
+        self.archive_countries = list(self.config.get("archive_countries", []))
+        self.archive_start = pd.Timestamp(self.config.get("archive_start", "2024-02-01"), tz="UTC")
+        self.archive_calls_per_run = float(self.config.get("archive_calls_per_run", 500))
         api_key = config_or_env(self.config, "api_key", "OPEN_METEO_API_KEY")
         self.api_key = str(api_key) if has_credential(api_key) else None
 
@@ -184,6 +201,15 @@ class OpenMeteoCrawler(KitCrawler):
             Column("load_weather_index", Float),
         )
 
+        self.previous_day_forecast_table = Table(
+            "previous_day_forecast",
+            self.metadata,
+            Column("location_id", String, nullable=False, primary_key=True),
+            Column("lead_days", Integer, nullable=False, primary_key=True),
+            Column("forecast_time", DateTime(timezone=True), nullable=False, primary_key=True),
+            *[Column(name, Float) for name in self.ARCHIVE_VARIABLES.values()],
+        )
+
     def _get_locations(self) -> list[dict[str, Any]]:
         """The configured ``locations`` or the grid; the weight of a grid point is its cell area (cos latitude)."""
         if "locations" in self.config:
@@ -227,7 +253,13 @@ class OpenMeteoCrawler(KitCrawler):
 
         self.metadata.create_all(
             self.engine,
-            tables=[self.locations_table, self.entsoe_country_aliases_table, self.runs_table, self.hourly_forecast_table],
+            tables=[
+                self.locations_table,
+                self.entsoe_country_aliases_table,
+                self.runs_table,
+                self.hourly_forecast_table,
+                self.previous_day_forecast_table,
+            ],
         )
 
         value_columns = list(self.HOURLY_VARIABLES.values()) + [
@@ -265,15 +297,16 @@ class OpenMeteoCrawler(KitCrawler):
             "load_weather_index",
         ]
 
-        try:
-            with self.engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "SELECT public.create_hypertable('hourly_forecast', 'forecast_time', if_not_exists => TRUE, migrate_data => TRUE);"
+        for table in ("hourly_forecast", "previous_day_forecast"):
+            try:
+                with self.engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            f"SELECT public.create_hypertable('{table}', 'forecast_time', if_not_exists => TRUE, migrate_data => TRUE);"
+                        )
                     )
-                )
-        except Exception as exc:
-            self.logger.warning(f"Could not create hypertable for hourly_forecast: {exc}")
+            except Exception as exc:
+                self.logger.warning(f"Could not create hypertable for {table}: {exc}")
 
         with self.engine.begin() as conn:
             conn.execute(
@@ -430,6 +463,108 @@ class OpenMeteoCrawler(KitCrawler):
             if dropped:
                 conn.execute(text("DELETE FROM hourly_forecast WHERE retrieved_at = ANY(:dropped)"), {"dropped": dropped})
 
+    def _fetch_archive(self, batch: list[dict[str, Any]], start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+        """Forecasts issued 1 and 2 days ahead for the days start..end (inclusive), one row per lead time."""
+        names = [f"{variable}_previous_day{lead}" for lead in self.ARCHIVE_LEAD_DAYS for variable in self.ARCHIVE_VARIABLES]
+        params = {
+            "latitude": ",".join(str(location["latitude"]) for location in batch),
+            "longitude": ",".join(str(location["longitude"]) for location in batch),
+            "hourly": ",".join(names),
+            "models": "icon_seamless",
+            "start_date": start.date().isoformat(),
+            "end_date": end.date().isoformat(),
+            "timezone": "GMT",
+            "wind_speed_unit": "ms",
+        }
+        if self.api_key:
+            params["apikey"] = self.api_key
+        response = self.session.get(
+            self.ARCHIVE_CUSTOMER_URL if self.api_key else self.ARCHIVE_URL, params=params, timeout=self.timeout_seconds
+        )
+        if response.status_code == 429:
+            raise OpenMeteoLimitReached(response.text[:300])
+        response.raise_for_status()
+        payload = response.json()
+        payloads = payload if isinstance(payload, list) else [payload]
+        if len(payloads) != len(batch):
+            raise ValueError(f"Open-Meteo returned {len(payloads)} locations for {len(batch)} requested.")
+
+        frames = []
+        for location, item in zip(batch, payloads):
+            hourly = pd.DataFrame(item["hourly"])
+            for lead in self.ARCHIVE_LEAD_DAYS:
+                frame = pd.DataFrame(
+                    {column: hourly[f"{variable}_previous_day{lead}"] for variable, column in self.ARCHIVE_VARIABLES.items()}
+                )
+                frame["forecast_time"] = pd.to_datetime(hourly["time"], utc=True)
+                frame["location_id"] = location["location_id"]
+                frame["lead_days"] = lead
+                frames.append(frame.dropna(how="all", subset=list(self.ARCHIVE_VARIABLES.values())))
+        return pd.concat(frames, ignore_index=True)
+
+    def _update_archive(self, locations: list[dict[str, Any]]) -> None:
+        """Extend previous_day_forecast for the points of archive_countries (in that order) up to yesterday.
+
+        Only finished UTC days are stored: for later hours the API fills the lead times
+        from the newest run, so their values would still change. A run stops after
+        archive_calls_per_run calls; the next run continues after the last stored day.
+        """
+        order = {country: index for index, country in enumerate(self.archive_countries)}
+        selected = sorted(
+            (location for location in locations if location["country_code"] in order),
+            key=lambda location: order[location["country_code"]],
+        )
+        with self.engine.begin() as conn:
+            last = dict(
+                conn.execute(text("SELECT location_id, MAX(forecast_time) FROM previous_day_forecast GROUP BY location_id")).all()
+            )
+        end = pd.Timestamp.now(tz="UTC").normalize() - pd.Timedelta(days=1)
+        pending = []
+        for location in selected:
+            stored = last.get(location["location_id"])
+            if stored is None:
+                start = self.archive_start
+            else:
+                start = pd.Timestamp(stored).tz_convert("UTC").normalize() + pd.Timedelta(days=1)
+            if start <= end:
+                pending.append((start, location))
+
+        # Points with the same start date share requests of up to batch_size points.
+        requests = []
+        for start, group in itertools.groupby(pending, key=lambda item: item[0]):
+            group = [location for _, location in group]
+            for i in range(0, len(group), self.batch_size):
+                requests.append((start, group[i : i + self.batch_size]))
+
+        budget, rows = self.archive_calls_per_run, 0
+        for start, batch in requests:
+            while start <= end:
+                chunk_end = min(start + pd.Timedelta(days=self.ARCHIVE_CHUNK_DAYS - 1), end)
+                calls = len(batch) * max(1.0, ((chunk_end - start).days + 1) / 14)
+                if calls > budget:
+                    self.logger.info("Open-Meteo archive: %s rows stored, call budget of this run used up.", rows)
+                    return
+                started = time.monotonic()
+                try:
+                    frame = self._fetch_archive(batch, start, chunk_end)
+                except OpenMeteoLimitReached as exc:
+                    self.logger.warning("Open-Meteo archive stopped, call limit reached after %s rows: %s", rows, exc)
+                    return
+                copy_upsert(
+                    self.engine,
+                    self.previous_day_forecast_table,
+                    frame,
+                    "previous_day_forecast_pkey",
+                    ["location_id", "lead_days", "forecast_time"],
+                )
+                rows += len(frame)
+                budget -= calls
+                start = chunk_end + pd.Timedelta(days=1)
+                pause = calls * 60 / self.calls_per_minute - (time.monotonic() - started)
+                if pause > 0:
+                    time.sleep(pause)
+        self.logger.info("Open-Meteo archive: %s rows stored, up to date until %s.", rows, end.date())
+
     def run(self):
         retrieved_at = pd.Timestamp.now(tz="UTC").floor("min")
         locations = self._get_locations()
@@ -507,3 +642,5 @@ class OpenMeteoCrawler(KitCrawler):
         )
         if failed:
             self.logger.warning("%s of %s locations returned no data in this run.", failed, len(locations))
+        if self.archive_countries:
+            self._update_archive(locations)

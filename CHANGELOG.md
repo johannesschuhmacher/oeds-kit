@@ -11,6 +11,10 @@ The former module repositories keep their own history in
 
 ## Unreleased
 
+- `open_meteo` can keep an archive of past forecasts in
+  `open_meteo.previous_day_forecast`: the ICON forecasts issued 1 and 2 days
+  ahead, from early 2024, for the countries in `archive_countries` (off by
+  default). It gives the price forecast a weather history to learn from.
 - `pypsa_technology_data` ends as skipped instead of failed when the GitHub
   API rate limit (60 requests per hour and IP address) is used up.
 - `energyforecast` now uses the retrying crawler HTTP session. One run failed
