@@ -52,6 +52,18 @@ radiation / 1000 clipped to 0..1, `wind_generation_index` = (wind speed at
 80 m / 12)³ capped at 1, `renewables_weather_index` = 0.55 wind + 0.45 solar
 index, and `load_weather_index` = heating degree + 0.75 cooling degree.
 
+`previous_day_forecast` is an archive of past forecasts, filled only when
+`archive_countries` is set (see below). It holds, for every hour and point of
+these countries, the ICON forecast issued 1 and 2 days before the hour
+(`lead_days` 1 or 2; Open-Meteo
+[Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api), model
+`icon_seamless`, variables `temperature_2m_c`, `wind_speed_80m_ms`,
+`shortwave_radiation_wm2`; key `location_id`, `lead_days`, `forecast_time`).
+The archive starts in early 2024. The value with `lead_days` 1 for 16 November
+02:00 UTC matches the run that this crawler fetched on 15 November at 00:45. Only
+finished UTC days up to yesterday are stored. For later hours the API takes
+the lead times from the newest run, so their values would still change.
+
 Views: `latest_hourly_forecast` (the newest run, enabled locations only),
 `latest_country_hourly_forecast` (averages per country weighted by
 `aggregation_weight`, i.e. by grid-cell area, with the number of points) and
@@ -72,6 +84,23 @@ open_meteo:
   past_hours: 24
 ```
 
+The archive is off by default. To fill it, list the countries in the order in
+which they are fetched:
+
+```yaml
+  archive_countries: [DE, FR, NL, BE, LU, AT, CH, CZ, PL, DK]
+  archive_start: '2024-02-01'
+  archive_calls_per_run: 500
+```
+
+After the forecast, each run extends the archive by at most
+`archive_calls_per_run` calls (default 500), starting with the first country.
+A new point starts at `archive_start` (default 2024-02-01); otherwise the run
+continues after the last stored day. One request covers up to 91 days, which
+is 6.5 calls per point. The ten countries above have 195 points, so the first
+fill takes about 14,000 calls. After that, each day costs about one call per
+point. A 429 stops the archive part of the run without failing the run.
+
 `locations` replaces the grid; each entry needs `location_id`, `name`,
 `country_code`, `country_name`, `latitude` and `longitude`, and may set
 `aggregation_weight` (default 1.0). `batch_size` (default 50) sets the points
@@ -86,6 +115,8 @@ A request with more than 10 variables counts as (variables / 10) calls per
 location, so one run of the grid counts as about 1,000 calls and takes about
 two minutes; eight runs a day (every three hours) stay below the daily limit.
 Other Open-Meteo requests from the same address count towards the same limits.
+This includes other OEDS installations behind the same public IP address and
+the archive (`archive_calls_per_run`).
 
 ## Run by hand
 
