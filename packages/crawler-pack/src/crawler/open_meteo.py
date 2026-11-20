@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import requests
 from sqlalchemy import (
     Boolean,
     Column,
@@ -60,6 +61,9 @@ class OpenMeteoCrawler(KitCrawler):
     }
     ARCHIVE_LEAD_DAYS = (1, 2)
     ARCHIVE_CHUNK_DAYS = 91
+    # The archive API needs about 7 s per point for 91 uncached days, so a request
+    # with batch_size points would exceed the request timeout.
+    ARCHIVE_BATCH_SIZE = 5
 
     # 15 variables: Open-Meteo counts a request with more than 10 variables as
     # (variables / 10) calls per location.
@@ -529,15 +533,15 @@ class OpenMeteoCrawler(KitCrawler):
             if start <= end:
                 pending.append((start, location))
 
-        # Points with the same start date share requests of up to batch_size points.
-        requests = []
+        # Points with the same start date share requests of up to ARCHIVE_BATCH_SIZE points.
+        jobs = []
         for start, group in itertools.groupby(pending, key=lambda item: item[0]):
             group = [location for _, location in group]
-            for i in range(0, len(group), self.batch_size):
-                requests.append((start, group[i : i + self.batch_size]))
+            for i in range(0, len(group), self.ARCHIVE_BATCH_SIZE):
+                jobs.append((start, group[i : i + self.ARCHIVE_BATCH_SIZE]))
 
         budget, rows = self.archive_calls_per_run, 0
-        for start, batch in requests:
+        for start, batch in jobs:
             while start <= end:
                 chunk_end = min(start + pd.Timedelta(days=self.ARCHIVE_CHUNK_DAYS - 1), end)
                 calls = len(batch) * max(1.0, ((chunk_end - start).days + 1) / 14)
@@ -549,6 +553,10 @@ class OpenMeteoCrawler(KitCrawler):
                     frame = self._fetch_archive(batch, start, chunk_end)
                 except OpenMeteoLimitReached as exc:
                     self.logger.warning("Open-Meteo archive stopped, call limit reached after %s rows: %s", rows, exc)
+                    return
+                except requests.RequestException as exc:
+                    # The forecast of this run is already stored; the next run continues the archive.
+                    self.logger.warning("Open-Meteo archive stopped after %s rows: %s", rows, exc)
                     return
                 copy_upsert(
                     self.engine,
