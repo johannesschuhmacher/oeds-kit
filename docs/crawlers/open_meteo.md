@@ -97,9 +97,11 @@ After the forecast, each run extends the archive by at most
 `archive_calls_per_run` calls (default 500), starting with the first country.
 A new point starts at `archive_start` (default 2024-02-01); otherwise the run
 continues after the last stored day. One request covers up to 91 days, which
-is 6.5 calls per point. The ten countries above have 195 points, so the first
+is 6.5 calls per point; a request holds at most 5 points, because the API
+needs about 7 s per point for 91 days. The ten countries above have 195 points, so the first
 fill takes about 14,000 calls. After that, each day costs about one call per
-point. A 429 stops the archive part of the run without failing the run.
+point. A 429 or a failed request (for example a timeout) stops the archive
+part of the run without failing the run; the next run continues.
 
 `locations` replaces the grid; each entry needs `location_id`, `name`,
 `country_code`, `country_name`, `latitude` and `longitude`, and may set

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
+import requests as requests_lib
 
 from crawler.open_meteo import OpenMeteoCrawler
 
@@ -104,3 +105,27 @@ def test_update_archive_continues_after_the_last_stored_day_and_keeps_the_budget
         (["de_1"], "2026-11-11", "2026-11-18"),
         (["de_2", "fr_1"], "2024-02-01", "2024-05-01"),
     ]
+
+
+def test_update_archive_stops_without_failing_the_run_on_a_timeout(monkeypatch):
+    crawler = _archive_crawler()
+    crawler.archive_countries = ["DE"]
+    crawler.archive_start = pd.Timestamp("2026-11-01", tz="UTC")
+    crawler.archive_calls_per_run = 100
+    conn = MagicMock()
+    conn.execute.return_value.all.return_value = []
+    crawler.engine = MagicMock()
+    crawler.engine.begin.return_value.__enter__.return_value = conn
+    calls = []
+
+    def timeout(batch, start, end):
+        calls.append(len(batch))
+        raise requests_lib.ReadTimeout("Read timed out.")
+
+    crawler._fetch_archive = timeout
+    locations = [{"location_id": f"de_{i}", "country_code": "DE"} for i in range(7)]
+
+    crawler._update_archive(locations)
+
+    # Requests hold at most ARCHIVE_BATCH_SIZE points; the first timeout ends the archive part.
+    assert calls == [OpenMeteoCrawler.ARCHIVE_BATCH_SIZE]
