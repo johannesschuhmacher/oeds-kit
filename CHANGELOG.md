@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
-## Unreleased
+## 1.6.0 (2026-11-20)
 
 - `open_meteo` can keep an archive of past forecasts in
   `open_meteo.previous_day_forecast`: the ICON forecasts issued 1 and 2 days

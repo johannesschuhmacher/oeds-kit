@@ -6,6 +6,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Test results
 
+## Release 1.6.0, 2026-11-20
+
+Release 1.6.0 adds four crawlers, an optional Open-Meteo archive of past
+forecasts and the day-ahead price forecast, and makes several crawlers more
+tolerant of short source outages (see `CHANGELOG.md`).
+
+**Automated tests.** 189 tests pass.
+
+**Update of existing installations.** iip-vm-oeds-intern-test and
+iip-vm-oeds-intern were updated on 19 November to the release state with
+`oeds_clean_install_from_git.sh` (no failed tasks).
+
+- In the first day after the update all 33 runs on intern-test succeeded;
+  the new crawlers are not enabled there. On intern `pypsa_technology_data`,
+  `worldbank_commodities`, `eex_eua_auctions` and the `eia` job
+  `fuel_prices_daily` succeeded; `tyndp_pecd` last ran on 14 November and
+  found the files unchanged.
+- The price forecast wrote a forecast of 96 quarter-hours on both VMs on 19
+  November.
+- The Open-Meteo archive is enabled only on intern (10 countries, 750 calls
+  per run). Two runs on 19 November failed with "Daily API request limit
+  exceeded" while the schedule still had 8 runs a day; it now has 4. The
+  run of 20 November 00:45 wrote the forecasts (96,048 rows) but then failed
+  on a read timeout of the archive server, so the archive is still empty.
+  The archive is off by default.
+- `check_dashboards.py --all`: all 33 dashboards return data without errors.
+  As before, two "Energy Prices" queries in "ENTSO-E – Power plants and
+  availability" and "Top Bottlenecks (Next 24h)" return no rows in the test
+  window. Several queries of "ENTSO-E – Negative prices" on the 7.3 million
+  rows of `entsoe_files.EnergyPrices` take 18 to 72 seconds, so the check
+  needs a timeout above its default of 60 seconds.
+
 ## Release 1.5.0, 2026-11-08
 
 Release 1.5.0 renames five crawlers, merges the two Open-Meteo crawlers into
