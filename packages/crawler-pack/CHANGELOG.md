@@ -11,7 +11,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - Open-Meteo: optional archive of past forecasts (`previous_day_forecast`,
   Previous Runs API) with the ICON forecast issued 1 and 2 days before each
   hour, from early 2024, for the points of `archive_countries`. Each run
-  fetches at most `archive_calls_per_run` calls of it.
+  fetches at most `archive_calls_per_run` calls of it, in requests of at most
+  5 points (larger requests timed out). A 429 or a failed archive request only
+  stops the archive part of the run.
 - EPEX Spot: reconnect and retry a file download when the SFTP server drops
   the session ("Socket is closed" failed whole scheduled runs); keepalive 30 s.
 - Netztransparenz: `onlinehochrechnung/*` endpoints vanished from the API
