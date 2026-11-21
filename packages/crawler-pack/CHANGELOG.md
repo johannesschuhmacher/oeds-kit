@@ -8,6 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- ENTSO-E API: new dataset `load_forecast_versions` keeps every download of
+  the day-ahead load forecast, so a backtest can use the version that was
+  public before the deadline (FR, BE and AT revise theirs later).
+  `country_codes` loads several bidding zones in one run.
 - Open-Meteo: optional archive of past forecasts (`previous_day_forecast`,
   Previous Runs API) with the ICON forecast issued 1 and 2 days before each
   hour, from early 2024, for the points of `archive_countries`. Each run

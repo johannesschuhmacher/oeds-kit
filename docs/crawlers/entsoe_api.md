@@ -26,12 +26,15 @@ from the File Library.
 
 The crawler loads four datasets for `country_code` (default `DE_LU`): SDAC
 day-ahead prices, EXAA day-ahead prices (ENTSO-E price sequence 2), the load
-forecast and the wind and solar forecast.
+forecast and the wind and solar forecast. `country_codes` (a list) replaces
+`country_code`. A fifth dataset, `load_forecast_versions`, is loaded only when
+it is named in `target_datasets`.
 
 | Table | Content | Key |
 | --- | --- | --- |
 | `day_ahead_prices` | `price_eur_mwh` in EUR/MWh, `currency` `EUR`; SDAC rows have `sequence` 1 and `source_market` `SDAC`, EXAA rows `sequence` 2 and `source_market` `EXAA` | `market_area`, `sequence`, `delivery_start_utc` |
 | `load_forecasts` | `load_mw` in MW for each `metric` (column label of the `entsoe-py` result) | `market_area`, `process_type`, `metric`, `delivery_start_utc` |
+| `load_forecast_versions` | as `load_forecasts`, but every download is kept | `market_area`, `process_type`, `metric`, `delivery_start_utc`, `download_time_utc` |
 | `wind_solar_forecasts` | `forecast_mw` in MW for each `psr_type` (column label of the `entsoe-py` result) | `market_area`, `process_type`, `psr_type`, `delivery_start_utc` |
 
 The keys are unique constraints; rows are upserted. `delivery_start_utc`,
@@ -81,13 +84,25 @@ entsoe_api:
       post_run_scripts:
       - oeds-post forecast day-ahead-price --backtest-days 0
       - oeds-post submit energy-arena
+    load_forecast_versions:
+      enable: false
+      schedule: 30 8,9 * * *
+      country_codes:
+      - FR
+      - BE
+      - AT
+      target_datasets:
+      - load_forecast_versions
+      lookback_days: 0
+      lookahead_days: 2
+      run_post_scripts: false
 ```
 
 The window runs from midnight (Europe/Berlin) `lookback_days` before today to
 midnight `lookahead_days` after today. `start_date` replaces the lookback with
 a fixed start (a value without time zone is read as Europe/Berlin).
 `target_datasets` (a list of `day_ahead_prices`, `exaa_day_ahead_prices`,
-`load_forecast`, `wind_solar_forecast`) replaces the `include_*` switches.
+`load_forecast`, `wind_solar_forecast`, `load_forecast_versions`) replaces the `include_*` switches.
 `process_type` (default `A01`) is used for both forecasts. `api_key` is read
 only when none of the environment variables is set.
 
@@ -107,6 +122,11 @@ docker exec oeds-scheduler oeds-crawl entsoe_api --job training_bootstrap
 - `forecast_daily` refreshes the last 14 and the next 2 days and then runs
   the price forecast; `training_bootstrap` (Sundays) reloads 120 days without
   running it.
+- `load_forecast_versions` stores the day-ahead load forecasts of FR, BE and
+  AT for today and tomorrow at 08:30 and 09:30 UTC, before the day-ahead
+  deadline. These TSOs revise their forecasts later, and `entsoe_files` and
+  `load_forecasts` keep only the latest revision; a backtest takes the last
+  download before its cut-off from this table.
 - `energy_arena` runs the forecast before the Energy Arena deadline and
   submits it; see [Energy Arena submission](../energy_arena.md).
 - If the API has no data for a dataset, the crawler logs a warning and keeps
