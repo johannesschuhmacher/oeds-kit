@@ -48,11 +48,13 @@ DATASET_DAY_AHEAD_PRICES = "day_ahead_prices"
 DATASET_EXAA_PRICES = "exaa_day_ahead_prices"
 DATASET_LOAD_FORECAST = "load_forecast"
 DATASET_WIND_SOLAR_FORECAST = "wind_solar_forecast"
+DATASET_LOAD_FORECAST_VERSIONS = "load_forecast_versions"
 ALL_DATASETS = {
     DATASET_DAY_AHEAD_PRICES,
     DATASET_EXAA_PRICES,
     DATASET_LOAD_FORECAST,
     DATASET_WIND_SOLAR_FORECAST,
+    DATASET_LOAD_FORECAST_VERSIONS,
 }
 
 PRICE_SEQUENCE_SDAC = 1
@@ -61,6 +63,7 @@ PRICE_SEQUENCE_EXAA = 2
 PRICE_CONSTRAINT = "unique_entsoe_api_day_ahead_prices"
 LOAD_CONSTRAINT = "unique_entsoe_api_load_forecasts"
 WIND_SOLAR_CONSTRAINT = "unique_entsoe_api_wind_solar_forecasts"
+LOAD_VERSIONS_CONSTRAINT = "unique_entsoe_api_load_forecast_versions"
 
 
 class EntsoeApiCrawler(KitCrawler):
@@ -131,6 +134,28 @@ class EntsoeApiCrawler(KitCrawler):
             ),
         )
 
+        # Every download is kept: the File Library and load_forecasts hold only the
+        # latest revision, which some TSOs publish after the day-ahead deadline.
+        self.tables["load_forecast_versions"] = Table(
+            "load_forecast_versions",
+            self.metadata,
+            Column("market_area", String, nullable=False),
+            Column("process_type", String, nullable=False),
+            Column("metric", String, nullable=False),
+            Column("delivery_start_utc", DateTime(timezone=True), nullable=False),
+            Column("delivery_end_utc", DateTime(timezone=True), nullable=False),
+            Column("load_mw", Float),
+            Column("download_time_utc", DateTime(timezone=True), nullable=False),
+            UniqueConstraint(
+                "market_area",
+                "process_type",
+                "metric",
+                "delivery_start_utc",
+                "download_time_utc",
+                name=LOAD_VERSIONS_CONSTRAINT,
+            ),
+        )
+
         self.tables["wind_solar_forecasts"] = Table(
             "wind_solar_forecasts",
             self.metadata,
@@ -159,6 +184,8 @@ class EntsoeApiCrawler(KitCrawler):
             f'ON "{self.schema_name}"."load_forecasts" (delivery_start_utc)',
             f'CREATE INDEX IF NOT EXISTS "idx_entsoe_api_wind_solar_delivery" '
             f'ON "{self.schema_name}"."wind_solar_forecasts" (delivery_start_utc)',
+            f'CREATE INDEX IF NOT EXISTS "idx_entsoe_api_load_versions_delivery" '
+            f'ON "{self.schema_name}"."load_forecast_versions" (delivery_start_utc)',
         )
         with self.engine.begin() as conn:
             for statement in statements:
@@ -184,8 +211,11 @@ class EntsoeApiCrawler(KitCrawler):
             enabled.add(DATASET_WIND_SOLAR_FORECAST)
         return enabled
 
-    def _country_code(self) -> str:
-        return str(self.config.get("country_code", DEFAULT_COUNTRY_CODE))
+    def _country_codes(self) -> list[str]:
+        configured = self.config.get("country_codes")
+        if configured:
+            return [str(code) for code in configured]
+        return [str(self.config.get("country_code", DEFAULT_COUNTRY_CODE))]
 
     def _process_type(self) -> str:
         return str(self.config.get("process_type", "A01"))
@@ -420,6 +450,8 @@ class EntsoeApiCrawler(KitCrawler):
         process_type: str,
         start: pd.Timestamp,
         end: pd.Timestamp,
+        table_name: str = "load_forecasts",
+        constraint_name: str = LOAD_CONSTRAINT,
     ) -> int:
         try:
             source = self.pandas_client.query_load_forecast(
@@ -439,7 +471,7 @@ class EntsoeApiCrawler(KitCrawler):
             value_column="load_mw",
             label_column="metric",
         )
-        return self._upsert_dataframe("load_forecasts", frame, LOAD_CONSTRAINT)
+        return self._upsert_dataframe(table_name, frame, constraint_name)
 
     def _refresh_wind_solar_forecast(
         self,
@@ -476,7 +508,7 @@ class EntsoeApiCrawler(KitCrawler):
     def run(self) -> None:
         self._ensure_tables()
 
-        country_code = self._country_code()
+        country_codes = self._country_codes()
         process_type = self._process_type()
         start, end = self._query_window()
         enabled = self._enabled_datasets()
@@ -484,23 +516,35 @@ class EntsoeApiCrawler(KitCrawler):
 
         self.logger.info(
             "Starting ENTSO-E API refresh for %s from %s to %s: %s",
-            country_code,
+            ", ".join(country_codes),
             start.isoformat(),
             end.isoformat(),
             ", ".join(sorted(enabled)),
         )
 
-        if DATASET_DAY_AHEAD_PRICES in enabled:
-            total_rows += self._refresh_day_ahead_prices(country_code, start, end)
-            self._pause_between_requests()
-        if DATASET_EXAA_PRICES in enabled:
-            total_rows += self._refresh_exaa_prices(country_code, start, end)
-            self._pause_between_requests()
-        if DATASET_LOAD_FORECAST in enabled:
-            total_rows += self._refresh_load_forecast(country_code, process_type, start, end)
-            self._pause_between_requests()
-        if DATASET_WIND_SOLAR_FORECAST in enabled:
-            total_rows += self._refresh_wind_solar_forecast(country_code, process_type, start, end)
+        for country_code in country_codes:
+            if DATASET_DAY_AHEAD_PRICES in enabled:
+                total_rows += self._refresh_day_ahead_prices(country_code, start, end)
+                self._pause_between_requests()
+            if DATASET_EXAA_PRICES in enabled:
+                total_rows += self._refresh_exaa_prices(country_code, start, end)
+                self._pause_between_requests()
+            if DATASET_LOAD_FORECAST in enabled:
+                total_rows += self._refresh_load_forecast(country_code, process_type, start, end)
+                self._pause_between_requests()
+            if DATASET_LOAD_FORECAST_VERSIONS in enabled:
+                total_rows += self._refresh_load_forecast(
+                    country_code,
+                    process_type,
+                    start,
+                    end,
+                    "load_forecast_versions",
+                    LOAD_VERSIONS_CONSTRAINT,
+                )
+                self._pause_between_requests()
+            if DATASET_WIND_SOLAR_FORECAST in enabled:
+                total_rows += self._refresh_wind_solar_forecast(country_code, process_type, start, end)
+                self._pause_between_requests()
 
         self.set_metadata(
             {

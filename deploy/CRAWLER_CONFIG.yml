@@ -173,6 +173,20 @@ entsoe_api:
       post_run_scripts:
       - oeds-post forecast day-ahead-price --backtest-days 0
       - oeds-post submit energy-arena
+    # Keep each download of the neighbours' load forecasts before the deadline:
+    # their TSOs revise them after it, and the File Library keeps only the last.
+    load_forecast_versions:
+      enable: false
+      schedule: 30 8,9 * * *
+      country_codes:
+      - FR
+      - BE
+      - AT
+      target_datasets:
+      - load_forecast_versions
+      lookback_days: 0
+      lookahead_days: 2
+      run_post_scripts: false
 entsog:
   enable: false
   schema_name: entsog
