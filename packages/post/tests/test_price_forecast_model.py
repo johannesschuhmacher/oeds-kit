@@ -13,6 +13,7 @@ from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_da
 from scripts.run_price_forecast import (
     _combine_covariates,
     _combine_training_fallback_series,
+    _has_full_day,
 )
 
 
@@ -114,5 +115,15 @@ class PriceForecastModelTest(unittest.TestCase):
         self.assertEqual(combined.loc[index[1], "load_mw"], 2.0)
 
 
+def test_has_full_day_needs_every_quarter_hour_of_the_local_day():
+    # 29 Mar 2026: 23-hour day, 92 quarter-hours from 23:00 UTC the day before.
+    day = pd.date_range("2026-03-28 23:00", periods=92, freq="15min", tz="UTC")
+    exaa = pd.Series(100.0, index=day)
+    assert _has_full_day(exaa, pd.Timestamp("2026-03-29").date())
+    assert not _has_full_day(exaa.iloc[:-1], pd.Timestamp("2026-03-29").date())
+    assert not _has_full_day(exaa, pd.Timestamp("2026-03-30").date())
+
+
 if __name__ == "__main__":
     unittest.main()
+

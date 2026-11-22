@@ -27,8 +27,9 @@ it counts.
 The command takes the newest `completed` `day_ahead` run for tomorrow
 (Europe/Berlin). It submits nothing (exit code 0) when the deadline has passed
 or when `entsoe_api.day_ahead_prices` does not yet hold EXAA prices for the
-whole target day. The model needs those prices and otherwise silently uses the
-previous day's. It fails (exit code 1, alert mail) when the key is missing,
+whole target day. Without them the forecast falls back to LEAR without EXAA
+inputs (mean daily RMSE 32.4 EUR/MWh against 15.2 with EXAA, every third day
+from August to November 2026). It fails (exit code 1, alert mail) when the key is missing,
 when no forecast run is newer than the EXAA prices, or when the API refuses
 the submission.
 

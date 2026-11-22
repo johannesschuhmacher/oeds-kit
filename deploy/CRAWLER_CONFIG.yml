@@ -218,6 +218,7 @@ epex_spot:
   include_continuous_statistics: true
   include_continuous_indices: true
   include_intraday_auctions: true
+  include_day_ahead_auction: true
   include_continuous_trades: true
 netztransparenz:
   enable: false
