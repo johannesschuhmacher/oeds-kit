@@ -8,6 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- Day-ahead price forecast: SDAC prices missing at ENTSO-E are filled from
+  `epex_spot.day_ahead_auction_prices_volumes` (20 and 21 Nov 2026 had none).
+  When the EXAA of the target day is incomplete, the forecast uses LEAR without
+  EXAA inputs instead of reading the previous day's EXAA as the target day's.
 - Day-ahead price forecast: weather covariates now come from the kept daily
   runs of `open_meteo.hourly_forecast` (for each delivery day the first run of
   the day before) and only enter once these cover the whole training window.

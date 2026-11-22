@@ -17,10 +17,10 @@ quarter-hour (96, or 92/100 on clock-change days) in EUR/MWh with two
 decimals, anchored by `target_start` (local midnight). The deadline is 12:00
 Europe/Berlin on the day before; the latest submission before it counts.
 
-The upstream LEAR model fills missing EXAA prices of the target day with the
-previous day's, so nothing is submitted unless `entsoe_api.day_ahead_prices`
-holds EXAA prices for the whole target day and the forecast run is newer than
-them.
+Without the EXAA prices of the target day the forecast falls back to LEAR
+without EXAA inputs, which is about twice as far off (backtest RMSE 32 against
+15). So nothing is submitted unless `entsoe_api.day_ahead_prices` holds EXAA
+prices for the whole target day and the forecast run is newer than them.
 """
 
 from __future__ import annotations

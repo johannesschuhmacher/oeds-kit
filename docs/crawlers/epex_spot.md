@@ -8,7 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 German intraday market data from the market-data SFTP service of EPEX SPOT
 (`sftp://sftp.marketdata.epexspot.com/germany`): continuous trading statistics, indices and transactions, and the
-pan-European intraday auctions IDA1, IDA2 and IDA3.
+pan-European intraday auctions IDA1, IDA2 and IDA3, and the quarter-hourly
+day-ahead (SDAC) auction of DE-LU.
 
 | | |
 | --- | --- |
@@ -23,14 +24,16 @@ pan-European intraday auctions IDA1, IDA2 and IDA3.
 
 The crawler reads CSV files from `Intraday Continuous/EOD/Results`,
 `Intraday Continuous/Indices/Intraday indices`, the ZIP archives in
-`Intraday Continuous/EOD/Transactions` and the `Current/Prices_Volumes`
-folders of the three IDA auctions.
+`Intraday Continuous/EOD/Transactions`, the `Current/Prices_Volumes`
+folders of the three IDA auctions and
+`Day-Ahead Auction/Quarter-hourly/Current/Prices_Volumes`.
 
 | Table | Content | Key |
 | --- | --- | --- |
 | `continuous_statistics` | Low, high, last and volume-weighted average price, buy and sell volume per delivery period, `market_area` `DE` | `market_area`, `delivery_start_utc`, `delivery_end_utc` |
 | `continuous_indices` | `index_price` and `index_volume` per `index_name` and `time_resolution`, `market_area` `DE` | `market_area`, `index_name`, `time_resolution`, `delivery_start_utc`, `delivery_end_utc` |
 | `intraday_auction_prices_volumes` | One row per `auction_name` (IDA1–IDA3), `metric` (`price` in EUR, `volume` in MWH) and quarter hour, `market_area` `DE-LU` | `auction_name`, `market_area`, `metric`, `delivery_start_utc`, `delivery_end_utc` |
+| `day_ahead_auction_prices_volumes` | As `intraday_auction_prices_volumes`, `auction_name` `DA` | as above |
 | `continuous_trades` | Single trades: price, volume, product, execution time, delivery area, trade phase | `trade_id`, `side`, `order_id` |
 | `imported_files` | Remote files already written, with row count | `remote_path`, `file_size`, `file_mtime` |
 
@@ -57,13 +60,15 @@ epex_spot:
   include_continuous_statistics: true
   include_continuous_indices: true
   include_intraday_auctions: true
+  include_day_ahead_auction: true
   include_continuous_trades: true
 ```
 
 `start_date` is read as Europe/Berlin time when it has no offset;
-`continuous_trades_start_date` and `intraday_auction_start_date` override it
-for those datasets. `target_datasets` (a list of `continuous_statistics`,
-`continuous_indices`, `intraday_auctions`, `continuous_trades`) replaces the
+`continuous_trades_start_date`, `intraday_auction_start_date` and
+`day_ahead_auction_start_date` override it for those datasets.
+`target_datasets` (a list of `continuous_statistics`, `continuous_indices`,
+`intraday_auctions`, `day_ahead_auction`, `continuous_trades`) replaces the
 `include_*` switches. `database_batch_size` is the number of trade rows written
 at a time. `sftp_host`, `sftp_port`, `sftp_username` and `sftp_password` can be
 set in the config; the environment variables `EPEX_SFTP_HOST`,
@@ -83,6 +88,9 @@ docker exec oeds-scheduler oeds-crawl epex_spot
   delivery start, or at `start_date` when the table is empty. Files whose day
   or year in the name ends before that start are not opened, and rows with an
   earlier delivery start are dropped.
+- The day-ahead prices are the SDAC prices of DE-LU, the same as in
+  `entsoe_api.day_ahead_prices`. The price forecast uses them where ENTSO-E
+  has no price (on 20 and 21 Nov 2026 ENTSO-E published none for DE-LU).
 - Files listed in `imported_files` with the same size and modification time are
   skipped, so unchanged trade archives are not imported again.
 - Trade archives are read in chunks of `database_batch_size` rows. With

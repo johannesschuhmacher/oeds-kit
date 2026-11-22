@@ -12,6 +12,7 @@ SFTP service into PostgreSQL:
 - Intraday Continuous indices
 - Intraday Continuous transaction ZIP files
 - Pan-European intraday auction prices and volumes for IDA1, IDA2, and IDA3
+- Day-ahead (SDAC) auction prices and volumes of DE-LU
 """
 
 from __future__ import annotations
@@ -50,11 +51,15 @@ IDA_CURRENT_PRICE_VOLUME_DIRS = {
     "IDA3": "/germany/Intraday Auction/Pan-European IDA3/Current/Prices_Volumes",
 }
 
+DAY_AHEAD_PRICE_VOLUME_DIR = "/germany/Day-Ahead Auction/Quarter-hourly/Current/Prices_Volumes"
+
 DATASET_CONTINUOUS_STATISTICS = "continuous_statistics"
 DATASET_CONTINUOUS_INDICES = "continuous_indices"
 DATASET_CONTINUOUS_TRADES = "continuous_trades"
 DATASET_INTRADAY_AUCTIONS = "intraday_auctions"
+DATASET_DAY_AHEAD_AUCTION = "day_ahead_auction"
 ALL_DATASETS = {
+    DATASET_DAY_AHEAD_AUCTION,
     DATASET_CONTINUOUS_STATISTICS,
     DATASET_CONTINUOUS_INDICES,
     DATASET_CONTINUOUS_TRADES,
@@ -121,6 +126,8 @@ class EpexSpotCrawler(KitCrawler):
             enabled.add(DATASET_CONTINUOUS_INDICES)
         if self.config.get("include_intraday_auctions", True):
             enabled.add(DATASET_INTRADAY_AUCTIONS)
+        if self.config.get("include_day_ahead_auction", True):
+            enabled.add(DATASET_DAY_AHEAD_AUCTION)
         if self.config.get("include_continuous_trades", True):
             enabled.add(DATASET_CONTINUOUS_TRADES)
         return enabled
@@ -184,31 +191,36 @@ class EpexSpotCrawler(KitCrawler):
             ),
         )
 
-        self.tables["intraday_auction_prices_volumes"] = Table(
-            "intraday_auction_prices_volumes",
-            self.metadata,
-            Column("auction_name", String, nullable=False),
-            Column("market_area", String, nullable=False),
-            Column("metric", String, nullable=False),
-            Column("delivery_day", Date, nullable=False),
-            Column("delivery_start_utc", DateTime(timezone=True), nullable=False),
-            Column("delivery_end_utc", DateTime(timezone=True), nullable=False),
-            Column("time_label", String),
-            Column("value", Float),
-            Column("currency", String),
-            Column("volume_unit", String),
-            Column("source_file", String, nullable=False),
-            Column("publication_time_utc", DateTime(timezone=True)),
-            Column("download_time_utc", DateTime(timezone=True), nullable=False),
-            UniqueConstraint(
-                "auction_name",
-                "market_area",
-                "metric",
-                "delivery_start_utc",
-                "delivery_end_utc",
-                name="unique_epex_intraday_auction_prices_volumes",
-            ),
-        )
+        # The intraday auctions and the day-ahead auction share the file format.
+        for table_name, constraint_name in (
+            ("intraday_auction_prices_volumes", "unique_epex_intraday_auction_prices_volumes"),
+            ("day_ahead_auction_prices_volumes", "unique_epex_day_ahead_auction_prices_volumes"),
+        ):
+            self.tables[table_name] = Table(
+                table_name,
+                self.metadata,
+                Column("auction_name", String, nullable=False),
+                Column("market_area", String, nullable=False),
+                Column("metric", String, nullable=False),
+                Column("delivery_day", Date, nullable=False),
+                Column("delivery_start_utc", DateTime(timezone=True), nullable=False),
+                Column("delivery_end_utc", DateTime(timezone=True), nullable=False),
+                Column("time_label", String),
+                Column("value", Float),
+                Column("currency", String),
+                Column("volume_unit", String),
+                Column("source_file", String, nullable=False),
+                Column("publication_time_utc", DateTime(timezone=True)),
+                Column("download_time_utc", DateTime(timezone=True), nullable=False),
+                UniqueConstraint(
+                    "auction_name",
+                    "market_area",
+                    "metric",
+                    "delivery_start_utc",
+                    "delivery_end_utc",
+                    name=constraint_name,
+                ),
+            )
 
         self.tables["continuous_trades"] = Table(
             "continuous_trades",
@@ -750,6 +762,19 @@ class EpexSpotCrawler(KitCrawler):
             )
         return affected
 
+    def _import_day_ahead_auction(self) -> int:
+        start_time = self._effective_start_time(
+            "day_ahead_auction_prices_volumes",
+            "day_ahead_auction_start_date",
+        )
+        return self._import_remote_files(
+            DAY_AHEAD_PRICE_VOLUME_DIR,
+            "day_ahead_auction_prices_volumes",
+            lambda payload, filename: self._parse_intraday_auction_file(payload, filename, "DA"),
+            "unique_epex_day_ahead_auction_prices_volumes",
+            start_time,
+        )
+
     def run(self) -> None:
         self._ensure_tables()
         self.set_metadata(
@@ -772,6 +797,8 @@ class EpexSpotCrawler(KitCrawler):
                 self._import_continuous_indices()
             if DATASET_INTRADAY_AUCTIONS in enabled:
                 self._import_intraday_auctions()
+            if DATASET_DAY_AHEAD_AUCTION in enabled:
+                self._import_day_ahead_auction()
             if DATASET_CONTINUOUS_TRADES in enabled:
                 self._import_continuous_trades()
         finally:

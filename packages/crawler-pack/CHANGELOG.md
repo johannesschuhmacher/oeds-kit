@@ -8,6 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- EPEX SPOT: new dataset `day_ahead_auction` (table
+  `day_ahead_auction_prices_volumes`) with the quarter-hourly DE-LU day-ahead
+  prices and volumes from `Day-Ahead Auction/Quarter-hourly/Current`. ENTSO-E
+  published no DE-LU price for 20 and 21 Nov 2026.
 - ENTSO-E API: new dataset `load_forecast_versions` keeps every download of
   the day-ahead load forecast, so a backtest can use the version that was
   public before the deadline (FR, BE and AT revise theirs later).

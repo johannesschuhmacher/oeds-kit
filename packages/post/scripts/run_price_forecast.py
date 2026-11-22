@@ -83,6 +83,12 @@ def _env_bool(name: str, fallback: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _has_full_day(series: pd.Series, target_date: date) -> bool:
+    start = pd.Timestamp(target_date).tz_localize(BERLIN_TZ)
+    day = pd.date_range(start, start + pd.DateOffset(days=1), freq="15min", inclusive="left").tz_convert("UTC")
+    return bool(day.isin(series.index).all())
+
+
 def _delivery_bounds(target_date: date, train_days: int) -> tuple[pd.Timestamp, pd.Timestamp]:
     start = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) - pd.Timedelta(days=train_days + 14)
     end = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) + pd.DateOffset(days=1)
@@ -110,7 +116,7 @@ def _existing_tables(conn) -> set[tuple[str, str]]:
         text(
             """
             SELECT table_schema, table_name FROM information_schema.tables
-            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'open_meteo')
+            WHERE table_schema IN ('entsoe_files', 'entsoe_api', 'epex_spot', 'open_meteo')
             """
         )
     )
@@ -283,7 +289,26 @@ def _load_price_series(
         training_end,
         api_training_ready,
     )
+    # EPEX publishes the same SDAC price. It only fills quarter-hours without an
+    # ENTSO-E price: on 20 and 21 Nov 2026 ENTSO-E had no DE-LU price at all.
+    epex_only = 0
+    if ("epex_spot", "day_ahead_auction_prices_volumes") in tables:
+        epex_sdac = _read_series(
+            conn,
+            """
+            SELECT delivery_start_utc AS ts, value AS price
+            FROM epex_spot.day_ahead_auction_prices_volumes
+            WHERE market_area IN (:market_area, :market_area_alt) AND metric = 'price'
+              AND delivery_start_utc >= :start AND delivery_start_utc < :end
+            """,
+            params,
+            "price",
+        )
+        epex_only = int((~epex_sdac.index.isin(price.index)).sum())
+        price = _combine_series("price_eur_mwh", epex_sdac, price)
+
     source_summary = {
+        "epex_price_rows_filling_gaps": epex_only,
         "api_training_ready": api_training_ready,
         "api_training_history_start_utc": history_start.isoformat(),
         "api_training_history_end_utc": training_end.isoformat(),
@@ -810,8 +835,16 @@ def run_db_forecast(args: argparse.Namespace) -> int:
         return 2
     run_id = str(uuid.uuid4())
 
+    variant = args.upstream_variant
+    if variant in {"exaa", "exaa_only"} and not _has_full_day(exaa, target_date):
+        # Without the EXAA of the target day the feature row is forward-filled from the
+        # day before, so LEAR would read yesterday's EXAA as today's (14 Nov 2026, EXAA
+        # published at 13:55 UTC: RMSE 47.9 against 12.0 of the EXAA). Use LEAR
+        # without EXAA inputs instead.
+        print("EXAA of the target day is incomplete: forecasting with variant 'base'.")
+        variant = "base"
     try:
-        result = forecast_day_upstream(price, exaa, covariates, target_date, config, variant=args.upstream_variant)
+        result = forecast_day_upstream(price, exaa, covariates, target_date, config, variant=variant)
     except UpstreamBackendUnavailable as exc:
         write_run(
             engine,
@@ -841,7 +874,7 @@ def run_db_forecast(args: argparse.Namespace) -> int:
         print(f"Price forecast skipped: {exc}")
         return 0 if args.skip_if_insufficient_data else 1
 
-    source_summary = source_summary | {"upstream_variant": args.upstream_variant}
+    source_summary = source_summary | {"upstream_variant": variant}
     write_run(
         engine,
         run_id,
