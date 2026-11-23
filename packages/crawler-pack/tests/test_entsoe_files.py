@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock
 from sqlalchemy import MetaData, UniqueConstraint
 
-from crawler.entsoe_files import EntsoeFilesCrawler
+from crawler.entsoe_files import FMS_AREA_TIME_INDEXES, EntsoeFilesCrawler
 
 
 def test_monthly_file_filter_uses_requested_window():
@@ -71,7 +71,7 @@ def test_incremental_watermark_is_read_once_per_data_item(tmp_path):
     crawler._authenticate = Mock()
     crawler._migrate_renamed_columns = Mock()
     crawler._ensure_nulls_not_distinct = Mock()
-    crawler._ensure_update_time_index = Mock()
+    crawler._ensure_indexes = Mock()
     crawler._known_columns = {}
     files = ["2026_09_EnergyPrices_12.1.D_r3.1.csv", "2026_10_EnergyPrices_12.1.D_r3.1.csv"]
     crawler._list_metadata = Mock(return_value=[{"name": name, "fileId": name} for name in files])
@@ -113,7 +113,7 @@ def test_empty_download_is_fetched_again(tmp_path):
     crawler._authenticate = Mock()
     crawler._migrate_renamed_columns = Mock()
     crawler._ensure_nulls_not_distinct = Mock()
-    crawler._ensure_update_time_index = Mock()
+    crawler._ensure_indexes = Mock()
     crawler._known_columns = {}
     crawler._list_metadata = Mock(return_value=[{"name": "2026_09_EnergyPrices_12.1.D_r3.csv", "fileId": "f"}])
     crawler._get_table_state = Mock(return_value={
@@ -142,7 +142,7 @@ def _fake_crawler(**attrs):
     crawler.logger = Mock()
     crawler._reflected_tables = {}
     crawler._known_columns = {}
-    crawler._update_time_index_checked = set()
+    crawler._indexes_checked = set()
     for name, value in attrs.items():
         setattr(crawler, name, value)
     return crawler
@@ -319,13 +319,12 @@ def test_new_tables_index_update_time(monkeypatch):
     for table_name in EntsoeFilesCrawler.DATA_ITEM_TABLE_MAP.values():
         crawler._create_table_with_unique_constraint(table_name)
         table = created[-1].tables[f"entsoe_files.{table_name}"]
-        indexes = list(table.indexes)
+        indexes = {index.name: [c.name for c in index.columns] for index in table.indexes}
+        expected = dict(FMS_AREA_TIME_INDEXES.get(table_name, {}))
         if "UpdateTime(UTC)" in table.c:
-            assert [index.name for index in indexes] == [f"ix_{table_name}_updatetime"[:63]], table_name
-            assert len(indexes[0].name) <= 63
-            assert [c.name for c in indexes[0].columns] == ["UpdateTime(UTC)"]
-        else:
-            assert indexes == [], table_name
+            expected[f"ix_{table_name}_updatetime"[:63]] = ("UpdateTime(UTC)",)
+        assert indexes == {name: list(columns) for name, columns in expected.items()}, table_name
+        assert all(len(name) <= 63 for name in indexes)
 
 
 def test_existing_table_update_time_index_is_created_once_per_run():
@@ -335,13 +334,32 @@ def test_existing_table_update_time_index_is_created_once_per_run():
     crawler.engine.begin = _begin_returning(conn)
     crawler._table_columns = Mock(return_value=["DateTime(UTC)", "UpdateTime(UTC)"])
 
-    crawler._ensure_update_time_index("EnergyPrices")
-    crawler._ensure_update_time_index("EnergyPrices")
+    crawler._ensure_indexes("EnergyPrices")
+    crawler._ensure_indexes("EnergyPrices")
 
     statements = [str(call.args[0]) for call in conn.execute.call_args_list]
     assert statements == [
         "SELECT to_regclass(:name)",
         'CREATE INDEX IF NOT EXISTS "ix_EnergyPrices_updatetime" ON "entsoe_files"."EnergyPrices" ("UpdateTime(UTC)")',
+    ]
+
+
+def test_existing_physical_flows_get_missing_area_time_indexes():
+    conn = Mock()
+    # UpdateTime index exists, the two area indexes do not.
+    conn.execute.return_value.scalar.side_effect = ["oid", None, None]
+    crawler = _fake_crawler(engine=Mock())
+    crawler.engine.begin = _begin_returning(conn)
+    crawler._table_columns = Mock(return_value=["DateTime(UTC)", "InAreaDisplayName", "OutAreaDisplayName", "UpdateTime(UTC)"])
+
+    crawler._ensure_indexes("PhysicalFlows")
+
+    statements = [str(call.args[0]) for call in conn.execute.call_args_list]
+    assert [s for s in statements if s.startswith("CREATE")] == [
+        'CREATE INDEX IF NOT EXISTS "ix_PhysicalFlows_in_area_time" ON "entsoe_files"."PhysicalFlows" '
+        '("InAreaDisplayName", "DateTime(UTC)")',
+        'CREATE INDEX IF NOT EXISTS "ix_PhysicalFlows_out_area_time" ON "entsoe_files"."PhysicalFlows" '
+        '("OutAreaDisplayName", "DateTime(UTC)")',
     ]
 
 
