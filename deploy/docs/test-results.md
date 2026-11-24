@@ -34,9 +34,11 @@ iip-vm-oeds-intern were updated on 19 November to the release state with
 - `check_dashboards.py --all`: all 33 dashboards return data without errors.
   As before, two "Energy Prices" queries in "ENTSO-E – Power plants and
   availability" and "Top Bottlenecks (Next 24h)" return no rows in the test
-  window. Several queries of "ENTSO-E – Negative prices" on the 7.3 million
-  rows of `entsoe_files.EnergyPrices` take 18 to 72 seconds, so the check
-  needs a timeout above its default of 60 seconds.
+  window. Several queries of "ENTSO-E – Negative prices" take 18 to 72
+  seconds, so the check needs a timeout above its default of 60 seconds.
+  The time is spent in `entsoe_files.AggregatedGenerationPerType` (117
+  million rows) and `entsoe_files.PhysicalFlows` (53 million rows), whose
+  only index starts with the time; the `EnergyPrices` parts take 0.2 s.
 
 ## Release 1.5.0, 2026-11-08
 
