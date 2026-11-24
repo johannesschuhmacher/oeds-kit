@@ -180,6 +180,20 @@ FMS_NULLS_NOT_DISTINCT_TABLES = {
     "TransmissionAssets",
 }
 
+# Dashboards filter these tables by one area over months or years. The unique
+# keys start with "DateTime(UTC)", so such a filter walks the index entries of
+# all areas; on AggregatedGenerationPerType (about 120 million rows) one panel
+# query took 18 s.
+FMS_AREA_TIME_INDEXES = {
+    "AggregatedGenerationPerType": {
+        "ix_AggregatedGenerationPerType_area_time": ("AreaDisplayName", "AreaTypeCode", "DateTime(UTC)"),
+    },
+    "PhysicalFlows": {
+        "ix_PhysicalFlows_in_area_time": ("InAreaDisplayName", "DateTime(UTC)"),
+        "ix_PhysicalFlows_out_area_time": ("OutAreaDisplayName", "DateTime(UTC)"),
+    },
+}
+
 FMS_VERSION_SUFFIX = re.compile(r"_r(\d+(?:\.\d+)*)$")
 
 
@@ -364,10 +378,10 @@ class EntsoeFilesCrawler(KitCrawler):
         self._available_folders: list[str] | None = None
         # Per-run caches: reflected tables for the upsert statement, the column set
         # of the table currently being loaded (reset per file) and the tables whose
-        # UpdateTime index has been checked.
+        # secondary indexes have been checked.
         self._reflected_tables: dict[str, Table] = {}
         self._known_columns: dict[str, set[str]] = {}
-        self._update_time_index_checked: set[str] = set()
+        self._indexes_checked: set[str] = set()
         configured_start = self.config.get("default_start_date", DEFAULT_START_DATE)
         self.default_start_time = pd.Timestamp(configured_start)
         if self.default_start_time.tzinfo is None:
@@ -659,30 +673,38 @@ class EntsoeFilesCrawler(KitCrawler):
         # name matches on repeated IF NOT EXISTS checks.
         return f"ix_{table_name}_updatetime"[:63]
 
-    def _ensure_update_time_index(self, table_name: str) -> None:
-        """Index "UpdateTime(UTC)" of an existing table once per run.
+    def _secondary_indexes(self, table_name: str, columns) -> dict[str, tuple[str, ...]]:
+        """Index name -> columns of the indexes besides the unique key."""
+        indexes = {}
+        if "UpdateTime(UTC)" in columns:
+            indexes[self._update_time_index_name(table_name)] = ("UpdateTime(UTC)",)
+        indexes.update(FMS_AREA_TIME_INDEXES.get(table_name, {}))
+        return indexes
 
-        MAX("UpdateTime(UTC)") (incremental watermark) and the gapfill change
-        detection otherwise scan the whole table.
+    def _ensure_indexes(self, table_name: str) -> None:
+        """Create missing secondary indexes of an existing table once per run.
+
+        Without the UpdateTime index MAX("UpdateTime(UTC)") (incremental
+        watermark) and the gapfill change detection scan the whole table; for
+        the area indexes see FMS_AREA_TIME_INDEXES.
         """
-        if table_name in self._update_time_index_checked:
+        if table_name in self._indexes_checked:
             return
-        self._update_time_index_checked.add(table_name)
-        if "UpdateTime(UTC)" not in self._table_columns(table_name):
-            return
-        index_name = self._update_time_index_name(table_name)
-        with self.engine.begin() as conn:
-            exists = conn.execute(
-                text("SELECT to_regclass(:name)"), {"name": f'"entsoe_files"."{index_name}"'}
-            ).scalar()
-            if exists:
-                return
-            self.logger.info("Creating index %s on %s; this takes a while on large tables.", index_name, table_name)
-            started = time.monotonic()
-            conn.execute(
-                text(f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "entsoe_files"."{table_name}" ("UpdateTime(UTC)")')
-            )
-        self.logger.info("Index %s created in %.0f s.", index_name, time.monotonic() - started)
+        self._indexes_checked.add(table_name)
+        for index_name, columns in self._secondary_indexes(table_name, self._table_columns(table_name)).items():
+            with self.engine.begin() as conn:
+                exists = conn.execute(
+                    text("SELECT to_regclass(:name)"), {"name": f'"entsoe_files"."{index_name}"'}
+                ).scalar()
+                if exists:
+                    continue
+                self.logger.info("Creating index %s on %s; this takes a while on large tables.", index_name, table_name)
+                started = time.monotonic()
+                column_list = ", ".join(f'"{column}"' for column in columns)
+                conn.execute(
+                    text(f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "entsoe_files"."{table_name}" ({column_list})')
+                )
+            self.logger.info("Index %s created in %.0f s.", index_name, time.monotonic() - started)
 
     def _ensure_nulls_not_distinct(self, table_name: str) -> None:
         """Recreate the unique constraint of an existing table with NULLS NOT DISTINCT."""
@@ -928,7 +950,7 @@ class EntsoeFilesCrawler(KitCrawler):
             try:
                 self._migrate_renamed_columns(table_name)
                 self._ensure_nulls_not_distinct(table_name)
-                self._ensure_update_time_index(table_name)
+                self._ensure_indexes(table_name)
             except Exception as exc:
                 self.logger.error(f"Column migration failed for {table_name}: {exc}", exc_info=True)
                 failures.append(f"{data_item}: column migration")
@@ -1720,8 +1742,8 @@ class EntsoeFilesCrawler(KitCrawler):
                 postgresql_nulls_not_distinct=(table_name in FMS_NULLS_NOT_DISTINCT_TABLES) or None,
             ),
         )
-        if "UpdateTime(UTC)" in table.c:
-            Index(self._update_time_index_name(table_name), table.c["UpdateTime(UTC)"])
+        for index_name, index_columns in self._secondary_indexes(table_name, table.c.keys()).items():
+            Index(index_name, *(table.c[column] for column in index_columns))
         try:
             metadata.create_all(self.engine, tables=[table])
             self.logger.info(f"Table '{table_name}' created successfully.")
