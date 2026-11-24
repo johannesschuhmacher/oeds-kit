@@ -11,15 +11,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - ENTSO-E files: `AggregatedGenerationPerType` gets an index on
   (`AreaDisplayName`, `AreaTypeCode`, `DateTime(UTC)`), `PhysicalFlows` one
   on (`InAreaDisplayName`, `DateTime(UTC)`) and one on
-  (`OutAreaDisplayName`, `DateTime(UTC)`). The crawler creates them on its
-  next run (this takes a few minutes on the large tables). The unique keys
-  start with the time, so a filter on one area over two years walked the
-  entries of all 73 areas: in the dashboard "ENTSO-E – Negative prices" one
-  query took 46 s and five more 8 to 20 s. The `EnergyPrices` parts of
-  these queries take 0.2 s and were never the problem. The panel
-  "Cross-Border Response in Negative Hours" now also limits flows and
-  capacities to the dashboard time range.
-
+  (`OutAreaDisplayName`, `DateTime(UTC)`), together about 3 GB. The crawler
+  creates them on its next run (about 10 minutes; writes to these tables
+  wait meanwhile). The unique keys start with the time, so a filter on one
+  area over two years walked the entries of all areas: in the dashboard
+  "ENTSO-E – Negative prices" one query took 46 s and five more 8 to 20 s;
+  now none takes more than 7 s. The `EnergyPrices` parts of these queries
+  take 0.3 s and were never the problem. The panels "Monthly Drivers During
+  Negative Prices" and "Cross-Border Response in Negative Hours" read the
+  imports and exports of `PhysicalFlows` in one scan, so PostgreSQL uses
+  both area indexes; with separate filters it took the unique key for the
+  export side (7 s instead of 1.5 s).
 - EPEX SPOT: new dataset `day_ahead_auction` (table
   `day_ahead_auction_prices_volumes`) with the quarter-hourly DE-LU day-ahead
   prices and volumes from `Day-Ahead Auction/Quarter-hourly/Current`. ENTSO-E
