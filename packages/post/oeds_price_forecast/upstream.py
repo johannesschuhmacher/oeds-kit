@@ -172,6 +172,35 @@ def _quantiles_from_residual_proxy(
     return quantile_forecast(point, residual_offsets, config.quantiles)
 
 
+def exaa_is_stale(target_date: date) -> bool:
+    """Sundays and Mondays get their EXAA from Friday's auction (no auction on weekends)."""
+    return target_date.weekday() in (6, 0)
+
+
+def stale_exaa_shift(
+    price: pd.Series,
+    exaa: pd.Series | None,
+    target_date: date,
+    config: PriceForecastConfig,
+) -> float:
+    """Level shift for a Sunday or Monday: `stale_spread_weight` times the mean
+    SDAC - EXAA of the day before.
+
+    The day before (Saturday, Sunday) got its EXAA from the same Friday auction,
+    and its SDAC is known when the forecast is made, so the spread shows how far
+    that auction missed. 0 on other days and when a quarter-hour of the day
+    before is missing.
+    """
+    if not exaa_is_stale(target_date):
+        return 0.0
+    start = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) - pd.DateOffset(days=1)
+    day_before = pd.date_range(start, start + pd.DateOffset(days=1), freq=config.frequency, inclusive="left").tz_convert("UTC")
+    spread = _as_utc_series(price, "price").reindex(day_before) - _as_utc_series(exaa, "exaa").reindex(day_before)
+    if spread.isna().any():
+        return 0.0
+    return config.stale_spread_weight * float(spread.mean())
+
+
 def forecast_day_upstream(
     price: pd.Series,
     exaa: pd.Series | None,
@@ -222,7 +251,11 @@ def forecast_day_upstream(
     index_utc = delivery_local.tz_convert("UTC")
     # Mean with the EXAA price of the target day; quarter-hours without EXAA keep LEAR.
     exaa_day = _as_utc_series(exaa, "exaa").reindex(index_utc).to_numpy(dtype=float)
-    y_pred = np.where(np.isnan(exaa_day), y_pred, (1 - config.exaa_weight) * y_pred + config.exaa_weight * exaa_day)
+    stale = variant in {"exaa", "exaa_only"} and exaa_is_stale(target_date)
+    weight = config.stale_exaa_weight if stale else config.exaa_weight
+    y_pred = np.where(np.isnan(exaa_day), y_pred, (1 - weight) * y_pred + weight * exaa_day)
+    if stale:
+        y_pred = y_pred + stale_exaa_shift(price, exaa, target_date, config)
     point = pd.DataFrame(
         {
             "delivery_start_utc": index_utc,
