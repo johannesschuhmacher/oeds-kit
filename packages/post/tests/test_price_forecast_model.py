@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 import pandas as pd
 from oeds_price_forecast.model import PriceForecastConfig, generate_self_test_series
-from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_day_upstream
+from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_day_upstream, stale_exaa_shift
 from scripts.run_price_forecast import (
     _combine_covariates,
     _combine_training_fallback_series,
@@ -35,22 +35,27 @@ class PriceForecastModelTest(unittest.TestCase):
         self.assertIn("load_d0_mtu_00", result.feature_columns)
 
     def test_point_forecast_is_mean_of_lear_and_exaa(self) -> None:
-        target_date = pd.Timestamp("2026-05-18").date()
-        price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
+        # Tuesday: exaa_weight. Monday (EXAA from Friday): stale_exaa_weight plus the shift.
+        for day, weight in (("2026-05-19", 0.5), ("2026-05-18", 0.2)):
+            with self.subTest(day=day):
+                target_date = pd.Timestamp(day).date()
+                price, exaa, covariates = generate_self_test_series(days=35, end_date=target_date)
+                config = PriceForecastConfig(train_days=14)
+                lear_only = PriceForecastConfig(train_days=14, exaa_weight=0.0, stale_exaa_weight=0.0, stale_spread_weight=0.0)
 
-        lear = forecast_day_upstream(
-            price, exaa, covariates, target_date, PriceForecastConfig(train_days=14, exaa_weight=0.0)
-        ).point_forecast
-        mixed = forecast_day_upstream(
-            price, exaa, covariates, target_date, PriceForecastConfig(train_days=14)
-        ).point_forecast
+                lear = forecast_day_upstream(price, exaa, covariates, target_date, lear_only).point_forecast
+                mixed = forecast_day_upstream(price, exaa, covariates, target_date, config).point_forecast
 
-        exaa_day = exaa.reindex(pd.DatetimeIndex(mixed["delivery_start_utc"])).to_numpy()
-        np.testing.assert_allclose(mixed["value_eur_mwh"], 0.5 * lear["value_eur_mwh"] + 0.5 * exaa_day)
+                exaa_day = exaa.reindex(pd.DatetimeIndex(mixed["delivery_start_utc"])).to_numpy()
+                shift = stale_exaa_shift(price, exaa, target_date, config)
+                np.testing.assert_allclose(
+                    mixed["value_eur_mwh"], (1 - weight) * lear["value_eur_mwh"] + weight * exaa_day + shift
+                )
 
     def test_forecast_day_covers_local_day_on_clock_changes(self) -> None:
-        # LEAR alone: the EXAA mean would give the two 02:xx hours their own values.
-        config = PriceForecastConfig(train_days=14, exaa_weight=0.0)
+        # LEAR alone: the EXAA mean would give the two 02:xx hours their own values
+        # (both days are Sundays, hence also stale_exaa_weight).
+        config = PriceForecastConfig(train_days=14, exaa_weight=0.0, stale_exaa_weight=0.0)
         # 25 Oct 2026: 25 hours, 02:00-03:00 twice; 29 Mar 2026: 23 hours, no 02:00.
         for day, rows, first, last in [
             ("2026-10-25", 100, "2026-10-24 22:00:00+00:00", "2026-10-25 22:45:00+00:00"),
@@ -113,6 +118,17 @@ class PriceForecastModelTest(unittest.TestCase):
 
         self.assertEqual(combined.loc[index[0], "load_mw"], 10.0)
         self.assertEqual(combined.loc[index[1], "load_mw"], 2.0)
+
+
+def test_stale_exaa_shift_is_weighted_mean_spread_of_the_day_before():
+    config = PriceForecastConfig(stale_spread_weight=0.5)
+    sunday = pd.date_range("2026-11-14 23:00", periods=96, freq="15min", tz="UTC")
+    price = pd.Series(110.0, index=sunday)
+    exaa = pd.Series(100.0, index=sunday)
+
+    assert stale_exaa_shift(price, exaa, pd.Timestamp("2026-11-16").date(), config) == 5.0
+    assert stale_exaa_shift(price, exaa, pd.Timestamp("2026-11-17").date(), config) == 0.0
+    assert stale_exaa_shift(price.iloc[1:], exaa, pd.Timestamp("2026-11-16").date(), config) == 0.0
 
 
 def test_has_full_day_needs_every_quarter_hour_of_the_local_day():

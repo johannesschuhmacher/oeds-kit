@@ -21,7 +21,7 @@ import pandas as pd
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 UTC_TZ = ZoneInfo("UTC")
-MODEL_VERSION = "0.2.0"
+MODEL_VERSION = "0.3.0"
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,15 @@ class PriceForecastConfig:
     # 9.0 to 8.2 (364 days alone: 17.4 and 8.4; 56 days with EXAA: 17.2 and 8.3).
     train_days: int = 364
     exaa_weight: float = 0.5
+    # Sundays and Mondays: the EXAA trades on working days only, so their EXAA comes
+    # from Friday's auction, two and three days ahead. On these days the forecast
+    # takes `stale_exaa_weight` instead of `exaa_weight` and is shifted by
+    # `stale_spread_weight` times the mean SDAC - EXAA of the day before (Saturday,
+    # Sunday), whose EXAA came from the same auction and whose SDAC is known.
+    # Backtest on all weekends from March 2025 to November 2026 (90 each), daily
+    # RMSE in EUR/MWh: Sundays 17.67 -> 15.53, Mondays 24.42 -> 21.31.
+    stale_exaa_weight: float = 0.2
+    stale_spread_weight: float = 0.5
     # Days of SDAC - EXAA differences behind the quantile offsets.
     residual_days: int = 56
     frequency: str = "15min"
