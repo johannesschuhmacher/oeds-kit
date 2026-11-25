@@ -880,7 +880,7 @@ def run_db_forecast(args: argparse.Namespace) -> int:
     if variant in {"exaa", "exaa_only"} and exaa_is_stale(target_date):
         shift = stale_exaa_shift(price, exaa, target_date, config)
         print(
-            f"EXAA of the target day is from Friday's auction: EXAA weight {config.stale_exaa_weight}, "
+            f"EXAA of the target day is from an earlier auction: EXAA weight {config.stale_exaa_weight}, "
             f"shift {shift:+.1f} EUR/MWh from the day before's SDAC - EXAA."
         )
     source_summary = source_summary | {"upstream_variant": variant, "stale_exaa_shift_eur_mwh": shift}

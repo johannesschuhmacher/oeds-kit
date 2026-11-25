@@ -47,8 +47,10 @@ of 22.9 on Sundays and 31.0 on Mondays. On these days the forecast takes 0.2
 instead of 0.5 EXAA and adds half the mean SDAC - EXAA of the day before
 (Saturday, Sunday), whose EXAA came from the same auction and whose SDAC is
 known at submission. Sundays went from 17.67 to 15.53 and Mondays from 24.42
-to 21.31 EUR/MWh (90 each). Holidays without an EXAA auction are not handled
-yet. The quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
+to 21.31 EUR/MWh (90 each). Days after an EXAA holiday (`exaa_auction_day`:
+1 Jan, Good Friday, Easter Monday, 1 May, Ascension, Whit Monday, 26 Oct, 24,
+25, 26 and 31 Dec) also take 0.2 EXAA, but without the shift: 22.70 -> 20.43
+EUR/MWh on 14 days. Wider quantiles on these days scored worse. The quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
 differences of the past 56 days, not an error model of the forecast; offsets
 from the forecast's own past errors or per hour of day did not score better.
 

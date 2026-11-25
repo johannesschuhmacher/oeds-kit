@@ -8,6 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- Day-ahead price forecast: days after an EXAA holiday (no auction on 1 Jan,
+  Good Friday, Easter Monday, 1 May, Ascension, Whit Monday, 26 Oct and 24,
+  25, 26 and 31 Dec, read from the EXAA publication times at ENTSO-E) are
+  treated like Sundays and Mondays: 0.2 EXAA instead of 0.5. They get no spread
+  shift; the holiday's own spread made it worse. Backtest on the 14 such days
+  from May 2025 to October 2026: daily RMSE 22.70 -> 20.43 EUR/MWh.
 - Day-ahead price forecast: Sundays and Mondays get their EXAA from Friday's
   auction (the EXAA trades on working days only), and both EXAA and forecast
   missed most there. On these days the point forecast now takes 0.2 instead of
