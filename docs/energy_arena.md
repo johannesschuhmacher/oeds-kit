@@ -37,8 +37,18 @@ The point forecast is the mean of the LEAR forecast (trained on the past 364
 days) and the EXAA price of the target day (`PriceForecastConfig.train_days`
 and `exaa_weight`). In a backtest from 1 October to 10 November 2026 this
 lowered the mean daily RMSE from 18.4 (LEAR on 56 days, used until November
-2026) to 17.0 EUR/MWh and the WIS from 9.0 to 8.2; EXAA alone had 18.8. The
-quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
+2026) to 17.0 EUR/MWh and the WIS from 9.0 to 8.2; EXAA alone had 18.8.
+
+Sundays and Mondays are the exception (`stale_exaa_weight`,
+`stale_spread_weight`). The EXAA trades on working days only, so their EXAA
+comes from Friday's auction, two and three days ahead, and missed most: on
+every weekend from March 2025 to November 2026 the EXAA alone had a daily RMSE
+of 22.9 on Sundays and 31.0 on Mondays. On these days the forecast takes 0.2
+instead of 0.5 EXAA and adds half the mean SDAC - EXAA of the day before
+(Saturday, Sunday), whose EXAA came from the same auction and whose SDAC is
+known at submission. Sundays went from 17.67 to 15.53 and Mondays from 24.42
+to 21.31 EUR/MWh (90 each). Holidays without an EXAA auction are not handled
+yet. The quantiles are the point forecast shifted by quantiles of the SDAC - EXAA
 differences of the past 56 days, not an error model of the forecast; offsets
 from the forecast's own past errors or per hour of day did not score better.
 

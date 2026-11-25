@@ -8,6 +8,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- Day-ahead price forecast: Sundays and Mondays get their EXAA from Friday's
+  auction (the EXAA trades on working days only), and both EXAA and forecast
+  missed most there. On these days the point forecast now takes 0.2 instead of
+  0.5 EXAA (`stale_exaa_weight`) and is shifted by half the mean SDAC - EXAA of
+  the day before (`stale_spread_weight`), whose EXAA came from the same
+  auction. Backtest on every weekend from March 2025 to November 2026 (90
+  each), daily RMSE: Sundays 17.67 -> 15.53, Mondays 24.42 -> 21.31 EUR/MWh;
+  1 Aug - 16 Nov 2026, all days: 16.50 -> 16.14. Model version 0.3.0.
 - Day-ahead price forecast: SDAC prices missing at ENTSO-E are filled from
   `epex_spot.day_ahead_auction_prices_volumes` (20 and 21 Nov 2026 had none).
   When the EXAA of the target day is incomplete, the forecast uses LEAR without
