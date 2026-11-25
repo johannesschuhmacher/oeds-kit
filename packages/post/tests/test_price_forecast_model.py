@@ -9,7 +9,13 @@ import unittest
 import numpy as np
 import pandas as pd
 from oeds_price_forecast.model import PriceForecastConfig, generate_self_test_series
-from oeds_price_forecast.upstream import backtest_forecast_upstream, forecast_day_upstream, stale_exaa_shift
+from oeds_price_forecast.upstream import (
+    backtest_forecast_upstream,
+    exaa_auction_day,
+    exaa_is_stale,
+    forecast_day_upstream,
+    stale_exaa_shift,
+)
 from scripts.run_price_forecast import (
     _combine_covariates,
     _combine_training_fallback_series,
@@ -129,6 +135,22 @@ def test_stale_exaa_shift_is_weighted_mean_spread_of_the_day_before():
     assert stale_exaa_shift(price, exaa, pd.Timestamp("2026-11-16").date(), config) == 5.0
     assert stale_exaa_shift(price, exaa, pd.Timestamp("2026-11-17").date(), config) == 0.0
     assert stale_exaa_shift(price.iloc[1:], exaa, pd.Timestamp("2026-11-16").date(), config) == 0.0
+
+
+def test_exaa_calendar_matches_observed_auction_days():
+    day = lambda text: pd.Timestamp(text).date()
+    # No auction on weekends, Good Friday, Whit Monday, 26 Oct, Christmas; auctions on 8 Dec.
+    for text in ("2026-11-28", "2026-04-03", "2026-05-25", "2026-10-26", "2026-12-24", "2026-12-31"):
+        assert not exaa_auction_day(day(text)), text
+    for text in ("2026-11-27", "2026-12-08", "2026-01-06"):
+        assert exaa_auction_day(day(text)), text
+    # Stale: Sunday, Monday, Tuesday after Whit Monday; fresh: Saturday, Thursday.
+    assert [exaa_is_stale(day(t)) for t in ("2026-11-29", "2026-11-30", "2026-05-26", "2026-11-28", "2026-11-26")] == [
+        True, True, True, False, False
+    ]
+    # The spread shift is for Sundays and Mondays only.
+    tuesday = pd.date_range("2026-05-24 22:00", periods=96, freq="15min", tz="UTC")
+    assert stale_exaa_shift(pd.Series(110.0, index=tuesday), pd.Series(100.0, index=tuesday), day("2026-05-26"), PriceForecastConfig()) == 0.0
 
 
 def test_has_full_day_needs_every_quarter_hour_of_the_local_day():
