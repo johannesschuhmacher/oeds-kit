@@ -12,7 +12,7 @@ reusable feature/model functions upstream.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from functools import partial
 
 import numpy as np
@@ -172,9 +172,40 @@ def _quantiles_from_residual_proxy(
     return quantile_forecast(point, residual_offsets, config.quantiles)
 
 
+def _easter_sunday(year: int) -> date:
+    # Anonymous Gregorian algorithm (Meeus/Jones/Butcher).
+    a, b, c = year % 19, year // 100, year % 100
+    d, e = b // 4, b % 4
+    g = (8 * b + 13) // 25
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(h + l - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+def exaa_auction_day(day: date) -> bool:
+    """Whether the EXAA holds its day-ahead auction on `day`.
+
+    The EXAA trades on working days except its own holidays. Read from the
+    publication times of EXAA prices at ENTSO-E (Oct 2024 - Nov 2026): no auction
+    on 1 Jan, Good Friday, Easter Monday, 1 May, Ascension, Whit Monday, 26 Oct
+    and 24, 25, 26 and 31 Dec; auctions on 6 Jan, 15 Aug, 1 Nov, 8 Dec and
+    Corpus Christi.
+    """
+    if day.weekday() >= 5:
+        return False
+    easter = _easter_sunday(day.year)
+    holidays = {date(day.year, month, d) for month, d in ((1, 1), (5, 1), (10, 26), (12, 24), (12, 25), (12, 26), (12, 31))}
+    holidays |= {easter + timedelta(days=offset) for offset in (-2, 1, 39, 50)}
+    return day not in holidays
+
+
 def exaa_is_stale(target_date: date) -> bool:
-    """Sundays and Mondays get their EXAA from Friday's auction (no auction on weekends)."""
-    return target_date.weekday() in (6, 0)
+    """No EXAA auction on the day before: the target day's EXAA comes from an
+    earlier auction, two or more days ahead (Sundays, Mondays, after holidays)."""
+    return not exaa_auction_day(target_date - timedelta(days=1))
 
 
 def stale_exaa_shift(
@@ -188,10 +219,12 @@ def stale_exaa_shift(
 
     The day before (Saturday, Sunday) got its EXAA from the same Friday auction,
     and its SDAC is known when the forecast is made, so the spread shows how far
-    that auction missed. 0 on other days and when a quarter-hour of the day
-    before is missing.
+    that auction missed. After a holiday the day before is the holiday itself,
+    and its spread made the forecast worse (14 cases from May 2025 to Oct 2026),
+    so other days get no shift. 0 as well when a quarter-hour of the day before
+    is missing.
     """
-    if not exaa_is_stale(target_date):
+    if target_date.weekday() not in (6, 0):
         return 0.0
     start = pd.Timestamp(target_date).tz_localize(BERLIN_TZ) - pd.DateOffset(days=1)
     day_before = pd.date_range(start, start + pd.DateOffset(days=1), freq=config.frequency, inclusive="left").tz_convert("UTC")
