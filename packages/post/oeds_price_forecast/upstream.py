@@ -256,15 +256,21 @@ def forecast_day_upstream(
             f"Insufficient upstream LEAR training days: {len(train_rows)} < {max(7, config.min_training_rows // 96)}."
         )
 
-    forecast_df, _, _, _, _ = modules.lear.rolling_point_forecast(
-        X=X,
-        Y=Y,
-        forecast_days=forecast_day_index,
-        train_days=config.train_days,
-        lars_start_date=pd.Timestamp("2100-01-01", tz=BERLIN_TZ),
-    )
-    if forecast_df.empty:
-        raise ValueError("Upstream LEAR did not return forecast rows.")
+    # Mean of LEAR fits over several training windows (`train_days` and the shorter
+    # `short_train_days`), see PriceForecastConfig.
+    windows = sorted({days for days in config.short_train_days if days < config.train_days} | {config.train_days})
+    forecasts = []
+    for days in windows:
+        forecast_df, _, _, _, _ = modules.lear.rolling_point_forecast(
+            X=X,
+            Y=Y,
+            forecast_days=forecast_day_index,
+            train_days=days,
+            lars_start_date=pd.Timestamp("2100-01-01", tz=BERLIN_TZ),
+        )
+        if forecast_df.empty:
+            raise ValueError(f"Upstream LEAR ({days} training days) did not return forecast rows.")
+        forecasts.append(forecast_df["y_pred"].to_numpy(dtype=float))
 
     # LEAR returns 96 values per local wall-clock MTU (4 * hour + minute // 15; the
     # upstream feature pivots average the repeated hour and interpolate the skipped
@@ -279,7 +285,7 @@ def forecast_day_upstream(
         inclusive="left",
     )
     mtu = delivery_local.hour * 4 + delivery_local.minute // 15
-    y_pred = forecast_df["y_pred"].to_numpy(dtype=float)[mtu]
+    y_pred = np.mean(forecasts, axis=0)[mtu]
     y_true = forecast_df["y_true"].to_numpy(dtype=float)[mtu]
     index_utc = delivery_local.tz_convert("UTC")
     # Mean with the EXAA price of the target day; quarter-hours without EXAA keep LEAR.

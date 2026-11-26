@@ -58,6 +58,20 @@ class PriceForecastModelTest(unittest.TestCase):
                     mixed["value_eur_mwh"], (1 - weight) * lear["value_eur_mwh"] + weight * exaa_day + shift
                 )
 
+    def test_lear_is_mean_over_training_windows(self) -> None:
+        target_date = pd.Timestamp("2026-05-19").date()
+        price, exaa, covariates = generate_self_test_series(days=42, end_date=target_date)
+        lear = dict(exaa_weight=0.0, stale_exaa_weight=0.0, stale_spread_weight=0.0)
+
+        def point(**kwargs):
+            config = PriceForecastConfig(**lear, **kwargs)
+            return forecast_day_upstream(price, exaa, covariates, target_date, config).point_forecast["value_eur_mwh"]
+
+        np.testing.assert_allclose(
+            point(train_days=21, short_train_days=(14,)),
+            (point(train_days=21, short_train_days=()) + point(train_days=14, short_train_days=())) / 2,
+        )
+
     def test_forecast_day_covers_local_day_on_clock_changes(self) -> None:
         # LEAR alone: the EXAA mean would give the two 02:xx hours their own values
         # (both days are Sundays, hence also stale_exaa_weight).

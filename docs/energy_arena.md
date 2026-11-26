@@ -39,6 +39,12 @@ and `exaa_weight`). In a backtest from 1 October to 10 November 2026 this
 lowered the mean daily RMSE from 18.4 (LEAR on 56 days, used until November
 2026) to 17.0 EUR/MWh and the WIS from 9.0 to 8.2; EXAA alone had 18.8.
 
+The LEAR forecast itself is the mean of four LEAR fits on the past 56, 112,
+182 and 364 days (`short_train_days`). From 1 August to 16 November 2026 (108
+days) this lowered the daily RMSE of the submitted forecast from 16.14 to
+15.98 EUR/MWh, better on 70 days; the gain is mostly in October and November
+(18.28 to 17.89).
+
 Sundays and Mondays are the exception (`stale_exaa_weight`,
 `stale_spread_weight`). The EXAA trades on working days only, so their EXAA
 comes from Friday's auction, two and three days ahead, and missed most: on

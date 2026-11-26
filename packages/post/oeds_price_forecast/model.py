@@ -21,7 +21,7 @@ import pandas as pd
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 UTC_TZ = ZoneInfo("UTC")
-MODEL_VERSION = "0.3.0"
+MODEL_VERSION = "0.4.0"
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,11 @@ class PriceForecastConfig:
     # daily RMSE from 18.4 (56 days, LEAR only) to 17.0 EUR/MWh and the WIS from
     # 9.0 to 8.2 (364 days alone: 17.4 and 8.4; 56 days with EXAA: 17.2 and 8.3).
     train_days: int = 364
+    # LEAR is also fitted on these shorter windows (those below `train_days`), and the
+    # forecast takes the mean of all fits. Backtest 1 Aug to 16 Nov 2026 (108 days, with
+    # the EXAA weights below): daily RMSE 16.14 -> 15.98 EUR/MWh, better on 70 days,
+    # Oct/Nov 18.28 -> 17.89.
+    short_train_days: tuple[int, ...] = (56, 112, 182)
     exaa_weight: float = 0.5
     # Days after a day without EXAA auction (Sundays, Mondays, days after EXAA
     # holidays, see `upstream.exaa_auction_day`) get their EXAA from an earlier
