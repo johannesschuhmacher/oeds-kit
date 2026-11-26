@@ -8,6 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+- Day-ahead price forecast: LEAR is fitted on 56, 112, 182 and 364 training days
+  (`short_train_days` below `train_days`), and the forecast takes the mean of the
+  four fits before the EXAA weights. Backtest 1 Aug - 16 Nov 2026 (108 days, with
+  the weekend and holiday rules): daily RMSE 16.14 -> 15.98 EUR/MWh, better on 70
+  days, Oct/Nov 18.28 -> 17.89. The forecast run takes about 1.5 minutes longer.
+  Model version 0.4.0.
 - Day-ahead price forecast: days after an EXAA holiday (no auction on 1 Jan,
   Good Friday, Easter Monday, 1 May, Ascension, Whit Monday, 26 Oct and 24,
   25, 26 and 31 Dec, read from the EXAA publication times at ENTSO-E) are
