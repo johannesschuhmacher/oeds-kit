@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import logging
 import os
+import re
 from dotenv import load_dotenv
 from pathlib import Path
 import pandas as pd
@@ -12,6 +14,20 @@ from sqlalchemy.dialects.postgresql import insert
 
 from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
+
+
+def _hide_token(text) -> str:
+    """Replace the value of a ``token=`` query parameter with ``***``."""
+    return re.sub(r"(token=)[^&\s'\")]+", r"\1***", str(text))
+
+
+def _hide_token_in_record(record: logging.LogRecord) -> bool:
+    # urllib3 logs every retry with the request path, query string included.
+    message = record.getMessage()
+    if "token=" in message:
+        record.msg, record.args = _hide_token(message), ()
+    return True
+
 
 class EnergyForecastCrawler(KitCrawler):
     
@@ -69,6 +85,10 @@ class EnergyForecastCrawler(KitCrawler):
         }
         headers = {"Accept": "application/json"}
 
+        # The token travels in the query string, so requests exceptions and
+        # urllib3 retry warnings would otherwise write it into the run log.
+        urllib3_logger = logging.getLogger("urllib3.connectionpool")
+        urllib3_logger.addFilter(_hide_token_in_record)
         try:
             self.logger.info(f"Fetching data from {url}")
             print(f"Fetching data from {url}") 
@@ -86,9 +106,12 @@ class EnergyForecastCrawler(KitCrawler):
                 print(f"API Request failed: {response.status_code}")
                 return None
         except Exception as e:
-            print(f"Download failed: {e}")
-            self.logger.error(f"Download failed: {e}")
+            message = f"Download failed: {_hide_token(e)}"
+            print(message)
+            self.logger.error(message)
             return None
+        finally:
+            urllib3_logger.removeFilter(_hide_token_in_record)
 
     def _process_json_to_df(self, data_list):
         now_utc = pd.Timestamp.now(tz='UTC')

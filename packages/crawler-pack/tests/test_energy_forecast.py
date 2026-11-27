@@ -69,3 +69,26 @@ def test_download_retries_a_failed_connection(monkeypatch):
     assert failures == [1]
     assert df is not None
     assert df['p_h_00_m_00'].tolist() == [pytest.approx(0.1)]
+
+
+def test_failed_download_does_not_log_the_token(monkeypatch, caplog, capsys):
+    import crawler.energyforecast as energyforecast
+    from crawler.common.crawler_utils import build_session
+
+    def unreachable(conn):
+        raise NewConnectionError(conn, 'Network is unreachable')
+
+    monkeypatch.setattr(HTTPConnection, '_new_conn', unreachable)
+    monkeypatch.setattr(energyforecast, 'build_session', lambda: build_session(retries=1, backoff_factor=0))
+    monkeypatch.setattr(EnergyForecastCrawler, 'BASE_URL', 'http://127.0.0.1:9')
+    monkeypatch.setattr(EnergyForecastCrawler, 'TOKEN', 'secret-token')
+    crawler = object.__new__(EnergyForecastCrawler)
+    crawler.logger = logging.getLogger('test-energyforecast')
+    caplog.set_level(logging.WARNING)
+
+    assert crawler._download_data_df() is None
+
+    logged = caplog.text + capsys.readouterr().out
+    assert 'Retrying' in logged and 'Download failed' in logged
+    assert 'token=***' in logged
+    assert 'secret-token' not in logged
