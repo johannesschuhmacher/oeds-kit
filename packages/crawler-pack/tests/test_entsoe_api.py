@@ -5,7 +5,10 @@
 import logging
 
 import pandas as pd
+import pytest
+import requests
 
+from crawler.common.kit_base import KitCrawler
 from crawler.entsoe_api import EntsoeApiCrawler
 
 
@@ -49,3 +52,37 @@ def test_load_forecast_versions_are_stored_per_country_in_their_own_table(monkey
     crawler.run()
 
     assert calls == [("FR", "load_forecast_versions"), ("BE", "load_forecast_versions")]
+
+
+def test_entsoe_clients_retry_http_599(monkeypatch):
+    # intern, 2026-11-27: one 599 answer failed the whole load_forecast_versions run.
+    def fake_init(self, crawler_name, config):
+        self.config = config
+        self.schema_name = crawler_name
+
+    monkeypatch.setattr(KitCrawler, "__init__", fake_init)
+    monkeypatch.setenv("ENTSOE_API_KEY", "test-token")
+
+    crawler = EntsoeApiCrawler("entsoe_api", {})
+
+    for client in (crawler.pandas_client, crawler.raw_client):
+        retry = client.session.get_adapter("https://web-api.tp.entsoe.eu/api").max_retries
+        assert 599 in retry.status_forcelist
+        assert retry.total >= 1
+
+
+def test_run_keeps_the_security_token_out_of_the_error(monkeypatch):
+    crawler = object.__new__(EntsoeApiCrawler)
+    url = "https://web-api.tp.entsoe.eu/api?documentType=A65&securityToken=secret-123&periodStart=1"
+
+    def fail():
+        raise requests.HTTPError(f"599 Server Error: status code 599 for url: {url}")
+
+    monkeypatch.setattr(crawler, "_refresh_all", fail, raising=False)
+
+    with pytest.raises(requests.HTTPError) as excinfo:
+        crawler.run()
+
+    assert "secret-123" not in str(excinfo.value)
+    assert "securityToken=***&periodStart=1" in str(excinfo.value)
+    assert excinfo.value.__cause__ is None and excinfo.value.__suppress_context__
