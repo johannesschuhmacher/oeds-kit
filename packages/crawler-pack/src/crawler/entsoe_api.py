@@ -11,12 +11,15 @@ small, fresh refresh windows that are useful for downstream forecasting jobs.
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 import time
 from datetime import date
 from typing import Any
 
 import pandas as pd
+import requests
 from dotenv import load_dotenv
 from entsoe import EntsoePandasClient, EntsoeRawClient
 from entsoe.exceptions import NoMatchingDataError
@@ -34,6 +37,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert
 
+from crawler.common.crawler_utils import build_session
 from crawler.common.kit_base import KitCrawler
 from crawler.common.local_env import load_crawler_dotenv
 
@@ -66,6 +70,19 @@ WIND_SOLAR_CONSTRAINT = "unique_entsoe_api_wind_solar_forecasts"
 LOAD_VERSIONS_CONSTRAINT = "unique_entsoe_api_load_forecast_versions"
 
 
+def _hide_token(text) -> str:
+    """Replace the value of the ``securityToken`` query parameter with ``***``."""
+    return re.sub(r"(securityToken=)[^&\s'\")]+", r"\1***", str(text))
+
+
+def _hide_token_in_record(record: logging.LogRecord) -> bool:
+    # urllib3 logs every retry with the request path, query string included.
+    message = record.getMessage()
+    if "securityToken=" in message:
+        record.msg, record.args = _hide_token(message), ()
+    return True
+
+
 class EntsoeApiCrawler(KitCrawler):
     """Crawler for selected ENTSO-E Web API time series."""
 
@@ -79,8 +96,12 @@ class EntsoeApiCrawler(KitCrawler):
         self._define_tables()
 
         api_key = self._api_key()
-        self.pandas_client = EntsoePandasClient(api_key=api_key)
-        self.raw_client = EntsoeRawClient(api_key=api_key)
+        # entsoe-py retries only broken connections. The Web API answered one
+        # request with HTTP 599 (intern, 2026-11-27) and the whole run failed,
+        # so use the shared session, which retries 5xx and 599 with backoff.
+        session = build_session(retries=5, backoff_factor=2)
+        self.pandas_client = EntsoePandasClient(api_key=api_key, session=session)
+        self.raw_client = EntsoeRawClient(api_key=api_key, session=session)
 
     def _api_key(self) -> str:
         api_key = (
@@ -506,6 +527,18 @@ class EntsoeApiCrawler(KitCrawler):
             time.sleep(pause_seconds)
 
     def run(self) -> None:
+        # The token travels in the query string, so requests exceptions and
+        # urllib3 retry warnings would otherwise write it into logs and mails.
+        urllib3_logger = logging.getLogger("urllib3.connectionpool")
+        urllib3_logger.addFilter(_hide_token_in_record)
+        try:
+            self._refresh_all()
+        except requests.RequestException as error:
+            raise type(error)(_hide_token(error)) from None
+        finally:
+            urllib3_logger.removeFilter(_hide_token_in_record)
+
+    def _refresh_all(self) -> None:
         self._ensure_tables()
 
         country_codes = self._country_codes()
