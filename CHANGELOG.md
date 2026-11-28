@@ -9,6 +9,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 The former module repositories keep their own history in
 `packages/*/CHANGELOG.md` and `deploy/CHANGELOG.md`.
 
+## Unreleased
+
+- `entsoe_api` now retries HTTP 5xx and 599 answers of the ENTSO-E Web API
+  with backoff. entsoe-py only retried broken connections, so one 599 for the
+  Austrian load forecast failed the whole `load_forecast_versions` run
+  (intern, 2026-11-27). Error messages and urllib3 retry warnings show
+  `securityToken=***` instead of the API token.
+
 ## 1.6.0 (2026-11-20)
 
 - `open_meteo` can keep an archive of past forecasts in
